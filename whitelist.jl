@@ -92,7 +92,7 @@ end
 remove_testing!(data::DataFrame) = filter!(x -> !occursin(r"yaniv|tore", x.prolific_pid), data)
 
 # ╔═╡ d5369cbb-696b-4caf-8986-5ea4f983970a
-function whitelist(data)
+function whitelist(data::DataFrame)
 	whitelist = combine(groupby(data, [:prolific_pid, :session, :condition]),
 		:trialphase => (x -> "experiment_end_message" in x) => :finished,
 		:trialphase => (x -> "kick-out" in x) => :kick_out,
@@ -106,6 +106,25 @@ function whitelist(data)
 	sort!(whitelist, :n_blocks_PLT, rev = true)
 
 	return whitelist
+end
+
+# ╔═╡ fe78e787-d8c7-45fe-95ab-080942bd2167
+function prepare_PLT_data(data::DataFrame)
+
+	# Select rows
+	PLT_data = filter(x -> x.trial_type == "PLT", data)
+
+	# Select columns
+	PLT_data = PLT_data[:, Not(map(col -> all(ismissing, col), eachcol(PLT_data)))]
+
+	# Filter practice
+	filter!(x -> typeof(x.block) == Int64, PLT_data)
+
+	# Sort
+	sort!(PLT_data, [:prolific_pid, :session, :block, :trial])
+
+	return PLT_data
+
 end
 
 # ╔═╡ 0127aa42-9506-4c6f-8f43-dd4308b3195c
@@ -124,6 +143,7 @@ whitelist(data)
 # ╠═0c7b2544-cc07-4219-b262-2af9dae2e320
 # ╠═5fa35526-da89-4f36-a666-350f68164740
 # ╠═d5369cbb-696b-4caf-8986-5ea4f983970a
+# ╠═fe78e787-d8c7-45fe-95ab-080942bd2167
 # ╠═0127aa42-9506-4c6f-8f43-dd4308b3195c
 # ╠═e81fd624-ad5a-4dda-80d6-b55681a177d7
 # ╠═86942e04-639e-428c-bc50-4b532daf1ec6
