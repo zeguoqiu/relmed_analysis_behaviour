@@ -100,27 +100,6 @@ end
 # ╔═╡ 998dcced-2cfe-41f8-9fd1-ad0fc9ee2eea
 PLT_data = prepare_PLT_data(data)
 
-# ╔═╡ 51735cd2-c141-4b82-9505-a06367356ea5
-begin
-
-	f_acc = Figure()
-
-	plot_group_accuracy!(f_acc[1,1], PLT_data)
-
-	f_acc
-
-end
-
-# ╔═╡ 8073806c-0310-4613-8452-2a3e2e2b3c69
-begin
-	f_acc_valence = Figure()
-
-	plot_group_accuracy!(f_acc_valence[1,1], PLT_data; group = :valence)
-
-	f_acc_valence
-
-end
-
 # ╔═╡ Cell order:
 # ╠═053887ce-3f7d-11ef-0ab9-53a5a4738d90
 # ╠═d5369cbb-696b-4caf-8986-5ea4f983970a
@@ -131,5 +110,3 @@ end
 # ╠═63aca02f-9ab9-429e-8b7c-faae26899556
 # ╠═e465d30f-1f2a-402c-a279-5a18922c3085
 # ╠═998dcced-2cfe-41f8-9fd1-ad0fc9ee2eea
-# ╠═51735cd2-c141-4b82-9505-a06367356ea5
-# ╠═8073806c-0310-4613-8452-2a3e2e2b3c69
