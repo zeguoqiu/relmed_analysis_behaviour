@@ -13,87 +13,13 @@ begin
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP
+
+	include("fetch_preprocess_data.jl")
 end
-
-# ╔═╡ b2f5b51e-360d-4a9c-bdb4-fd96b82c2919
-begin
-	# Define REDCap API URL and token
-	api_url = "https://redcap.slms.ucl.ac.uk/api/"
-	api_token = "44F85D7A59D210F27C5233D8B39849D9"
-end
-
-# ╔═╡ 20590ede-3ea0-4596-a04f-412c84a93311
-function get_REDCap_file(
-	record_id::String
-)
-	# Create the payload for getting the file
-	file_payload = Dict(
-		"token" => api_token,
-	    "content" => "file",
-		"action" => "export",
-		"record" => record_id,
-		"field" => "other_data",
-		"returnFormat" => "json"
-	)
-
-	# Make the POST request to the REDCap API
-	file = HTTP.post(api_url, body=HTTP.Form(file_payload), verbose = true)
-
-	# Parse
-	return JSON.parse(String(file.body))
-end
-
-# ╔═╡ 0c7b2544-cc07-4219-b262-2af9dae2e320
-function get_REDCap_data()
-
-	# Get the records --------
-	# Create the payload for getting the record details
-	rec_payload = Dict(
-		"token" => api_token,
-	    "content" => "record",
-	    "action" => "export",
-	    "format" => "json",
-	    "type" => "flat",
-	    "csvDelimiter" => "",
-	    "rawOrLabel" => "raw",
-	    "rawOrLabelHeaders" => "raw",
-	    "exportCheckboxLabel" => "false",
-	    "exportSurveyFields" => "false",
-	    "exportDataAccessGroups" => "false",
-	    "returnFormat" => "json"
-	)
-
-	# Make the POST request to the REDCap API
-	record = HTTP.post(api_url, body=HTTP.Form(rec_payload), verbose = true)
-
-	# Parse the JSON response
-	record = JSON.parse(String(record.body))
-
-	# Get the files
-	jspsych_data = []
-	for r in record
-		if r["other_data"] == "file"
-			push!(jspsych_data, get_REDCap_file(r["record_id"]))
-		end
-	end
-
-	# Convert to DataFrame
-	jspsych_data = reduce(vcat, jspsych_data)
-
-	jspsych_data = vcat(
-		[DataFrame(d) for d in jspsych_data]...,
-		cols=:union
-	)
-	
-	return jspsych_data
-end
-
-# ╔═╡ 5fa35526-da89-4f36-a666-350f68164740
-remove_testing!(data::DataFrame) = filter!(x -> !occursin(r"yaniv|tore", x.prolific_pid), data)
 
 # ╔═╡ d5369cbb-696b-4caf-8986-5ea4f983970a
 function whitelist(data::DataFrame)
-	whitelist = combine(groupby(data, [:prolific_pid, :session, :condition]),
+	whitelist = combine(groupby(data, [:prolific_pid, :record_id, :exp_start_time, :session, :condition]),
 		:trialphase => (x -> "experiment_end_message" in x) => :finished,
 		:trialphase => (x -> "kick-out" in x) => :kick_out,
 		:outcomes => 
@@ -108,42 +34,102 @@ function whitelist(data::DataFrame)
 	return whitelist
 end
 
-# ╔═╡ fe78e787-d8c7-45fe-95ab-080942bd2167
-function prepare_PLT_data(data::DataFrame)
+# ╔═╡ 0127aa42-9506-4c6f-8f43-dd4308b3195c
+begin
+	jspsych_data, records = get_REDCap_data()
+end
 
-	# Select rows
-	PLT_data = filter(x -> x.trial_type == "PLT", data)
+# ╔═╡ 637edbe6-2e18-4129-b3ee-90aea2c41616
+data = REDCap_data_to_df(jspsych_data, records)
 
-	# Select columns
-	PLT_data = PLT_data[:, Not(map(col -> all(ismissing, col), eachcol(PLT_data)))]
+# ╔═╡ e81fd624-ad5a-4dda-80d6-b55681a177d7
+begin
+	remove_testing!(data)
+	nothing
+end
 
-	# Filter practice
-	filter!(x -> typeof(x.block) == Int64, PLT_data)
+# ╔═╡ d364b7ea-dac8-4b04-9e30-7cf55a383322
+begin
+	wl = whitelist(data)
+	
+	sort!(wl, [:session, :condition])
+end
 
-	# Sort
-	sort!(PLT_data, [:prolific_pid, :session, :block, :trial])
+# ╔═╡ 63aca02f-9ab9-429e-8b7c-faae26899556
+filter(x -> x.prolific_pid == "66840eb3af7c8acb5f50e330")
 
-	return PLT_data
+# ╔═╡ e465d30f-1f2a-402c-a279-5a18922c3085
+let cond = "111",
+	date = "2024-07-12",
+	session = "1"
+
+	twl = filter(x -> (x.condition == cond) & 
+		occursin(date, x.exp_start_time) &
+		(x.session == session), wl)
+
+	println("didnt finish")
+	bl = filter(x -> x.n_blocks_PLT < 24, twl)
+	for r in eachrow(bl)
+		println("$(r.prolific_pid)")
+	end
+	
+	println("bonus")
+	filter!(x -> x.n_blocks_PLT ==24, twl)
+	for r in eachrow(twl)
+		println("$(r.prolific_pid),$(r.bonus)")
+	end
+
+	println("\nApprove")
+	for r in eachrow(unique(twl[!, :prolific_pid]))
+		println(r[1])
+	end
+
+
+	println("\nDouble takers")
+	doubles = filter(x -> x.n > 1, 
+		combine(groupby(twl, :prolific_pid), :bonus => length => :n))
+
+	println("\nSecond session")
+	for r in eachrow(filter(x -> !(x.prolific_pid in doubles.prolific_pid), twl))
+		println("$(r.prolific_pid)")
+	end
+
+	
+end
+
+# ╔═╡ 998dcced-2cfe-41f8-9fd1-ad0fc9ee2eea
+PLT_data = prepare_PLT_data(data)
+
+# ╔═╡ 51735cd2-c141-4b82-9505-a06367356ea5
+begin
+
+	f_acc = Figure()
+
+	plot_group_accuracy!(f_acc[1,1], PLT_data)
+
+	f_acc
 
 end
 
-# ╔═╡ 0127aa42-9506-4c6f-8f43-dd4308b3195c
-data = get_REDCap_data()
+# ╔═╡ 8073806c-0310-4613-8452-2a3e2e2b3c69
+begin
+	f_acc_valence = Figure()
 
-# ╔═╡ e81fd624-ad5a-4dda-80d6-b55681a177d7
-remove_testing!(data)
+	plot_group_accuracy!(f_acc_valence[1,1], PLT_data; group = :valence)
 
-# ╔═╡ 86942e04-639e-428c-bc50-4b532daf1ec6
-whitelist(data)
+	f_acc_valence
+
+end
 
 # ╔═╡ Cell order:
 # ╠═053887ce-3f7d-11ef-0ab9-53a5a4738d90
-# ╠═b2f5b51e-360d-4a9c-bdb4-fd96b82c2919
-# ╠═20590ede-3ea0-4596-a04f-412c84a93311
-# ╠═0c7b2544-cc07-4219-b262-2af9dae2e320
-# ╠═5fa35526-da89-4f36-a666-350f68164740
 # ╠═d5369cbb-696b-4caf-8986-5ea4f983970a
-# ╠═fe78e787-d8c7-45fe-95ab-080942bd2167
 # ╠═0127aa42-9506-4c6f-8f43-dd4308b3195c
+# ╠═637edbe6-2e18-4129-b3ee-90aea2c41616
 # ╠═e81fd624-ad5a-4dda-80d6-b55681a177d7
-# ╠═86942e04-639e-428c-bc50-4b532daf1ec6
+# ╠═d364b7ea-dac8-4b04-9e30-7cf55a383322
+# ╠═63aca02f-9ab9-429e-8b7c-faae26899556
+# ╠═e465d30f-1f2a-402c-a279-5a18922c3085
+# ╠═998dcced-2cfe-41f8-9fd1-ad0fc9ee2eea
+# ╠═51735cd2-c141-4b82-9505-a06367356ea5
+# ╠═8073806c-0310-4613-8452-2a3e2e2b3c69
