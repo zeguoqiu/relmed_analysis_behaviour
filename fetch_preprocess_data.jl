@@ -130,3 +130,45 @@ function load_PLT_data()
 
     return PLT_data
 end
+
+# Exclude unfinished and double sessions
+function exclude_PLT_sessions(PLT_data::DataFrame)
+	# Find non-finishers
+	non_finishers = combine(groupby(PLT_data,
+		[:prolific_pid, :session, 
+		:exp_start_time, :condition]),
+		:block => (x -> length(unique(x))) => :n_blocks
+	)
+
+	filter!(x -> x.n_blocks < 24, non_finishers)
+
+	# Exclude non-finishers
+	PLT_data_clean = antijoin(PLT_data, non_finishers,
+		on = [:prolific_pid, :session, 
+		:exp_start_time, :condition])
+
+	# Find double takes
+	double_takers = unique(PLT_data_clean[!, [:prolific_pid, :session, 
+		:exp_start_time, :condition]])
+
+	# Find earliert session
+	double_takers.date = DateTime.(double_takers.exp_start_time, 
+		"yyyy-mm-dd_HH:MM:SS")
+
+	transform!(
+		groupby(double_takers, [:prolific_pid, :session]),
+		:condition => length => :n,
+		:date => minimum => :first_date
+	)
+
+	filter!(x -> (x.n > 1) & (x.date != x.first_date), double_takers)
+
+	# Exclude extra sessions
+	PLT_data_clean = antijoin(PLT_data_clean, double_takers,
+		on = [:prolific_pid, :session, 
+		:exp_start_time, :condition]
+	)
+
+	return PLT_data_clean
+
+end
