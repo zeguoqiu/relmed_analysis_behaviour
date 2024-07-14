@@ -1,36 +1,36 @@
 function to_standata(
-	sim_dat::DataFrame,
-    feedback_magnitudes::Vector{Float64},
-    feedback_ns::Vector{Int64};
-	model_name::String = "single_QL",
+	data::DataFrame,
+    initV::Vector{Float64}; # Initial Q values
+	model_name::String = "group_QLrs",
+    choice_col::Symbol = :repeat_chosen, # Should be 0, 1
+    outcome_col::Symbol = :chosenOutcome,
+    PID_col::Symbol = :prolific_PID,
+    block_col::Symbol = :block
     )
     
 	sd = Dict(
-        "N" => nrow(sim_dat),
-        "N_p" => length(unique(sim_dat.PID)),
-		"N_bl" => maximum(sim_dat.block),
-		"pp" => sim_dat.PID,
-		"bl" => sim_dat.block,
-		"choice" => (sim_dat.choice .== 2) .+ 0,
-		"outcome" => sim_dat.outcome,
-		"initV" => repeat([sum(feedback_magnitudes .* feedback_ns) / 
-			(sum(feedback_ns) * 2)], 2)
+        "N" => nrow(data),
+        "N_p" => length(unique(data[!, PID_col])),
+		"N_bl" => maximum(data.block),
+		"pp" => data[!, PID_col],
+		"bl" => data[!, block_col],
+		"choice" => data[!, choice_col],
+		"outcome" => data[!, outcome_col],
+		"initV" => initV
     )
 
-	if model_name == "group_QLrs"
-		sd["grainsize"] = 1
+    sd["grainsize"] = 1
 
-		# Make sure sorted by PID
-		all(sim_dat.PID[i] <= sim_dat.PID[i+1] for i in 1:length(sim_dat.PID)-1)
+    # Make sure sorted by PID
+    all(data[!, PID_col][i] <= data[!, PID_col][i+1] for i in 1:length(data[!, PID_col])-1)
 
-		# Pass first row number for each participant
-		sim_dat_copy = copy(sim_dat) # Avoid changing sim_dat
-		sim_dat_copy.rn = 1:nrow(sim_dat_copy) # Row numbers
-		p1t = combine(groupby(sim_dat_copy, :PID),
-			:rn => minimum => :p1t).p1t # First row number per particpant
-		push!(p1t, nrow(sim_dat_copy)+1) # Add end of dataframe
-		sd["p1t"] = p1t
-	end
+    # Pass first row number for each participant
+    data_copy = copy(data) # Avoid changing data
+    data_copy.rn = 1:nrow(data_copy) # Row numbers
+    p1t = combine(groupby(data_copy, :PID),
+        :rn => minimum => :p1t).p1t # First row number per particpant
+    push!(p1t, nrow(data_copy)+1) # Add end of dataframe
+    sd["p1t"] = p1t
 	
     return sd
 end
