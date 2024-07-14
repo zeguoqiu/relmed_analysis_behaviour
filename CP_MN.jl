@@ -50,9 +50,6 @@ begin
 
 end
 
-# ╔═╡ 09f9af53-2116-41db-8813-c8da1a7a4576
-describe(PLT_data)
-
 # ╔═╡ 78549c5d-48b4-4634-b380-b2b8d883d430
 begin
 	group_QLrs_sum, group_QLrs_draws, group_QLrs_time = load_run_cmdstanr(
@@ -72,5 +69,4 @@ end
 # ╠═e01188c3-ca30-4a7c-9101-987752139a71
 # ╠═bdeadcc4-1a5f-4c39-a055-e61b3db3f3b1
 # ╠═963e5f75-00f9-4fcc-90b9-7ecfb7e278f2
-# ╠═09f9af53-2116-41db-8813-c8da1a7a4576
 # ╠═78549c5d-48b4-4634-b380-b2b8d883d430
