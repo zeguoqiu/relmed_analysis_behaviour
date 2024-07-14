@@ -10,6 +10,7 @@ deps/deps.jl
 tmp/*
 :w
 *token*
+.ipython/
 c
 .Rhistory
 Icon
