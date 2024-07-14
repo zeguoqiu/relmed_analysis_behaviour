@@ -12,7 +12,7 @@ begin
     Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
-	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP
+	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP, JLD2
 
 	include("fetch_preprocess_data.jl")
 end
@@ -42,22 +42,7 @@ end
 
 # ╔═╡ 1b7c9fc7-af54-4e2f-8303-b64ddd519453
 # Load data
-begin
-	datafile = "data/data.csv"
-	if !isfile(datafile)
-		jspsych_data, records = get_REDCap_data()
-		
-		data = REDCap_data_to_df(jspsych_data, records)
-		
-		remove_testing!(data)
-
-		CSV.write(datafile, data)
-	else
-		data = DataFrame(CSV.File(datafile))
-	end
-	
-	PLT_data = prepare_PLT_data(data)
-end
+PLT_data = load_PLT_data()
 
 # ╔═╡ 1af9e9df-0d5c-4f7b-a14f-9fc69a5e4d9e
 function plot_group_accuracy!(
@@ -156,6 +141,21 @@ begin
 
 end
 
+# ╔═╡ c6ce2aee-24d4-49f8-a57c-2b4e9a3ca022
+# Plot by session
+begin
+
+	f_sess = Figure()
+
+	plot_group_accuracy!(f_sess[1,1], PLT_data;
+		group = :session,
+		legend = Dict("1" => "First", "2" => "Second")
+	)
+
+	f_sess
+
+end
+
 # ╔═╡ 48d11871-5cd3-40f7-adb8-92db011a5d98
 # Plot accuracy by valence
 begin
@@ -216,7 +216,7 @@ begin
 end
 
 # ╔═╡ 75162f83-a5f5-44f8-a62c-b0d318604074
-let
+function plot_split_by_condition(PLT_data)
 	f_all_cond = Figure()
 
 	axs = []
@@ -241,8 +241,16 @@ let
 	)
 
 	f_all_cond
-
 end
+
+# ╔═╡ 5d8615c6-0c8b-4d7a-bc4a-79df915aeb58
+plot_split_by_condition(PLT_data)
+
+# ╔═╡ 61cffe15-3e9e-447b-8fa7-2cde9a83d906
+plot_split_by_condition(filter(x -> x.session == "1", PLT_data))
+
+# ╔═╡ ca6b7a59-242e-44b1-9ef5-85759cfd9f93
+plot_split_by_condition(filter(x -> x.session == "2", PLT_data))
 
 # ╔═╡ Cell order:
 # ╠═74c8335c-4095-11ef-21d3-0715bde378a8
@@ -250,8 +258,12 @@ end
 # ╠═1b7c9fc7-af54-4e2f-8303-b64ddd519453
 # ╠═1af9e9df-0d5c-4f7b-a14f-9fc69a5e4d9e
 # ╠═d97ba043-122c-47b8-ab3e-b3d157f47f42
+# ╠═c6ce2aee-24d4-49f8-a57c-2b4e9a3ca022
 # ╠═48d11871-5cd3-40f7-adb8-92db011a5d98
 # ╠═44985a70-bd56-4e61-a187-a7911c773457
 # ╠═bfd2018a-b45c-4eba-b898-39b2a5f10134
 # ╠═3c0fa20c-5543-4c92-92d6-3d4495d2cdf5
 # ╠═75162f83-a5f5-44f8-a62c-b0d318604074
+# ╠═5d8615c6-0c8b-4d7a-bc4a-79df915aeb58
+# ╠═61cffe15-3e9e-447b-8fa7-2cde9a83d906
+# ╠═ca6b7a59-242e-44b1-9ef5-85759cfd9f93
