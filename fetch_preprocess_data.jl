@@ -1,18 +1,12 @@
 # Functions for fetching data and preprocessing it
 
-begin
-	# Define REDCap API URL and token
-	api_url = "https://redcap.slms.ucl.ac.uk/api/"
-	api_token = "44F85D7A59D210F27C5233D8B39849D9"
-end
-
 # Fetch one data file by record_id
 function get_REDCap_file(
 	record_id::String
 )
 	# Create the payload for getting the file
 	file_payload = Dict(
-		"token" => api_token,
+		"token" => ENV["REDCap_token"],
 	    "content" => "file",
 		"action" => "export",
 		"record" => record_id,
@@ -21,7 +15,7 @@ function get_REDCap_file(
 	)
 
 	# Make the POST request to the REDCap API
-	file = HTTP.post(api_url, body=HTTP.Form(file_payload), verbose = true)
+	file = HTTP.post(ENV["REDCap_url"], body=HTTP.Form(file_payload), verbose = true)
 
 	# Parse
 	return JSON.parse(String(file.body))
@@ -33,7 +27,7 @@ function get_REDCap_data()
 	# Get the records --------
 	# Create the payload for getting the record details
 	rec_payload = Dict(
-		"token" => api_token,
+		"token" => ENV["REDCap_token"],
 	    "content" => "record",
 	    "action" => "export",
 	    "format" => "json",
@@ -48,7 +42,7 @@ function get_REDCap_data()
 	)
 
 	# Make the POST request to the REDCap API
-	record = HTTP.post(api_url, body=HTTP.Form(rec_payload), verbose = true)
+	record = HTTP.post(ENV["REDCap_url"], body=HTTP.Form(rec_payload), verbose = true)
 
 	# Parse the JSON response
 	record = JSON.parse(String(record.body))
@@ -115,4 +109,24 @@ function prepare_PLT_data(data::DataFrame)
 
 	return PLT_data
 
+end
+
+# Load PLT data from file or REDCap
+function load_PLT_data()
+	datafile = "data/data.jld2"
+	if !isfile(datafile)
+		jspsych_data, records = get_REDCap_data()
+		
+		data = REDCap_data_to_df(jspsych_data, records)
+		
+		remove_testing!(data)
+
+		JLD2.@save datafile data
+	else
+		JLD2.@load datafile data
+	end
+	
+	PLT_data = prepare_PLT_data(data)
+
+    return PLT_data
 end

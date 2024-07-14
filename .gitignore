@@ -29,5 +29,6 @@ results/*
 .npm/
 .viminfo
 .cmdstanr/
+env.list
 
 Icon
