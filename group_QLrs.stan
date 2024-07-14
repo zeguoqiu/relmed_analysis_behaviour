@@ -15,7 +15,7 @@ functions{
     array[] int bl,
     array[] int choice,
     vector outcome,
-    vector initV
+    array[] vector initV
   )
   {
     // Compute trial-wise indices for this subset of participants
@@ -26,6 +26,7 @@ functions{
     // Subset trial-wise inputs (t is for this)
     array[N] int tpp = pp[dstart:dend]; // Uncorrected participant indices for this subset
     array[N] int tbl = bl[dstart:dend]; // Block index
+    array[max(tbl) - min(tbl)] vector tinitV = initV[tbl]; // Initial values
     array[N] int tchoice = choice[dstart:dend]; // Choice
     vector[N] toutcome = outcome[dstart:dend]; // Outcome
 
@@ -45,7 +46,7 @@ functions{
 
         // Set ev to initial values times rho if participant/block different from previous trial
         if ((i == 1) || ((tpp[i] != tpp[i-1]) || (tbl[i] != tbl[i-1])))
-          ev = initV .* z[tpp[i]][1];
+          ev = initV[tbl[i]] .* z[tpp[i]][1];
 
         // Increment log densitiy
         ttarget += bernoulli_logit_lpmf(tchoice[i] | ev[2] - ev[1]);
@@ -77,7 +78,7 @@ data {
   vector[N] outcome;  // Outcome observed, unbounded
 
   // Model constants
-  vector[2] initV;  // initial values for EV
+  array [n_bl] vector[2] initV;  // initial values for EV
   int grainsize; // For parrallelization
 }
 
