@@ -1,6 +1,6 @@
 function to_standata(
 	data::DataFrame,
-    initV::Vector{Float64}; # Initial Q values
+    initV::Function; # Function that returns initial Q values per block
 	model_name::String = "group_QLrs",
     choice_col::Symbol = :repeat_chosen, # Should be 0, 1
     outcome_col::Symbol = :chosenOutcome,
@@ -16,7 +16,7 @@ function to_standata(
 		"bl" => data[!, block_col],
 		"choice" => data[!, choice_col],
 		"outcome" => data[!, outcome_col],
-		"initV" => initV
+		"initV" => initV(data)
     )
 
     sd["grainsize"] = 1
