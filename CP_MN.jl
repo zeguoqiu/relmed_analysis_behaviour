@@ -50,12 +50,47 @@ begin
 
 end
 
+# ╔═╡ db04f1f3-5c9f-4418-a9b9-bd3200f0d4c4
+names(PLT_data)
+
+# ╔═╡ fe070ddf-82cd-4c5f-8bb1-8adab53f654f
+# Session 1 model
+begin
+	# Filter by session
+	sess1_data = filter(x -> x.session == "1", PLT_data)
+
+	# Sort
+	sort!(sess1_data, [:condition, :prolific_pid, :block, :trial])
+
+	@assert maximum(sess1_data.block) == 24 "Block numbers are not what you expect"
+
+	# Function to get initial values
+	function initV(data::DataFrame)
+
+		# List of blocks
+		blocks = unique(data[!, [:prolific_pid, :block, :valence, :valence_grouped]])
+
+		# Absolute mean reward for grouped
+		amrg = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+		
+		# If valence grouped, then valence times amrg, otherwize zero
+		initVs = ifelse.(blocks.valence_grouped, blocks.valence .* amrg, 0.)
+
+		return initVs
+	end
+
+	@assert length(initV(sess1_data)) == nrow(unique(sess1_data[!, [:prolific_pid, :block]])) "initV does not return a vector with length n_total_blocks"
+
+	
+
+end
+
 # ╔═╡ 78549c5d-48b4-4634-b380-b2b8d883d430
 begin
-	group_QLrs_sum, group_QLrs_draws, group_QLrs_time = load_run_cmdstanr(
-		"group_QLrs",
+	m1_sum, m1_draws, m1_time = load_run_cmdstanr(
+		"m1",
 		"group_QLrs.stan",
-		to_standata(sim_dat,
+		to_standata(PLT_data,
 			feedback_magnitudes,
 			feedback_ns;
 			model_name = "group_QLrs");
@@ -69,4 +104,6 @@ end
 # ╠═e01188c3-ca30-4a7c-9101-987752139a71
 # ╠═bdeadcc4-1a5f-4c39-a055-e61b3db3f3b1
 # ╠═963e5f75-00f9-4fcc-90b9-7ecfb7e278f2
+# ╠═db04f1f3-5c9f-4418-a9b9-bd3200f0d4c4
+# ╠═fe070ddf-82cd-4c5f-8bb1-8adab53f654f
 # ╠═78549c5d-48b4-4634-b380-b2b8d883d430
