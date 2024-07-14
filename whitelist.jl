@@ -55,13 +55,10 @@ begin
 	sort!(wl, [:session, :condition])
 end
 
-# ╔═╡ 63aca02f-9ab9-429e-8b7c-faae26899556
-filter(x -> x.prolific_pid == "66840eb3af7c8acb5f50e330")
-
 # ╔═╡ e465d30f-1f2a-402c-a279-5a18922c3085
-let cond = "111",
-	date = "2024-07-12",
-	session = "1"
+let cond = "00",
+	date = "2024-07-13",
+	session = "2"
 
 	twl = filter(x -> (x.condition == cond) & 
 		occursin(date, x.exp_start_time) &
@@ -89,10 +86,12 @@ let cond = "111",
 	doubles = filter(x -> x.n > 1, 
 		combine(groupby(twl, :prolific_pid), :bonus => length => :n))
 
-	println("\nSecond session")
-	for r in eachrow(filter(x -> !(x.prolific_pid in doubles.prolific_pid), twl))
+	for_second_sess = filter(x -> !(x.prolific_pid in doubles.prolific_pid), twl)
+	println("\nSecond session, n=$(nrow(for_second_sess))")
+	for r in eachrow(for_second_sess)
 		println("$(r.prolific_pid)")
 	end
+	
 
 	
 end
@@ -107,6 +106,5 @@ PLT_data = prepare_PLT_data(data)
 # ╠═637edbe6-2e18-4129-b3ee-90aea2c41616
 # ╠═e81fd624-ad5a-4dda-80d6-b55681a177d7
 # ╠═d364b7ea-dac8-4b04-9e30-7cf55a383322
-# ╠═63aca02f-9ab9-429e-8b7c-faae26899556
 # ╠═e465d30f-1f2a-402c-a279-5a18922c3085
 # ╠═998dcced-2cfe-41f8-9fd1-ad0fc9ee2eea
