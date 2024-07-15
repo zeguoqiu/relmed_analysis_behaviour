@@ -13,6 +13,7 @@ functions{
     array[] int pp,
     array[] int p1t,
     array[] int bl,
+    array[] int cbl,
     array[] int choice,
     vector outcome,
     array[] vector initV
@@ -26,7 +27,9 @@ functions{
     // Subset trial-wise inputs (t is for this)
     array[N] int tpp = pp[dstart:dend]; // Uncorrected participant indices for this subset
     array[N] int tbl = bl[dstart:dend]; // Block index
-    array[max(tbl) - min(tbl)] vector tinitV = initV[tbl]; // Initial values
+    array[N] int tcbl = cbl[dstart:dend]; // Cummulative block index
+    
+    array[N] vector[2] tinitV = initV[tcbl]; // Initial values
     array[N] int tchoice = choice[dstart:dend]; // Choice
     vector[N] toutcome = outcome[dstart:dend]; // Outcome
 
@@ -67,18 +70,21 @@ data {
   int<lower=1> N; // Total number of trials
   int<lower=1> N_p; // Number of participants
   int<lower=1> N_bl; // Number of blocks
+  int<lower=N_bl> total_N_bl; // Total number of blocks
 
   // Indices
   array[N] int<lower=1, upper=N_p> pp; // Participant number for each trial
   array[N_p+1] int<lower=1, upper=N+1> p1t; // First trial for each participant
   array[N] int<lower=1, upper=N_bl> bl; // Block number
+  array[N]  int<lower=1, upper=total_N_bl> cbl; // Cumulative block number
+
 
   // Data
   array[N] int<lower=0, upper=1> choice; // Binomial choice, coded as 1 for optimal stimulus, 0 for other stimulus 
   vector[N] outcome;  // Outcome observed, unbounded
 
   // Model constants
-  array [n_bl] vector[2] initV;  // initial values for EV
+  array [total_N_bl] vector[2] initV;  // initial values for EV
   int grainsize; // For parrallelization
 }
 
@@ -122,6 +128,7 @@ model {
     pp,
     p1t,
     bl,
+    cbl,
     choice,
     outcome,
     initV);
