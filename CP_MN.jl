@@ -233,6 +233,7 @@ let
 		transform = a2α
 	)
 
+	save("results/split_half_scatters.png", f_split_half, pt_per_unit = 1)
 	save("results/split_half_scatters.pdf", f_split_half, pt_per_unit = 1)
 	
 	f_split_half
@@ -318,6 +319,8 @@ let
 	)
 
 	save("results/test_retest_scatters.pdf", f_retest, pt_per_unit = 1)
+	save("results/test_retest_scatters.png", f_retest, pt_per_unit = 1)
+
 
 	f_retest
 
