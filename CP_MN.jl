@@ -73,8 +73,8 @@ begin
 		# Absolute mean reward for grouped
 		amrg = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 		
-		# If valence grouped, then valence times amrg, otherwize zero
-		initVs = ifelse.(blocks.valence_grouped, blocks.valence .* amrg, 0.)
+		# Valence times amrg
+		initVs = blocks.valence .* amrg
 
 		return initVs
 	end
