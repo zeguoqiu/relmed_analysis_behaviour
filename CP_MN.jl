@@ -50,9 +50,6 @@ begin
 
 end
 
-# ╔═╡ db04f1f3-5c9f-4418-a9b9-bd3200f0d4c4
-names(PLT_data)
-
 # ╔═╡ fe070ddf-82cd-4c5f-8bb1-8adab53f654f
 # Session 1 model
 begin
@@ -76,7 +73,7 @@ begin
 		# Valence times amrg
 		initVs = blocks.valence .* amrg
 
-		return initVs
+		return [fill(i, 2) for i in initVs]
 	end
 
 	@assert length(initV(sess1_data)) == nrow(unique(sess1_data[!, [:prolific_pid, :block]])) "initV does not return a vector with length n_total_blocks"
@@ -90,20 +87,18 @@ begin
 	m1_sum, m1_draws, m1_time = load_run_cmdstanr(
 		"m1",
 		"group_QLrs.stan",
-		to_standata(PLT_data,
-			feedback_magnitudes,
-			feedback_ns;
+		to_standata(sess1_data,
+			initV;
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
 		threads_per_chain = 3
 	)
-	group_QLrs_sum, group_QLrs_time
+	m1_sum, m1_time
 end
 
 # ╔═╡ Cell order:
 # ╠═e01188c3-ca30-4a7c-9101-987752139a71
 # ╠═bdeadcc4-1a5f-4c39-a055-e61b3db3f3b1
 # ╠═963e5f75-00f9-4fcc-90b9-7ecfb7e278f2
-# ╠═db04f1f3-5c9f-4418-a9b9-bd3200f0d4c4
 # ╠═fe070ddf-82cd-4c5f-8bb1-8adab53f654f
 # ╠═78549c5d-48b4-4634-b380-b2b8d883d430
