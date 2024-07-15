@@ -12,7 +12,7 @@ begin
     Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
-	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP
+	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP, JLD2
 
 	include("fetch_preprocess_data.jl")
 end
@@ -56,9 +56,9 @@ begin
 end
 
 # ╔═╡ e465d30f-1f2a-402c-a279-5a18922c3085
-let cond = "00",
-	date = "2024-07-13",
-	session = "2"
+let cond = "011",
+	date = "2024-07-12",
+	session = "1"
 
 	twl = filter(x -> (x.condition == cond) & 
 		occursin(date, x.exp_start_time) &
