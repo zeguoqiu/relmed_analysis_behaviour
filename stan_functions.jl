@@ -4,18 +4,27 @@ function to_standata(
 	model_name::String = "group_QLrs",
     choice_col::Symbol = :isOptimal, # Should be 0, 1
     outcome_col::Symbol = :chosenOutcome,
-    PID_col::Symbol = :prolific_pid,
+    PID_col::Symbol = :pp,
     block_col::Symbol = :block
     )
 
     @assert sort(unique(data[!, choice_col])) == [0, 1]
+
+    cbl = unique(data[!, [PID_col, block_col]])
+    cbl.cbl = 1:nrow(cbl)
+
+    cbl = innerjoin(data[!, [PID_col, block_col]], cbl, 
+        on = [PID_col, block_col], 
+        order = :left)
     
 	sd = Dict(
         "N" => nrow(data),
         "N_p" => length(unique(data[!, PID_col])),
 		"N_bl" => maximum(data.block),
+        "total_N_bl" => nrow(unique(data[!, [PID_col, block_col]])),
 		"pp" => data[!, PID_col],
 		"bl" => data[!, block_col],
+        "cbl" => cbl.cbl,
 		"choice" => data[!, choice_col] .+ 0,
 		"outcome" => data[!, outcome_col],
 		"initV" => initV(data)
@@ -24,7 +33,7 @@ function to_standata(
     sd["grainsize"] = 1
 
     # Make sure sorted by PID
-    all(data[!, PID_col][i] <= data[!, PID_col][i+1] for i in 1:length(data[!, PID_col])-1)
+    @assert issorted(data[!, PID_col])
 
     # Pass first row number for each participant
     data_copy = copy(data) # Avoid changing data
@@ -108,6 +117,7 @@ function run_cmdstanr(
 	# Prepare R script
 	r_script = """
 	library(cmdstanr)
+    set_cmdstan_path("/home/jovyan/.cmdstanr/cmdstan-2.34.1")
 
 	# Compile model
 	mod <- cmdstan_model(
