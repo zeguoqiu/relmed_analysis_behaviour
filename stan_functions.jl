@@ -225,3 +225,35 @@ begin
 	llb(x) = quantile(x, 0.025)
 	uub(x) = quantile(x, 0.975)
 end
+
+function sum_p_params(
+    draws::DataFrame,
+    param::String
+)
+    # Select columns in draws DataFrame
+    tdraws = copy(select(draws, Regex("$(param)\\[\\d+\\]")))
+
+    # Add mean and multiply by SD
+    tdraws .*= draws[!, Symbol("sigma_$param")]
+    tdraws .+= draws[!, Symbol("mu_$param")]	
+    
+    # Stack
+    tdraws = stack(tdraws)	
+
+    # Summarise
+    tdraws = combine(groupby(tdraws, :variable),
+        :value => median => :median,
+        :value => lb => :lb,
+        :value => ub => :ub,
+        :value => llb => :llb,
+        :value => uub => :uub)
+    
+
+    # Create :PID columns
+    get_pp(s) = parse(Int64, 
+        replace(s, Regex("$param\\[(\\d+)\\]") => s"\1"))
+    transform!(tdraws,
+        :variable => ByRow(get_pp) => :pp)
+
+    return tdraws
+end
