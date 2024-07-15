@@ -2,11 +2,13 @@ function to_standata(
 	data::DataFrame,
     initV::Function; # Function that returns initial Q values per block
 	model_name::String = "group_QLrs",
-    choice_col::Symbol = :repeat_chosen, # Should be 0, 1
+    choice_col::Symbol = :isOptimal, # Should be 0, 1
     outcome_col::Symbol = :chosenOutcome,
-    PID_col::Symbol = :prolific_PID,
+    PID_col::Symbol = :prolific_pid,
     block_col::Symbol = :block
     )
+
+    @assert sort(unique(data[!, choice_col])) == [0, 1]
     
 	sd = Dict(
         "N" => nrow(data),
@@ -14,7 +16,7 @@ function to_standata(
 		"N_bl" => maximum(data.block),
 		"pp" => data[!, PID_col],
 		"bl" => data[!, block_col],
-		"choice" => data[!, choice_col],
+		"choice" => data[!, choice_col] .+ 0,
 		"outcome" => data[!, outcome_col],
 		"initV" => initV(data)
     )
@@ -27,11 +29,17 @@ function to_standata(
     # Pass first row number for each participant
     data_copy = copy(data) # Avoid changing data
     data_copy.rn = 1:nrow(data_copy) # Row numbers
-    p1t = combine(groupby(data_copy, :PID),
+    p1t = combine(groupby(data_copy, PID_col),
         :rn => minimum => :p1t).p1t # First row number per particpant
     push!(p1t, nrow(data_copy)+1) # Add end of dataframe
     sd["p1t"] = p1t
-	
+
+    @assert length(sd["outcome"]) == sd["N"]
+    @assert length(sd["choice"]) == sd["N"]
+    @assert length(sd["bl"]) == sd["N"]
+    @assert length(sd["pp"]) == sd["N"]
+	@assert length(sd["p1t"]) == sd["N_p"] + 1
+
     return sd
 end
 
