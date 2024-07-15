@@ -59,13 +59,22 @@ begin
 	# Sort
 	sort!(sess1_data, [:condition, :prolific_pid, :block, :trial])
 
+	# Make numeric pid variable
+	pids = DataFrame(prolific_pid = unique(sess1_data.prolific_pid))
+	pids.pp = 1:nrow(pids)
+
+	sess1_data = innerjoin(sess1_data, pids, on = :prolific_pid)
+
+	# Sort
+	sort!(sess1_data, [:pp, :block, :trial])
+
 	@assert maximum(sess1_data.block) == 24 "Block numbers are not what you expect"
 
 	# Function to get initial values
 	function initV(data::DataFrame)
 
 		# List of blocks
-		blocks = unique(data[!, [:prolific_pid, :block, :valence, :valence_grouped]])
+		blocks = unique(data[!, [:pp, :block, :valence, :valence_grouped]])
 
 		# Absolute mean reward for grouped
 		amrg = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
@@ -81,6 +90,14 @@ begin
 	
 
 end
+
+# ╔═╡ bf5ca997-df1f-4ef3-bf06-1be4e10ff354
+to_standata(sess1_data,
+			initV;
+			model_name = "group_QLrs")
+
+# ╔═╡ f5479de1-4c81-487f-aadb-1e3b07317a02
+sess1_data
 
 # ╔═╡ 78549c5d-48b4-4634-b380-b2b8d883d430
 begin
@@ -101,4 +118,6 @@ end
 # ╠═bdeadcc4-1a5f-4c39-a055-e61b3db3f3b1
 # ╠═963e5f75-00f9-4fcc-90b9-7ecfb7e278f2
 # ╠═fe070ddf-82cd-4c5f-8bb1-8adab53f654f
+# ╠═bf5ca997-df1f-4ef3-bf06-1be4e10ff354
+# ╠═f5479de1-4c81-487f-aadb-1e3b07317a02
 # ╠═78549c5d-48b4-4634-b380-b2b8d883d430
