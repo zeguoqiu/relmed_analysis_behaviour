@@ -113,7 +113,8 @@ begin
 			initV;
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3
+		threads_per_chain = 3,
+		load_model = true
 	)
 	m1s1_sum, m1s1_time
 end
@@ -158,7 +159,12 @@ function scatter_regression_line!(
 	y_col::Symbol,
 	xlabel::String,
 	ylabel::String;
-	transform::Function = x -> x
+	transform_x::Function = x -> x,
+	transform_y::Function = x -> x,
+	color = Makie.wong_colors()[1],
+	legend::Union{Dict, Missing} = missing,
+	legend_title::String = "",
+	write_cor::Bool = true
 )
 
 	x = df[!, x_col]
@@ -167,26 +173,42 @@ function scatter_regression_line!(
 	ax = Axis(f,
 		xlabel = xlabel,
 		ylabel = ylabel,
-		subtitle = "r=$(round(
-			cor(x, y), digits= 2))"
+		subtitle = write_cor ? "r=$(round(
+			cor(x, y), digits= 2))" : ""
 	)
 
 	# Regression line
 	treg = regression_line_func(df, x_col, y_col)
 	lines!(
 		ax,
-		range_regression_line(x) |> transform,
-		treg.(range_regression_line(x)) |> transform,
+		range_regression_line(x) |> transform_x,
+		treg.(range_regression_line(x)) |> transform_y,
 		color = :grey,
 		linewidth = 4
 	)
 
-	scatter!(
+	sc = scatter!(
 		ax,
-		transform.(x),
-		transform.(y),
-		markersize = 6
+		transform_x.(x),
+		transform_y.(y),
+		markersize = 6,
+		color = color
 	)
+
+	if !ismissing(legend)
+		Legend(
+			f,
+			[MarkerElement(color = k, marker = :circle) for k in keys(legend)],
+			[legend[k] for k in keys(legend)],
+			legend_title,
+			halign = :right,
+			valign = :top,
+			framevisible = false,
+			tellwidth = false,
+			tellheight = false
+		)
+
+	end
 end
 
 # ╔═╡ 76ca2319-9ae5-463e-a53d-47d14373bf87
@@ -230,7 +252,8 @@ let
 		:even,
 		"Odd blocks learning rate",
 		"Even blocks learning rate";
-		transform = a2α
+		transform_x = a2α,
+		transform_y = a2α
 	)
 
 	save("results/split_half_scatters.png", f_split_half, pt_per_unit = 1)
@@ -315,7 +338,8 @@ let
 		:sess2,
 		"Session 1 learning rate",
 		"Session 2 learning rate";
-		transform = a2α
+		transform_x = a2α,
+		transform_y = a2α
 	)
 
 	save("results/test_retest_scatters.pdf", f_retest, pt_per_unit = 1)
@@ -325,6 +349,88 @@ let
 	f_retest
 
 end
+
+# ╔═╡ a7d7e648-6cb0-4e2c-a4f9-f951a61e3f20
+# Correalation between parameters
+let
+	rho = sum_p_params(m1s1_draws, "rho")[!, [:pp, :median]] |>
+		x -> rename(x, :median => :rho)
+
+	a = sum_p_params(m1s1_draws, "a")[!, [:pp, :median]] |>
+		x -> rename(x, :median => :a)
+
+	bivariate_post = innerjoin(rho, a, on = :pp)
+
+	bivariate_post = innerjoin(bivariate_post, sess1_pids, on = :pp)
+
+	bivariate_post = innerjoin(bivariate_post, 
+		unique(sess1_forfit[!, 
+			[:prolific_pid, :early_stop, :reward_first, :valence_grouped]]),
+		on = :prolific_pid)
+
+	# Plot ----------------
+	f_bivar = Figure(size = (800, 800))
+
+	scatter_regression_line!(
+		f_bivar[1,1],
+		bivariate_post,
+		:rho,
+		:a,
+		"Reward sensitivity",
+		"Learning rate",
+		transform_y = a2α
+	)
+
+	scatter_regression_line!(
+		f_bivar[1,2],
+		bivariate_post,
+		:rho,
+		:a,
+		"Reward sensitivity",
+		"Learning rate",
+		transform_y = a2α,
+		color = Makie.wong_colors()[bivariate_post.early_stop .+ 1],
+		legend = Dict(Makie.wong_colors()[1] => "Full block", Makie.wong_colors()[2] => "Early stop"),
+		write_cor = false
+	)
+
+	scatter_regression_line!(
+		f_bivar[2,1],
+		bivariate_post,
+		:rho,
+		:a,
+		"Reward sensitivity",
+		"Learning rate",
+		transform_y = a2α,
+		color = Makie.wong_colors()[bivariate_post.valence_grouped .+ 1],
+		legend = Dict(Makie.wong_colors()[1] => "Interleaved", Makie.wong_colors()[2] => "Grouped"),
+		legend_title = "Valence",
+		write_cor = false
+	)
+
+	scatter_regression_line!(
+		f_bivar[2,2],
+		bivariate_post,
+		:rho,
+		:a,
+		"Reward sensitivity",
+		"Learning rate",
+		transform_y = a2α,
+		color = Makie.wong_colors()[bivariate_post.valence_grouped .+ 1 + bivariate_post.reward_first],
+		legend = Dict(
+			Makie.wong_colors()[1] => "Interleaved", 
+			Makie.wong_colors()[2] => "Punishment first",
+			Makie.wong_colors()[3] => "Reward first"),
+		legend_title = "Valence",
+		write_cor = false
+	)
+
+	f_bivar
+	
+end
+
+# ╔═╡ ce562d2b-0894-4a29-9bf9-3f45342bd057
+
 
 # ╔═╡ Cell order:
 # ╠═e01188c3-ca30-4a7c-9101-987752139a71
@@ -337,3 +443,5 @@ end
 # ╠═76ca2319-9ae5-463e-a53d-47d14373bf87
 # ╠═844bcefd-81a4-489f-9a44-534253553bf2
 # ╠═d3bc8bba-e2b0-4399-9eb7-bfc10b8f65ae
+# ╠═a7d7e648-6cb0-4e2c-a4f9-f951a61e3f20
+# ╠═ce562d2b-0894-4a29-9bf9-3f45342bd057
