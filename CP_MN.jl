@@ -55,22 +55,6 @@ end
 # ╔═╡ fe070ddf-82cd-4c5f-8bb1-8adab53f654f
 # Session 1 model
 begin
-	# Filter by session
-	sess1_data = filter(x -> x.session == "1", PLT_data)
-
-	# Sort
-	sort!(sess1_data, [:condition, :prolific_pid, :block, :trial])
-
-	# Make numeric pid variable
-	pids = DataFrame(prolific_pid = unique(sess1_data.prolific_pid))
-	pids.pp = 1:nrow(pids)
-
-	sess1_data = innerjoin(sess1_data, pids, on = :prolific_pid)
-
-	# Sort
-	sort!(sess1_data, [:pp, :block, :trial])
-
-	@assert maximum(sess1_data.block) == 24 "Block numbers are not what you expect"
 
 	# Function to get initial values
 	function initV(data::DataFrame)
@@ -87,49 +71,51 @@ begin
 		return [fill(i, 2) for i in initVs]
 	end
 
-	@assert length(initV(sess1_data)) == nrow(unique(sess1_data[!, [:prolific_pid, :block]])) "initV does not return a vector with length n_total_blocks"
+	# Prepare data for q learning model
+	function prepare_data_for_fit(data::DataFrame)
 
+		# Sort
+		forfit = sort(data, [:condition, :prolific_pid, :block, :trial])
 	
+		# Make numeric pid variable
+		pids = DataFrame(prolific_pid = unique(forfit.prolific_pid))
+		pids.pp = 1:nrow(pids)
+	
+		forfit = innerjoin(forfit, pids, on = :prolific_pid)
+	
+		# Sort
+		sort!(forfit, [:pp, :block, :trial])
+	
+		@assert maximum(forfit.block) == 24 "Block numbers are not what you expect"
+	
+		
+		@assert length(initV(forfit)) == 
+			nrow(unique(forfit[!, [:prolific_pid, :block]])) "initV does not return a vector with length n_total_blocks"
+
+		return forfit, pids
+
+	end
 
 end
 
-# ╔═╡ bf5ca997-df1f-4ef3-bf06-1be4e10ff354
-to_standata(sess1_data,
-			initV;
-			model_name = "group_QLrs")
-
-# ╔═╡ f5479de1-4c81-487f-aadb-1e3b07317a02
-sess1_data
-
 # ╔═╡ 78549c5d-48b4-4634-b380-b2b8d883d430
 begin
-	m1_sum, m1_draws, m1_time = load_run_cmdstanr(
-		"m1",
+	# Filter by session
+	sess1_data = filter(x -> x.session == "1", PLT_data)
+
+	# Prepare
+	sess1_forfit, sess1_pids = prepare_data_for_fit(sess1_data)
+
+	m1s1_sum, m1s1_draws, m1s1_time = load_run_cmdstanr(
+		"m1s1",
 		"group_QLrs.stan",
-		to_standata(sess1_data,
+		to_standata(sess1_forfit,
 			initV;
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
 		threads_per_chain = 3
 	)
-	m1_sum, m1_time
-end
-
-# ╔═╡ ccc9fc41-c7af-407a-bfd6-9cc747b2b834
-
-
-# ╔═╡ 86cbc10b-1fa5-4d23-8154-538106251e28
-begin
-	t = "odd"
-			tdata = filter(x -> t == "odd" ? isodd(x.block) : iseven(x.block), 
-			sess1_data)
-
-		tdata.block_new = (tdata.block .+ (t == "odd")) .÷ 2
-
-			to_standata(tdata,
-				initV;
-				model_name = "group_QLrs",
-				block_col = :block_new)
+	m1s1_sum, m1s1_time
 end
 
 # ╔═╡ d3aee72b-8d6b-4a63-a788-2e5f91b1f67e
@@ -140,33 +126,71 @@ odd_even_draws = let
 
 	for (i, t) in enumerate(["odd", "even"])
 		tdata = filter(x -> t == "odd" ? isodd(x.block) : iseven(x.block), 
-			sess1_data)
+			sess1_forfit)
 
 		tdata.block_new = (tdata.block .+ (t == "odd")) .÷ 2
 		
-		m1_sum, m1_draws, m1_time = load_run_cmdstanr(
-			"m1_$t",
+		m1s1_sum, m1s1_draws, m1s1_time = load_run_cmdstanr(
+			"m1s1_$t",
 			"group_QLrs.stan",
 			to_standata(tdata,
 				initV;
 				model_name = "group_QLrs",
 				block_col = :block_new);
 			print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-			threads_per_chain = 3,
-			load_model = true
+			threads_per_chain = 3
 		)
 		
-		@info m1_sum
-		@info "Running time $m1_time minutes."
+		@info m1s1_sum
+		@info "Running time $m1s1_time minutes."
 
-		draws[t] = m1_draws
+		draws[t] = m1s1_draws
 	end
 
 	draws
 end
 
+# ╔═╡ 30f821eb-6c91-40cf-b218-44025b1e8904
+function scatter_regression_line!(
+	f::GridPosition,
+	df::DataFrame,
+	x_col::Symbol,
+	y_col::Symbol,
+	xlabel::String,
+	ylabel::String;
+	transform::Function = x -> x
+)
+
+	x = df[!, x_col]
+	y = df[!, y_col]
+	
+	ax = Axis(f,
+		xlabel = xlabel,
+		ylabel = ylabel,
+		subtitle = "r=$(round(
+			cor(x, y), digits= 2))"
+	)
+
+	# Regression line
+	treg = regression_line_func(df, x_col, y_col)
+	lines!(
+		ax,
+		range_regression_line(x) |> transform,
+		treg.(range_regression_line(x)) |> transform,
+		color = :grey,
+		linewidth = 4
+	)
+
+	scatter!(
+		ax,
+		transform.(x),
+		transform.(y),
+		markersize = 6
+	)
+end
+
 # ╔═╡ 76ca2319-9ae5-463e-a53d-47d14373bf87
-begin
+let
 
 	# Split half rho
 	rho_odd = sum_p_params(odd_even_draws["odd"], "rho")[!, [:pp, :median]] |>
@@ -187,60 +211,116 @@ begin
 	a_split_half = innerjoin(a_even, a_odd, on = :pp)
 
 	# Plot -------------------------------------
-	f_split_half = Figure()
+	f_split_half = Figure(size = (800, 400))
 
-	ax_rho = Axis(f_split_half[1,1],
-		xlabel = "Odd blocks reward sensitivity",
-		ylabel = "Even blocks reward sensitivity",
-		subtitle = "r=$(round(
-			cor(rho_split_half.odd, rho_split_half.even), digits= 2))"
+	scatter_regression_line!(
+		f_split_half[1,1],
+		rho_split_half,
+		:odd,
+		:even,
+		"Odd blocks reward sensitivity",
+		"Even blocks reward sensitivity"
 	)
 
-	# Regression line
-	rho_reg = regression_line_func(rho_split_half, :odd, :even)
-	lines!(
-		ax_rho,
-		range_regression_line(rho_split_half.odd),
-		rho_reg.(range_regression_line(rho_split_half.odd)),
-		color = :grey,
-		linewidth = 4
+
+	scatter_regression_line!(
+		f_split_half[1,2],
+		a_split_half,
+		:odd,
+		:even,
+		"Odd blocks learning rate",
+		"Even blocks learning rate";
+		transform = a2α
 	)
 
-	# Scatter
-	scatter!(
-		ax_rho,
-		rho_split_half.odd,
-		rho_split_half.even,
-		markersize = 6
-	)
-
-	ax_a = Axis(f_split_half[1,2],
-		xlabel = "Odd blocks learning rate",
-		ylabel = "Even blocks learning rate",
-		subtitle = "r=$(round(
-			cor(a_split_half.odd, a_split_half.even), digits= 2))"
-	)
-
-	# Regression line
-	a_reg = regression_line_func(a_split_half, :odd, :even)
-	lines!(
-		ax_a,
-		range_regression_line(a_split_half.odd) |> a2α,
-		a_reg.(range_regression_line(a_split_half.odd)) |> a2α,
-		color = :grey,
-		linewidth = 4
-	)
-
-	scatter!(
-		ax_a,
-		a2α.(a_split_half.odd),
-		a2α.(a_split_half.even),
-		markersize = 6
-	)
-
+	save("results/split_half_scatters.pdf", f_split_half, pt_per_unit = 1)
+	
 	f_split_half
-	
-	
+end
+
+# ╔═╡ 844bcefd-81a4-489f-9a44-534253553bf2
+begin
+	# Filter by session
+	sess2_data = filter(x -> x.session == "2", PLT_data)
+
+	# Prepare
+	sess2_forfit, sess2_pids = prepare_data_for_fit(sess2_data)
+
+	m1s2_sum, m1s2_draws, m1s2_time = load_run_cmdstanr(
+		"m1s2",
+		"group_QLrs.stan",
+		to_standata(sess2_forfit,
+			initV;
+			model_name = "group_QLrs");
+		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
+		threads_per_chain = 3,
+		load_model = true
+	)
+	m1s2_sum, m1s2_time
+end
+
+# ╔═╡ d3bc8bba-e2b0-4399-9eb7-bfc10b8f65ae
+let
+	# Test-retest rho
+	rho_sess1 = sum_p_params(m1s1_draws, "rho")[!, [:pp, :median]] |>
+		x -> rename(x, :median => :sess1)
+
+	rho_sess1 = innerjoin(rho_sess1, sess1_pids, on = :pp)
+
+	rho_sess2 = sum_p_params(m1s2_draws, "rho")[!, [:pp, :median]] |>
+		x -> rename(x, :median => :sess2)
+
+	rho_sess2 = innerjoin(rho_sess2, sess2_pids, on = :pp)
+
+	rho_retest = innerjoin(
+		rho_sess1[!, Not(:pp)],
+		rho_sess2[!, Not(:pp)],
+		on = :prolific_pid
+	)
+
+	# Test-retest a
+	a_sess1 = sum_p_params(m1s1_draws, "a")[!, [:pp, :median]] |>
+		x -> rename(x, :median => :sess1)
+
+	a_sess1 = innerjoin(a_sess1, sess1_pids, on = :pp)
+
+	a_sess2 = sum_p_params(m1s2_draws, "a")[!, [:pp, :median]] |>
+		x -> rename(x, :median => :sess2)
+
+	a_sess2 = innerjoin(a_sess2, sess2_pids, on = :pp)
+
+	a_retest = innerjoin(
+		a_sess1[!, Not(:pp)],
+		a_sess2[!, Not(:pp)],
+		on = :prolific_pid
+	)
+
+	# Plot -----------------------------------
+	f_retest = Figure(size = (800, 400))
+
+	scatter_regression_line!(
+		f_retest[1,1],
+		rho_retest,
+		:sess1,
+		:sess2,
+		"Session 1 reward sensitivity",
+		"Session 2 reward sensitivity"
+	)
+
+	scatter_regression_line!(
+		f_retest[1,2],
+		a_retest,
+		:sess1,
+		:sess2,
+		"Session 1 learning rate",
+		"Session 2 learning rate";
+		transform = a2α
+	)
+
+	save("results/test_retest_scatters.pdf", f_retest, pt_per_unit = 1)
+
+	f_retest
+
 end
 
 # ╔═╡ Cell order:
@@ -248,10 +328,9 @@ end
 # ╠═bdeadcc4-1a5f-4c39-a055-e61b3db3f3b1
 # ╠═963e5f75-00f9-4fcc-90b9-7ecfb7e278f2
 # ╠═fe070ddf-82cd-4c5f-8bb1-8adab53f654f
-# ╠═bf5ca997-df1f-4ef3-bf06-1be4e10ff354
-# ╠═f5479de1-4c81-487f-aadb-1e3b07317a02
 # ╠═78549c5d-48b4-4634-b380-b2b8d883d430
-# ╠═ccc9fc41-c7af-407a-bfd6-9cc747b2b834
-# ╠═86cbc10b-1fa5-4d23-8154-538106251e28
 # ╠═d3aee72b-8d6b-4a63-a788-2e5f91b1f67e
+# ╠═30f821eb-6c91-40cf-b218-44025b1e8904
 # ╠═76ca2319-9ae5-463e-a53d-47d14373bf87
+# ╠═844bcefd-81a4-489f-9a44-534253553bf2
+# ╠═d3bc8bba-e2b0-4399-9eb7-bfc10b8f65ae
