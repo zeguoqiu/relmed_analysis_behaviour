@@ -84,10 +84,7 @@ begin
 		forfit = innerjoin(forfit, pids, on = :prolific_pid)
 	
 		# Sort
-		sort!(forfit, [:pp, :block, :trial])
-	
-		@assert maximum(forfit.block) == 24 "Block numbers are not what you expect"
-	
+		sort!(forfit, [:pp, :block, :trial])	
 		
 		@assert length(initV(forfit)) == 
 			nrow(unique(forfit[!, [:prolific_pid, :block]])) "initV does not return a vector with length n_total_blocks"
@@ -164,7 +161,9 @@ function scatter_regression_line!(
 	color = Makie.wong_colors()[1],
 	legend::Union{Dict, Missing} = missing,
 	legend_title::String = "",
-	write_cor::Bool = true
+	write_cor::Bool = true,
+	cor_correction::Function = x -> x, # Correction to apply for correlation, e.g. Spearman Brown
+	cor_label::String = "r"
 )
 
 	x = df[!, x_col]
@@ -173,8 +172,8 @@ function scatter_regression_line!(
 	ax = Axis(f,
 		xlabel = xlabel,
 		ylabel = ylabel,
-		subtitle = write_cor ? "r=$(round(
-			cor(x, y), digits= 2))" : ""
+		subtitle = write_cor ? "$cor_label=$(round(
+			cor_correction(cor(x, y)), digits= 2))" : ""
 	)
 
 	# Regression line
@@ -235,13 +234,17 @@ let
 	# Plot -------------------------------------
 	f_split_half = Figure(size = (800, 400))
 
+	spearman_brown(r) = (2 * r) / (1 + r)
+
 	scatter_regression_line!(
 		f_split_half[1,1],
 		rho_split_half,
 		:odd,
 		:even,
 		"Odd blocks reward sensitivity",
-		"Even blocks reward sensitivity"
+		"Even blocks reward sensitivity";
+		cor_correction = spearman_brown,
+		cor_label = "Spearman-Brown r*"
 	)
 
 
@@ -253,7 +256,9 @@ let
 		"Odd blocks learning rate",
 		"Even blocks learning rate";
 		transform_x = a2α,
-		transform_y = a2α
+		transform_y = a2α,
+		cor_correction = spearman_brown,
+		cor_label = "Spearman-Brown r*"
 	)
 
 	save("results/split_half_scatters.png", f_split_half, pt_per_unit = 1)
@@ -277,8 +282,7 @@ begin
 			initV;
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3,
-		load_model = true
+		threads_per_chain = 3
 	)
 	m1s2_sum, m1s2_time
 end
@@ -430,7 +434,90 @@ let
 end
 
 # ╔═╡ ce562d2b-0894-4a29-9bf9-3f45342bd057
+incremental_draws = let
 
+	draws = []
+	
+	for i in 1:24
+		# Filter data
+		tdata = filter(x -> (x.session == "1") &
+			(x.block <= i), PLT_data)
+	
+		# Prepare
+		tforfit, tpids = prepare_data_for_fit(tdata)
+	
+		m1s1_sum, m1s1_draws, m1s1_time = load_run_cmdstanr(
+			i < 24 ? "m1s1b$i" : "m1s1",
+			"group_QLrs.stan",
+			to_standata(tforfit,
+				initV;
+				model_name = "group_QLrs");
+			print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
+			threads_per_chain = 3
+		)
+
+		push!(draws, m1s1_draws)
+
+	end
+
+	draws
+
+end
+
+# ╔═╡ 5b9ca47b-e3c3-4eba-a80b-9cde46201104
+let
+
+	f_n_blocks = Figure(size = (800, 400))
+
+	function covergence_plot(f, incremental_draws, parameter, y_label)
+
+		sum_a_blocks = []
+		for (i, d) in enumerate(incremental_draws)
+			ts = sum_p_params(d, parameter; transform = false)[!, [:pp, :median]]
+	
+			ts.n_blocks .= i
+	
+			push!(sum_a_blocks, ts)
+		end
+	
+		sum_a_blocks = vcat(sum_a_blocks...)
+				
+		sum_a_blocks = unstack(sum_a_blocks, :pp, :n_blocks, :median)
+	
+		sum_a_blocks = Matrix(sum_a_blocks[:, Not(:pp)])
+	
+		sum_a_blocks .-= sum_a_blocks[:, end]
+	
+	
+		ax = Axis(
+			f,
+			xlabel = "# of blocks",
+			ylabel = y_label,
+			xautolimitmargin = (0., 0.05f0),
+			xticks = round.(range(1, size(sum_a_blocks, 2), 4)[2:4])
+		)
+	
+		for i in 1:size(sum_a_blocks, 1)
+			lines!(ax, 
+				1:size(sum_a_blocks,2), 
+				sum_a_blocks[i, :],
+				color = Makie.wong_colors()[1],
+				alpha = 0.4
+			)
+		end
+	end
+
+	covergence_plot(f_n_blocks[1,1], incremental_draws, "rho", "Deviation from final\nreward sensitivity estimate")
+
+	covergence_plot(f_n_blocks[1,2], incremental_draws, "a", "Deviation from final\nlearning rate estimate")
+
+	save("results/convergence.pdf", f_n_blocks, pt_per_unit = 1)
+	save("results/convergence.png", f_n_blocks, pt_per_unit = 1)
+
+	f_n_blocks
+
+
+end
 
 # ╔═╡ Cell order:
 # ╠═e01188c3-ca30-4a7c-9101-987752139a71
@@ -445,3 +532,4 @@ end
 # ╠═d3bc8bba-e2b0-4399-9eb7-bfc10b8f65ae
 # ╠═a7d7e648-6cb0-4e2c-a4f9-f951a61e3f20
 # ╠═ce562d2b-0894-4a29-9bf9-3f45342bd057
+# ╠═5b9ca47b-e3c3-4eba-a80b-9cde46201104
