@@ -228,14 +228,17 @@ end
 
 function sum_p_params(
     draws::DataFrame,
-    param::String
+    param::String;
+    transform::Bool = true # Wheter to scale and center
 )
     # Select columns in draws DataFrame
     tdraws = copy(select(draws, Regex("$(param)\\[\\d+\\]")))
 
     # Add mean and multiply by SD
-    tdraws .*= draws[!, Symbol("sigma_$param")]
-    tdraws .+= draws[!, Symbol("mu_$param")]	
+    if transform
+        tdraws .*= draws[!, Symbol("sigma_$param")]
+        tdraws .+= draws[!, Symbol("mu_$param")]	
+    end
     
     # Stack
     tdraws = stack(tdraws)	
