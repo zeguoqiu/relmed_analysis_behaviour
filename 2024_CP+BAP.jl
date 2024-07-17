@@ -551,6 +551,40 @@ let
 end
   ╠═╡ =#
 
+# ╔═╡ 054d61e9-3c78-454d-9f65-e2cb22460395
+incremental_trial_draws_sess1, incremental_trial_draws_sess2 = let
+
+	sess1_draws = []
+	sess2_draws = []
+
+	for s in 1:2
+		for i in 1:13
+			# Filter data
+			tdata = filter(x -> (x.session == "$s") &
+				(x.trial <= i), PLT_data)
+		
+			# Prepare
+			tforfit, tpids = prepare_data_for_fit(tdata)
+		
+			m1_sum, m1_draws, m1_time = load_run_cmdstanr(
+				i < 13 ? "m1s$(s)t$i" : "m1s$(s)",
+				"group_QLrs.stan",
+				to_standata(tforfit,
+					initV;
+					model_name = "group_QLrs");
+				print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
+				threads_per_chain = 3
+			)
+	
+			push!(s == 1 ? sess1_draws : sess2_draws, m1_draws)
+	
+		end
+	end
+
+	sess1_draws, sess2_draws
+
+end
+
 # ╔═╡ 9316eb8f-ff77-4f6f-b5df-5ad2b6d03959
 # ╠═╡ skip_as_script = true
 #=╠═╡
@@ -596,79 +630,70 @@ begin
 	
 			cors[i] = cor(trt.sess1, trt.sess2)
 		end	
-
-		x = instruction_time .+ block_time .* (1:length(cors))
 	
 		lines!(ax, 
-			x, 
+			1:length(cors), 
 			cors,
 			linewidth = 3
 		)		
 	end
 
-	f_reliability_time = Figure(size = (193, 118) .* 72 ./ 25.4)
+	f_reliability_time = Figure(size = (387, 131) .* 72 ./ 25.4)
 
-	ax_reliabitiliy_time = Axis(
+	# Plot per block
+	ax_reliabitiliy_block = Axis(
 		f_reliability_time[1,1],
-		xlabel = "Task duration (minutes)",
-		ylabel = "Test-retest reliability"
+		xlabel = "# of block (task duration)",
+		ylabel = "Test-retest reliability",
+		xtickformat = values -> 
+			["$(round(Int64, value))\n($(round(instruction_time + block_time * value, digits = 2))')" for value in values],
+		xautolimitmargin = (0., 0.05f0),
+		xticks = 5:5:20
 	)
 
 	reliability_plot(
-		ax_reliabitiliy_time, 
+		ax_reliabitiliy_block, 
 		incremental_draws_sess1, 
 		incremental_draws_sess2, 
 		"a")
 
 	reliability_plot(
-		ax_reliabitiliy_time, 
+		ax_reliabitiliy_block, 
 		incremental_draws_sess1, 
 		incremental_draws_sess2, 
 		"rho")
 
+	# Plot per trial
+	ax_reliabitiliy_trial = Axis(
+		f_reliability_time[1,2],
+		xlabel = "# of trials (task duration)",
+		ylabel = "Test-retest reliability",
+		xtickformat = values -> 
+			["$(round(Int64, value))\n($(round(instruction_time + block_time / 13 * 24 * value, digits = 2))')" for value in values],
+		xautolimitmargin = (0., 0.05f0)
+	)
+
+	reliability_plot(
+		ax_reliabitiliy_trial, 
+		incremental_trial_draws_sess1, 
+		incremental_trial_draws_sess2, 
+		"a")
+
+	reliability_plot(
+		ax_reliabitiliy_trial, 
+		incremental_trial_draws_sess1, 
+		incremental_trial_draws_sess2, 
+		"rho")
+
+	colgap!(f_reliability_time.layout, 20)
+
 	save("results/time_reliability.pdf", f_reliability_time, pt_per_unit = 1)
+	save("results/time_reliability.png", f_reliability_time, pt_per_unit = 1)
 
 	f_reliability_time
 	
 end
   ╠═╡ =#
-
-# ╔═╡ 5ae8bac4-e880-4295-a2c8-7c0cfb308d1c
-incremental_trial_draws_sess1, incremental_trial_draws_sess2 = let
-
-	sess1_draws = []
-	sess2_draws = []
-
-	for s in 1:2
-		for i in 1:13
-			# Filter data
-			tdata = filter(x -> (x.session == "$s") &
-				(x.trial <= i), PLT_data)
-		
-			# Prepare
-			tforfit, tpids = prepare_data_for_fit(tdata)
-		
-			m1_sum, m1_draws, m1_time = load_run_cmdstanr(
-				i < 13 ? "m1s$(s)t$i" : "m1s$(s)",
-				"group_QLrs.stan",
-				to_standata(tforfit,
-					initV;
-					model_name = "group_QLrs");
-				print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-				threads_per_chain = 3
-			)
-	
-			push!(s == 1 ? sess1_draws : sess2_draws, m1_draws)
-
-			@info m1_sum
-			@info "Running time $m1_time minutes"
-	
-		end
-	end
-
-	sess1_draws, sess2_draws
-
-end
 
 # ╔═╡ Cell order:
 # ╠═e01188c3-ca30-4a7c-9101-987752139a71
@@ -685,5 +710,5 @@ end
 # ╠═a7d7e648-6cb0-4e2c-a4f9-f951a61e3f20
 # ╠═ce562d2b-0894-4a29-9bf9-3f45342bd057
 # ╠═5b9ca47b-e3c3-4eba-a80b-9cde46201104
+# ╠═054d61e9-3c78-454d-9f65-e2cb22460395
 # ╠═9316eb8f-ff77-4f6f-b5df-5ad2b6d03959
-# ╠═5ae8bac4-e880-4295-a2c8-7c0cfb308d1c
