@@ -20,12 +20,15 @@ begin
 
 end
 
+# ╔═╡ b287a29c-17cf-482e-8358-07ae6600c0e6
+conference = "BAP"
+
 # ╔═╡ bdeadcc4-1a5f-4c39-a055-e61b3db3f3b1
 begin
 	# Set theme
 	inter_bold = assetpath(pwd() * "/fonts/Inter/Inter-Bold.ttf")
 	
-	th = Theme(
+	cp_th = Theme(
 		font = "Helvetica",
 		fontsize = 16,
 		Axis = (
@@ -40,7 +43,28 @@ begin
 			ytickwidth = 1.5
 		)
 	)
-	set_theme!(th)
+
+	bap_th = Theme(
+		font = "Helvetica",
+		fontsize = 28,
+    	Axis = (
+			xgridvisible = false,
+			ygridvisible = false,
+			rightspinevisible = false,
+			topspinevisible = false,
+			xticklabelsize = 24,
+			yticklabelsize = 24,
+			spinewidth = 1.5,
+			xtickwidth = 1.5,
+			ytickwidth = 1.5
+    	)
+	)
+
+	if conference == "BAP"
+		set_theme!(bap_th)
+	else
+		set_theme!(cp_th)
+	end
 end
 
 # ╔═╡ 963e5f75-00f9-4fcc-90b9-7ecfb7e278f2
@@ -110,8 +134,7 @@ begin
 			initV;
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3,
-		load_model = true
+		threads_per_chain = 3
 	)
 	m1s1_sum, m1s1_time
 end
@@ -434,37 +457,45 @@ let
 end
 
 # ╔═╡ ce562d2b-0894-4a29-9bf9-3f45342bd057
-incremental_draws = let
+incremental_draws_sess1, incremental_draws_sess2 = let
 
-	draws = []
-	
-	for i in 1:24
-		# Filter data
-		tdata = filter(x -> (x.session == "1") &
-			(x.block <= i), PLT_data)
-	
-		# Prepare
-		tforfit, tpids = prepare_data_for_fit(tdata)
-	
-		m1s1_sum, m1s1_draws, m1s1_time = load_run_cmdstanr(
-			i < 24 ? "m1s1b$i" : "m1s1",
-			"group_QLrs.stan",
-			to_standata(tforfit,
-				initV;
-				model_name = "group_QLrs");
-			print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-			threads_per_chain = 3
-		)
+	sess1_draws = []
+	sess2_draws = []
 
-		push!(draws, m1s1_draws)
+	for s in 1:2
+		for i in 1:24
+			# Filter data
+			tdata = filter(x -> (x.session == "$s") &
+				(x.block <= i), PLT_data)
+		
+			# Prepare
+			tforfit, tpids = prepare_data_for_fit(tdata)
+		
+			m1_sum, m1_draws, m1_time = load_run_cmdstanr(
+				i < 24 ? "m1s$(s)b$i" : "m1s$(s)",
+				"group_QLrs.stan",
+				to_standata(tforfit,
+					initV;
+					model_name = "group_QLrs");
+				print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
+				threads_per_chain = 3
+			)
+	
+			push!(s == 1 ? sess1_draws : sess2_draws, m1_draws)
 
+			@info m1_sum
+			@info "Running time $m1_time minutes"
+	
+		end
 	end
 
-	draws
+	sess1_draws, sess2_draws
 
 end
 
 # ╔═╡ 5b9ca47b-e3c3-4eba-a80b-9cde46201104
+# ╠═╡ skip_as_script = true
+#=╠═╡
 let
 
 	f_n_blocks = Figure(size = (800, 400))
@@ -507,9 +538,9 @@ let
 		end
 	end
 
-	covergence_plot(f_n_blocks[1,1], incremental_draws, "rho", "Deviation from final\nreward sensitivity estimate")
+	covergence_plot(f_n_blocks[1,1], incremental_draws_sess1, "rho", "Deviation from final\nreward sensitivity estimate")
 
-	covergence_plot(f_n_blocks[1,2], incremental_draws, "a", "Deviation from final\nlearning rate estimate")
+	covergence_plot(f_n_blocks[1,2], incremental_draws_sess1, "a", "Deviation from final\nlearning rate estimate")
 
 	save("results/convergence.pdf", f_n_blocks, pt_per_unit = 1)
 	save("results/convergence.png", f_n_blocks, pt_per_unit = 1)
@@ -518,9 +549,130 @@ let
 
 
 end
+  ╠═╡ =#
+
+# ╔═╡ 9316eb8f-ff77-4f6f-b5df-5ad2b6d03959
+# ╠═╡ skip_as_script = true
+#=╠═╡
+begin
+	# Compute average time for instructions and average time per block in minutes
+	instruction_time = mean(filter(
+		x -> (x.block == 1) & (x.trial == 1), 
+		PLT_data).time_elapsed) / 1000 / 60
+
+	block_time = mean(
+		combine(
+			groupby(
+				PLT_data, [:prolific_pid, :session]
+			),
+		:time_elapsed => (x -> maximum(x) - minimum(x)) => :duration
+	).duration) / 1000 / 24 / 60
+
+	function reliability_plot(ax, 
+		incremental_draws_sess1, 
+		incremental_draws_sess2, 
+		parameter
+	)
+
+		cors = zeros(Float64, 1:length(incremental_draws_sess1))
+		for (i, (d1, d2)) in enumerate(zip(incremental_draws_sess1, 
+			incremental_draws_sess2))
+			
+			ts1 = sum_p_params(d1, parameter)[!, [:pp, :median]] |>
+				x -> rename(x, :median => :sess1)
+		
+			ts1 = innerjoin(ts1, sess1_pids, on = :pp)
+		
+			ts2 = sum_p_params(d2, parameter)[!, [:pp, :median]] |>
+				x -> rename(x, :median => :sess2)
+		
+			ts2 = innerjoin(ts2, sess2_pids, on = :pp)
+		
+			trt = innerjoin(
+				ts1[!, Not(:pp)],
+				ts2[!, Not(:pp)],
+				on = :prolific_pid
+			)
+	
+			cors[i] = cor(trt.sess1, trt.sess2)
+		end	
+
+		x = instruction_time .+ block_time .* (1:length(cors))
+	
+		lines!(ax, 
+			x, 
+			cors,
+			linewidth = 3
+		)		
+	end
+
+	f_reliability_time = Figure(size = (193, 118) .* 72 ./ 25.4)
+
+	ax_reliabitiliy_time = Axis(
+		f_reliability_time[1,1],
+		xlabel = "Task duration (minutes)",
+		ylabel = "Test-retest reliability"
+	)
+
+	reliability_plot(
+		ax_reliabitiliy_time, 
+		incremental_draws_sess1, 
+		incremental_draws_sess2, 
+		"a")
+
+	reliability_plot(
+		ax_reliabitiliy_time, 
+		incremental_draws_sess1, 
+		incremental_draws_sess2, 
+		"rho")
+
+	save("results/time_reliability.pdf", f_reliability_time, pt_per_unit = 1)
+
+	f_reliability_time
+	
+end
+  ╠═╡ =#
+
+# ╔═╡ 5ae8bac4-e880-4295-a2c8-7c0cfb308d1c
+incremental_trial_draws_sess1, incremental_trial_draws_sess2 = let
+
+	sess1_draws = []
+	sess2_draws = []
+
+	for s in 1:2
+		for i in 1:13
+			# Filter data
+			tdata = filter(x -> (x.session == "$s") &
+				(x.trial <= i), PLT_data)
+		
+			# Prepare
+			tforfit, tpids = prepare_data_for_fit(tdata)
+		
+			m1_sum, m1_draws, m1_time = load_run_cmdstanr(
+				i < 13 ? "m1s$(s)t$i" : "m1s$(s)",
+				"group_QLrs.stan",
+				to_standata(tforfit,
+					initV;
+					model_name = "group_QLrs");
+				print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
+				threads_per_chain = 3
+			)
+	
+			push!(s == 1 ? sess1_draws : sess2_draws, m1_draws)
+
+			@info m1_sum
+			@info "Running time $m1_time minutes"
+	
+		end
+	end
+
+	sess1_draws, sess2_draws
+
+end
 
 # ╔═╡ Cell order:
 # ╠═e01188c3-ca30-4a7c-9101-987752139a71
+# ╠═b287a29c-17cf-482e-8358-07ae6600c0e6
 # ╠═bdeadcc4-1a5f-4c39-a055-e61b3db3f3b1
 # ╠═963e5f75-00f9-4fcc-90b9-7ecfb7e278f2
 # ╠═fe070ddf-82cd-4c5f-8bb1-8adab53f654f
@@ -533,3 +685,5 @@ end
 # ╠═a7d7e648-6cb0-4e2c-a4f9-f951a61e3f20
 # ╠═ce562d2b-0894-4a29-9bf9-3f45342bd057
 # ╠═5b9ca47b-e3c3-4eba-a80b-9cde46201104
+# ╠═9316eb8f-ff77-4f6f-b5df-5ad2b6d03959
+# ╠═5ae8bac4-e880-4295-a2c8-7c0cfb308d1c
