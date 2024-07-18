@@ -645,10 +645,10 @@ begin
 	# Plot per block
 	ax_reliabitiliy_block = Axis(
 		f_reliability_time[1,1],
-		xlabel = "# of block (task duration)",
-		ylabel = "Test-retest reliability",
+		xlabel = "# of blocks (task duration)",
+		ylabel = "Test-retest\nreliability",
 		xtickformat = values -> 
-			["$(round(Int64, value))\n($(round(instruction_time + block_time * value, digits = 2))')" for value in values],
+			[rich("$(round(Int64, value))\n", rich("($(round(instruction_time + block_time * value, digits = 2))')", fontsize = 22)) for value in values],
 		xautolimitmargin = (0., 0.05f0),
 		xticks = 5:5:20
 	)
@@ -669,13 +669,25 @@ begin
 		color = "#FFCA36"
 	)
 
+	Legend(
+		f_reliability_time[1,1],
+		[LineElement(color = c, linewidth = 3) for c in ["#34C6C6", "#FFCA36"]],
+		["Learning rate", "Reward sensitivity"],
+		framevisible = false,
+		valign = :top,
+		halign = :left,
+		tellwidth = false,
+		tellheight = false,
+		labelsize = 22
+	)
+
 	# Plot per trial
 	ax_reliabitiliy_trial = Axis(
 		f_reliability_time[2,1],
 		xlabel = "# of trials (task duration)",
-		ylabel = "Test-retest reliability",
+		ylabel = "Test-retest\nreliability",
 		xtickformat = values -> 
-			["$(round(Int64, value))\n($(round(instruction_time + block_time / 13 * 24 * value, digits = 2))')" for value in values],
+			[rich("$(round(Int64, value))\n", rich("($(round(instruction_time + block_time / 13 * 24 * value, digits = 2))')", fontsize = 22)) for value in values],
 		xautolimitmargin = (0., 0.05f0)
 	)
 
