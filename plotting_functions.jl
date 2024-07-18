@@ -29,7 +29,8 @@ function plot_group_accuracy!(
     legend::Union{Dict, Missing} = missing,
     legend_title::String = "",
     backgroundcolor = :white,
-    ylabel::Union{String, Makie.RichText}="Prop. optimal chioce"
+    ylabel::Union{String, Makie.RichText}="Prop. optimal choice",
+    levels::Union{AbstractVector, Missing} = missing
     )
 
     # Default group value
@@ -64,7 +65,7 @@ function plot_group_accuracy!(
         title = title
     )
 
-    group_levels = unique(sum_data.group)
+    group_levels = ismissing(levels) ? unique(sum_data.group) : levels
     for (i,g) in enumerate(group_levels)
         gdat = filter(:group => (x -> x==g), sum_data)
 
@@ -84,7 +85,7 @@ function plot_group_accuracy!(
     end
 
     if !ismissing(legend)
-        elements = [LineElement(color = colors[i]) for i in 1:length(group_levels)]
+        elements = [PolyElement(color = colors[i]) for i in 1:length(group_levels)]
         labels = [legend[g] for g in group_levels]
         
         Legend(f[0,1],
