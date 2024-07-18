@@ -605,7 +605,8 @@ begin
 	function reliability_plot(ax, 
 		incremental_draws_sess1, 
 		incremental_draws_sess2, 
-		parameter
+		parameter;
+		color
 	)
 
 		cors = zeros(Float64, 1:length(incremental_draws_sess1))
@@ -634,11 +635,12 @@ begin
 		lines!(ax, 
 			1:length(cors), 
 			cors,
-			linewidth = 3
+			linewidth = 3,
+			color = color
 		)		
 	end
 
-	f_reliability_time = Figure(size = (387, 131) .* 72 ./ 25.4)
+	f_reliability_time = Figure(size = (190, 219) .* 72 ./ 25.4)
 
 	# Plot per block
 	ax_reliabitiliy_block = Axis(
@@ -655,17 +657,21 @@ begin
 		ax_reliabitiliy_block, 
 		incremental_draws_sess1, 
 		incremental_draws_sess2, 
-		"a")
+		"a",
+		color = "#34C6C6"
+	)
 
 	reliability_plot(
 		ax_reliabitiliy_block, 
 		incremental_draws_sess1, 
 		incremental_draws_sess2, 
-		"rho")
+		"rho",
+		color = "#FFCA36"
+	)
 
 	# Plot per trial
 	ax_reliabitiliy_trial = Axis(
-		f_reliability_time[1,2],
+		f_reliability_time[2,1],
 		xlabel = "# of trials (task duration)",
 		ylabel = "Test-retest reliability",
 		xtickformat = values -> 
@@ -677,15 +683,19 @@ begin
 		ax_reliabitiliy_trial, 
 		incremental_trial_draws_sess1, 
 		incremental_trial_draws_sess2, 
-		"a")
+		"a",
+		color = "#34C6C6"
+	)
 
 	reliability_plot(
 		ax_reliabitiliy_trial, 
 		incremental_trial_draws_sess1, 
 		incremental_trial_draws_sess2, 
-		"rho")
+		"rho",
+		color = "#FFCA36"
+	)
 
-	colgap!(f_reliability_time.layout, 20)
+	rowgap!(f_reliability_time.layout, 30)
 
 	save("results/time_reliability.pdf", f_reliability_time, pt_per_unit = 1)
 	save("results/time_reliability.png", f_reliability_time, pt_per_unit = 1)
@@ -694,6 +704,24 @@ begin
 	
 end
   ╠═╡ =#
+
+# ╔═╡ 5a152bb7-df44-46c3-ae6f-9fa14922c82c
+# Accuracy plot
+begin
+	f_acc_valence = Figure(size=(190, 142) .* 72 ./ 25.4)
+
+
+	plot_group_accuracy!(f_acc_valence[1,1], filter(x -> x.condition == "00", sess1_data); 
+		group = :valence,
+		legend = Dict(1 => "Reward", -1 => "Punishment"),
+		levels = [1, -1],
+		colors = ["#52C152", "#34C6C6"]
+	)
+
+	save("results/accuracy_by_valence.pdf", f_acc_valence, pt_per_unit = 1)
+	f_acc_valence
+
+end
 
 # ╔═╡ Cell order:
 # ╠═e01188c3-ca30-4a7c-9101-987752139a71
@@ -712,3 +740,4 @@ end
 # ╠═5b9ca47b-e3c3-4eba-a80b-9cde46201104
 # ╠═054d61e9-3c78-454d-9f65-e2cb22460395
 # ╠═9316eb8f-ff77-4f6f-b5df-5ad2b6d03959
+# ╠═5a152bb7-df44-46c3-ae6f-9fa14922c82c
