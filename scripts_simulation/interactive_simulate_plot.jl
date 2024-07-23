@@ -16,13 +16,14 @@ end
 
 # ╔═╡ 7d46fa5c-0e09-11ef-0848-c92e44459854
 begin
+	cd("/home/jovyan/")
     import Pkg
     # activate the shared project environment
-    Pkg.activate(Base.current_project())
+    Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase
-	include("task_functions.jl")
+	include("AFC_task_functions.jl")
 end
 
 # ╔═╡ 8c5c8075-7423-45cd-b4f2-7005be0ed45a
