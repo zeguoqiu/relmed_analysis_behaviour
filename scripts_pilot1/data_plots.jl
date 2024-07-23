@@ -43,7 +43,10 @@ end
 
 # ╔═╡ 1b7c9fc7-af54-4e2f-8303-b64ddd519453
 # Load data
-PLT_data = load_PLT_data()
+begin
+	PLT_data = load_PLT_data()
+	nothing
+end
 
 # ╔═╡ d97ba043-122c-47b8-ab3e-b3d157f47f42
 # Plot overall accuracy
@@ -99,9 +102,6 @@ begin
 	f_acc_early_stop
 
 end
-
-# ╔═╡ bfd2018a-b45c-4eba-b898-39b2a5f10134
-unique(PLT_data.valence_grouped)
 
 # ╔═╡ 3c0fa20c-5543-4c92-92d6-3d4495d2cdf5
 begin
@@ -169,14 +169,13 @@ plot_split_by_condition(filter(x -> x.session == "1", PLT_data))
 plot_split_by_condition(filter(x -> x.session == "2", PLT_data))
 
 # ╔═╡ Cell order:
-# ╠═74c8335c-4095-11ef-21d3-0715bde378a8
-# ╠═fb5e4cda-5cdd-492a-8ca2-38fc3fc68ce9
-# ╠═1b7c9fc7-af54-4e2f-8303-b64ddd519453
-# ╠═d97ba043-122c-47b8-ab3e-b3d157f47f42
-# ╠═c6ce2aee-24d4-49f8-a57c-2b4e9a3ca022
-# ╠═48d11871-5cd3-40f7-adb8-92db011a5d98
-# ╠═44985a70-bd56-4e61-a187-a7911c773457
-# ╠═bfd2018a-b45c-4eba-b898-39b2a5f10134
+# ╟─74c8335c-4095-11ef-21d3-0715bde378a8
+# ╟─fb5e4cda-5cdd-492a-8ca2-38fc3fc68ce9
+# ╟─1b7c9fc7-af54-4e2f-8303-b64ddd519453
+# ╟─d97ba043-122c-47b8-ab3e-b3d157f47f42
+# ╟─c6ce2aee-24d4-49f8-a57c-2b4e9a3ca022
+# ╟─48d11871-5cd3-40f7-adb8-92db011a5d98
+# ╟─44985a70-bd56-4e61-a187-a7911c773457
 # ╠═3c0fa20c-5543-4c92-92d6-3d4495d2cdf5
 # ╠═75162f83-a5f5-44f8-a62c-b0d318604074
 # ╠═5d8615c6-0c8b-4d7a-bc4a-79df915aeb58
