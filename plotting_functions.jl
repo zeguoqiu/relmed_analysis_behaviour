@@ -28,6 +28,8 @@ function plot_group_accuracy!(
     f::GridPosition,
     data::DataFrame;
     group::Union{Symbol, Missing} = missing,
+    pid_col::Symbol = :prolific_pid,
+    acc_col::Symbol = :isOptimal,
     colors = Makie.wong_colors(),
     title::String = "",
     legend::Union{Dict, Missing} = missing,
@@ -49,8 +51,8 @@ function plot_group_accuracy!(
 
     # Summarize into proportion of participants choosing optimal
     sum_data = combine(
-        groupby(tdata, [:prolific_pid, :group, :trial]),
-        :isOptimal => mean => :acc
+        groupby(tdata, [pid_col, :group, :trial]),
+        acc_col => mean => :acc
     )
 
     sum_data = combine(
@@ -109,7 +111,7 @@ function plot_group_accuracy!(
 
 end
 
-function plot_group_q_values(
+function plot_sim_group_q_values!(
 	f::GridPosition,
 	data::DataFrame;
 	traces = true,
@@ -203,17 +205,21 @@ function plot_group_q_values(
 	end
 end
 
-function plot_q_value_acc!(
+function plot_sim_q_value_acc!(
 	f::Figure,
 	sim_dat::DataFrame;
 	legend = true,
 	colors = Makie.wong_colors(),
 	backgroundcolor = :white
 	)
+
+    # Calcualte accuracy
+    sim_dat.isOptimal = sim_dat.choice .== 1
 	
-	plot_group_q_values(f[1 + legend ,1], sim_dat; 
+	plot_sim_group_q_values!(f[1 + legend ,1], sim_dat; 
 		legend = legend, colors = colors, backgroundcolor = backgroundcolor)
-	plot_group_accuracy(f[1 + legend,2], sim_dat;
+	plot_group_accuracy!(f[1 + legend,2], sim_dat;
+        group = :group, pid_col = :PID,
 		colors = colors, backgroundcolor = backgroundcolor)
 
 	if (legend)

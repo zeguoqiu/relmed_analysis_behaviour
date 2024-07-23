@@ -145,7 +145,7 @@ begin
 	f = Figure()
 
 
-	plot_q_value_acc!(f, sim_dat)
+	plot_sim_q_value_acc!(f, sim_dat)
 end
 
 # ╔═╡ 999d115a-e21f-41a5-8f43-685c9f216956
