@@ -6,8 +6,8 @@ using InteractiveUtils
 
 # ╔═╡ 74c8335c-4095-11ef-21d3-0715bde378a8
 begin
+	cd("/home/jovyan")
 	import Pkg
-	
 	# activate the shared project environment
     Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
