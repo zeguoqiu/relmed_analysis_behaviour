@@ -23,7 +23,7 @@ begin
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase
-	include("AFC_task_functions.jl")
+	include("PLT_task_functions.jl")
 	include("plotting_functions.jl")
 end
 
