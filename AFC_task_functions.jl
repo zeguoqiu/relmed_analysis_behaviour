@@ -358,7 +358,7 @@ function simulate_groups_q_learning_dataset(
 	μ_ρ::Vector{Float64}, # Means of reward sensitivity
 	σ_ρ::Vector{Float64}; # SDs of reward sensitivity
 	stop_after::Union{Int64, Missing} = missing, # Stop after n correct choices. Missing means don't stop
-	feedback_values::Union{Vector{Vector{Float64}}, Missing} = missing, # Values of non-zero feedback on each block. A vector of unique values per block, arbitrarily sized.
+	feedback_magnitudes::Union{Vector{Vector{Float64}}, Missing} = missing, # Values of non-zero feedback on each block. A vector of unique values per block, arbitrarily sized.
 	feedback_ns::Union{Vector{Vector{Int64}}, Missing} = missing, # Number of each non-zero feedback value on each block. A vector of proportions per block, sized the same as feedback_value
 	feedback_common::Union{Vector{Vector{Int64}}, Missing} = missing, # Vector with value for each block. Value can be vector n_trials long, with 1 for common and 0 for rare type feedback, or a single number of common type feedbacks for the block. In the latter case, common/rare will be randomly ordered.
 	task::Union{DataFrame, Missing} = missing # Alternatively, supply prepared task for simulation
@@ -378,7 +378,7 @@ function simulate_groups_q_learning_dataset(
 			sim = simulate_q_learning_dataset(
 				n_participants,
 				n_trials,
-				feedback_values,
+				feedback_magnitudes,
 				feedback_ns,
 				feedback_common,
 				μ_a[g],
