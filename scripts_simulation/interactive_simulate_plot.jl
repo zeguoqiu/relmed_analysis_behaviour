@@ -24,6 +24,7 @@ begin
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase
 	include("AFC_task_functions.jl")
+	include("plotting_functions.jl")
 end
 
 # ╔═╡ 8c5c8075-7423-45cd-b4f2-7005be0ed45a
