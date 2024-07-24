@@ -6,9 +6,10 @@ using InteractiveUtils
 
 # ╔═╡ ff13dfd4-1906-11ef-321b-59b69cfd64bc
 begin
+	cd("/home/jovyan/")
     import Pkg
     # activate the shared project environment
-    Pkg.activate(Base.current_project())
+    Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase,
@@ -16,7 +17,7 @@ begin
 	using IterTools: product
 	using LogExpFunctions: logsumexp
 	using Combinatorics: combinations
-	include("task_functions.jl")
+	include("PLT_task_functions.jl")
 	include("fisher_information_functions.jl")
 	include("plotting_functions.jl")
 end
@@ -469,8 +470,10 @@ begin
 
 end
 
-# ╔═╡ 5ce0ac12-b290-4a23-b9e9-a83364359aab
-vcat([missing], collect(3:2:12))
+# ╔═╡ b213c6ab-1dd7-4bbf-b807-f1398bd61650
+md"""
+## Effect of early stopping on FI
+"""
 
 # ╔═╡ 015bf7f2-daf6-4fd7-852f-eacf8a27ed13
 let n_blocks = round.(Int64, range(sqrt(10), sqrt(500), 8).^2),
@@ -550,6 +553,11 @@ let n_blocks = round.(Int64, range(sqrt(10), sqrt(500), 8).^2),
 		
 end
 
+# ╔═╡ 1b620705-9179-49ee-b61e-d3735b8797db
+md"""
+# Effect of confusing feedback position on FI
+"""
+
 # ╔═╡ c4664db2-112b-4715-849e-afda4daa5fd7
 # Understand what drives FI in sequence
 let n_trials = 13,
@@ -628,44 +636,21 @@ let n_trials = 13,
 
 end
 
-# ╔═╡ 8be48515-b7fc-4f14-a970-55c5640b56b0
-let n_sessions = 1,
-	n_blocks = 24,
-	n_trials = 13,
-	n_confusing = repeat(vcat([0 ,1, 1, 2], fill(3, n_blocks - 4)), n_sessions),
-	categories = [('A':'Z')[div(i, 26) + 1] * ('a':'z')[rem(i, 26) + 1] for i in 1:(n_blocks + n_sessions)],
-	ω_FI = 0.35,
-	reward_magnitudes = [1., 2.],
-	reward_ns = [floor(Int64, n_trials / 2), ceil(Int64, n_trials / 2)],
-	stop_after = missing
-
-	feedback_sequences = get_multiple_n_confusing_sequnces(
-		n_trials,
-		n_confusing,
-		n_blocks_total,
-		ω_FI,
-		reward_magnitudes,
-		reward_ns;
-		stop_after = stop_after
-	)
-
-end
-
 # ╔═╡ Cell order:
 # ╠═4df49829-b6d7-4757-ac19-1fd2d5a61ac2
 # ╠═ff13dfd4-1906-11ef-321b-59b69cfd64bc
 # ╠═6015a232-463c-4634-a7fa-1d6ff66071a4
 # ╟─d97480fc-5819-4f29-a7c5-c230b7f814e8
-# ╠═80d317ac-05a2-4db5-8b21-36c2187a1c3a
-# ╠═c4aa18dd-6189-41c0-b143-7676a8551c49
-# ╠═96720764-b861-473c-8221-032aba296d50
-# ╠═64b5b79a-a335-40df-afb3-201cca4a3f36
-# ╠═be3fd5a0-d6b0-479b-9232-d52ab65c71da
-# ╠═46207f42-2481-419e-8885-019e539bbf07
-# ╠═3cbc2f54-4566-44d5-b117-c9c78172585f
-# ╠═51d19690-41ca-442a-b490-015bc8d40ed5
-# ╠═ab4f5a16-e2c5-4852-ac4a-b8fb0e75d9a8
-# ╠═5ce0ac12-b290-4a23-b9e9-a83364359aab
-# ╠═015bf7f2-daf6-4fd7-852f-eacf8a27ed13
-# ╠═c4664db2-112b-4715-849e-afda4daa5fd7
-# ╠═8be48515-b7fc-4f14-a970-55c5640b56b0
+# ╟─80d317ac-05a2-4db5-8b21-36c2187a1c3a
+# ╟─c4aa18dd-6189-41c0-b143-7676a8551c49
+# ╟─96720764-b861-473c-8221-032aba296d50
+# ╟─64b5b79a-a335-40df-afb3-201cca4a3f36
+# ╟─be3fd5a0-d6b0-479b-9232-d52ab65c71da
+# ╟─46207f42-2481-419e-8885-019e539bbf07
+# ╟─3cbc2f54-4566-44d5-b117-c9c78172585f
+# ╟─51d19690-41ca-442a-b490-015bc8d40ed5
+# ╟─ab4f5a16-e2c5-4852-ac4a-b8fb0e75d9a8
+# ╟─b213c6ab-1dd7-4bbf-b807-f1398bd61650
+# ╟─015bf7f2-daf6-4fd7-852f-eacf8a27ed13
+# ╟─1b620705-9179-49ee-b61e-d3735b8797db
+# ╟─c4664db2-112b-4715-849e-afda4daa5fd7
