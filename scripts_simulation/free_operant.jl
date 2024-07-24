@@ -1,18 +1,19 @@
 ### A Pluto.jl notebook ###
-# v0.19.42
+# v0.19.43
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ 16cc5376-33b1-11ef-05af-69d6f8d63512
 begin
+	cd("/home/jovyan")
     import Pkg
     # activate the shared project environment
-    Pkg.activate(Base.current_project())
+    Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase,
-		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO, LaTeXStrings
+		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO
 	using IterTools: product
 	using LogExpFunctions: logsumexp
 	using Combinatorics: combinations
@@ -46,7 +47,7 @@ function plot_free_operant_formula(
 	Δ::Vector{Int64} = [res-40, res],
 	slope_label::Union{String, Makie.RichText} = "β",
 	intercept_label::Union{String, Makie.RichText} = "α",
-	title::Union{String, Makie.RichText, LaTeXStrings.LaTeXString} = ""
+	title = ""
 )
 
 	# Set up figure
