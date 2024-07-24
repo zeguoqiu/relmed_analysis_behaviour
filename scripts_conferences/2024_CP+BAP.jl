@@ -6,16 +6,23 @@ using InteractiveUtils
 
 # ╔═╡ e01188c3-ca30-4a7c-9101-987752139a71
 begin
+	cd("/home/jovyan/")
 	import Pkg
 	
 	# activate the shared project environment
     Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
-	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP, RCall, JLD2, Dates
-
+	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase,
+		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO, JuMP, CSV
+	using IterTools: product
+	using LogExpFunctions: logsumexp
+	using Combinatorics: combinations
+	
 	include("fetch_preprocess_data.jl")
 	include("stan_functions.jl")
+	include("PLT_task_functions.jl")
+	include("fisher_information_functions.jl")
 	include("plotting_functions.jl")
 
 end
@@ -73,6 +80,99 @@ begin
 	PLT_data = load_PLT_data()
 
 	PLT_data = exclude_PLT_sessions(PLT_data)
+
+end
+
+# ╔═╡ 43452b9a-7cf5-4bee-8c07-d7e28c02bea8
+# Plot Q learners
+f_q_learner = let feedback_magnitudes = [1., 2.],
+		feedback_ns = [7, 6],
+		n_trials = 13,
+		n_blocks = 10,
+		σ_a = 0.6,
+		σ_ρ = 2.,
+		μ_a = -.2
+		μ_ρ = 2.2
+
+		# Simulate dataset
+		sim_dat = simulate_groups_q_learning_dataset(140,
+			n_trials,
+			[μ_a],
+			[σ_a],
+			[μ_ρ],
+			[σ_ρ];
+			feedback_magnitudes = repeat([feedback_magnitudes], n_blocks),
+			feedback_ns = repeat([feedback_ns], n_blocks),
+			feedback_common = vcat([[n_trials], [n_trials-1], [n_trials-1], [n_trials-1]], fill([n_trials-3], n_blocks - 4)),
+		)
+	
+		# Plot
+		f_q_learner = Figure(size = (386, 161) .* 72 ./ 25.4)
+		plot_sim_q_value_acc!(f_q_learner, 
+			sim_dat;
+			legend = false,
+			colors = ["#34C6C6"]
+		)
+
+	 save("results/BAP_q_learners.pdf", f_q_learner, pt_per_unit = 1)
+
+	f_q_learner
+end
+
+# ╔═╡ bb03c6c3-430d-4105-9548-85d535a738cd
+# Engagement
+begin
+	f_FI = let n_blocks = 24, 
+		n_trials = 13,
+		feedback_magnitudes = [1., 2.],
+		feedback_ns = [7, 6],
+		res = 75,
+		μ_a = range(-2., 1., res), 
+		μ_ρ = range(0.01, 3., res)
+		
+		FI = Q_learning_μ_σ_range_FI(n_blocks, n_trials, feedback_magnitudes, 
+			feedback_ns, μ_a, μ_ρ)
+
+		# Plot
+		f_FI = Figure(size = (231, 127.5) .* 72 ./ 25.4)
+
+		# Calculate alpha
+		μ_α = a2α.(μ_a)
+		
+		ax_alpha = Axis(f_FI[1,1],
+			xlabel = "Learning rate",
+			ylabel = "Fisher Information"
+		)
+
+		find_closest_index(arr, x) = argmin(abs.(arr .- x))
+
+		lines!(ax_alpha,
+			μ_α,
+			FI[find_closest_index(μ_ρ, 2.84), :],
+			linewidth = 3,
+			color = "#34C6C6"
+		)
+
+		ax_rho = Axis(f_FI[1,2],
+			xlabel = "Reward sensitivity",
+			ylabel = ""
+		)
+
+		lines!(ax_rho,
+			μ_ρ,
+			FI[:, find_closest_index(μ_a, 0.34)],
+			linewidth = 3,
+			color = "#34C6C6"
+		)
+
+		linkyaxes!(ax_alpha, ax_rho)
+
+		f_FI
+	end
+
+	save("results/BAP_engagement_2lines.pdf", f_FI, pt_per_unit = 1)
+	
+	f_FI
 
 end
 
@@ -740,6 +840,8 @@ end
 # ╠═b287a29c-17cf-482e-8358-07ae6600c0e6
 # ╠═bdeadcc4-1a5f-4c39-a055-e61b3db3f3b1
 # ╠═963e5f75-00f9-4fcc-90b9-7ecfb7e278f2
+# ╠═43452b9a-7cf5-4bee-8c07-d7e28c02bea8
+# ╠═bb03c6c3-430d-4105-9548-85d535a738cd
 # ╠═fe070ddf-82cd-4c5f-8bb1-8adab53f654f
 # ╠═78549c5d-48b4-4634-b380-b2b8d883d430
 # ╠═d3aee72b-8d6b-4a63-a788-2e5f91b1f67e
