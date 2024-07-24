@@ -6,6 +6,7 @@ using InteractiveUtils
 
 # ╔═╡ 053887ce-3f7d-11ef-0ab9-53a5a4738d90
 begin
+	cd("/home/jovyan/")
 	import Pkg
 	
 	# activate the shared project environment

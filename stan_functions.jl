@@ -260,3 +260,132 @@ function sum_p_params(
 
     return tdraws
 end
+
+# This functions summarises the draws from the single_p_QL.stan model
+function sum_single_p_QL_draws(single_p_QL_draws::DataFrame,
+	true_a::Float64,
+	true_ρ::Float64;
+	prior_sd::Float64=1.0)
+
+	# Calculate deviations from true value
+	a_s = single_p_QL_draws.a .- true_a 
+	ρ_s = single_p_QL_draws.rho .- true_ρ
+
+	return (
+		a_m = median(single_p_QL_draws.a),
+		a_lb = lb(single_p_QL_draws.a),
+		a_ub = ub(single_p_QL_draws.a),
+		a_zs = mean(a_s) / std(single_p_QL_draws.a),
+		a_sm = median(a_s),
+		a_slb = lb(a_s),
+		a_sub = ub(a_s),
+		a_cntrct = 1 - var(single_p_QL_draws.a) / prior_sd ^ 2,
+		ρ_m = median(single_p_QL_draws.rho),
+		ρ_lb = lb(single_p_QL_draws.rho),
+		ρ_ub = ub(single_p_QL_draws.rho),
+		ρ_zs = mean(a_s) / std(single_p_QL_draws.rho),
+		ρ_sm = median(ρ_s),
+		ρ_slb = lb(ρ_s),
+		ρ_sub = ub(ρ_s),
+		ρ_cntrct = 1 - var(single_p_QL_draws.rho) / prior_sd ^ 2
+	)
+end
+
+# Summarize prior predictive draws relative to true value
+function sum_prior_predictive_draws(
+	draws::DataFrame;
+	params::Vector{Symbol}, # Parameters to sum
+	true_values::Vector{Float64},
+	prior_var::Vector{Float64} = repeat([1.], length(params)) # Variance of the prior for computing posterior contraction
+	)
+
+	sums = []
+	for (p, t, pv) in zip(params, true_values, prior_var)
+
+		v = draws[!, p]
+		v_s = v .- t
+
+		push!(sums,
+			(;
+				Symbol("$(p)_m") => median(v), # Median posterior
+				Symbol("$(p)_lb") => lb(v), # Posterior 25th percentile
+				Symbol("$(p)_ub") => ub(v), # Posterior 75th percentile
+				Symbol("$(p)_zs") => mean(v_s) / std(v), # Posterior zscore
+				Symbol("$(p)_sm") => median(v_s), # Median error
+				Symbol("$(p)_slb") => lb(v_s), # Error 25th percentile
+				Symbol("$(p)_sub") => ub(v_s), # Error 75th percentile
+				Symbol("$(p)_cntrct") => 1 - var(v) / pv, # Posterior contraction, after Schad et al. 2021
+				Symbol("true_$p") => t
+			)		
+		)
+
+	end
+
+	# Return as one NamedTuple
+	return reduce((x, y) -> merge(x, y), sums)
+
+end
+
+# High-level function to simulate a dataset, fit it with stan, and then summarise it.
+# Used for prior predictive checks
+function simulate_fit_sum(i::Int64;
+	n_blocks::Int64 = 10,
+	n_trials::Int64 = 13,
+	n_participants::Int64 = 1,
+	feedback_magnitudes::Vector{Float64} = [1., 2.],
+	feedback_ns::Vector{Int64} = [7, 6],
+	prior_μ_a::Distribution = Uniform(-2, 2),
+	prior_μ_ρ::Distribution = Uniform(0.001, 0.999),
+	prior_σ_a::Distribution = Dirac(0.), # For single participant. This just gives 0. always
+	prior_σ_ρ::Distribution = Dirac(0.),
+	model::String = "single_p_QL",
+	name::String = ""
+	)
+
+	# Draw hyper-parameters
+	true_μ_a = rand(prior_μ_a)
+	true_μ_ρ = abs(rand(prior_μ_ρ))
+	true_σ_a = abs(rand(prior_σ_a))
+	true_σ_ρ = abs(rand(prior_σ_ρ))
+	
+	# Simulate data
+	sim_dat = simulate_q_learning_dataset(
+		n_participants,
+		n_trials,
+		repeat([feedback_magnitudes], n_blocks),
+		repeat([feedback_ns], n_blocks),
+		vcat([[n_trials], [n_trials-1], [n_trials-1], [n_trials-2]],
+			repeat([[n_trials-3]], n_blocks - 4)),
+		true_μ_a,
+		true_σ_a,
+		true_μ_ρ,
+		true_σ_ρ;
+		random_seed = i)
+
+	# Fit model
+	_, QL_draws = load_run_cmdstanr(
+		"sim_$(model)_$(name != "" ? name * "_" : "")$(i)",
+		"$model.stan",
+		to_standata(sim_dat,
+			feedback_magnitudes,
+			feedback_ns,
+			model_name = model);
+		threads_per_chain = occursin("rs", model) ? 3 : 1
+	)
+
+	# Summarize draws
+	var_half_normal = var(truncated(Normal(), lower = 0))
+
+	sum_draws = sum_prior_predictive_draws(QL_draws,
+		params = n_participants == 1 ? [:a, :rho] : [:mu_a, :mu_rho, :sigma_a, :sigma_rho, Symbol("a[1]"), Symbol("rho[1]")],
+		true_values = n_participants == 1 ? [true_μ_a, true_μ_ρ] : [true_μ_a, true_μ_ρ, true_σ_a, true_σ_ρ, 
+			quantile(Normal(), filter(x -> x.PID == 1, sim_dat).α[1]),
+			filter(x -> x.PID == 1, sim_dat).ρ[1]],
+		prior_var = n_participants == 1 ? [1., 1.] : [1., 1., var_half_normal, var_half_normal, 1., 1.]
+	)
+
+	return (; sum_draws..., 
+		n_blocks = n_blocks,
+		n_trials = n_trials)
+	
+end
