@@ -6,14 +6,15 @@ using InteractiveUtils
 
 # ╔═╡ 285b7932-112e-11ef-13c2-fba601473764
 begin
+	cd("/home/jovyan")
     import Pkg
     # activate the shared project environment
-    Pkg.activate(Base.current_project())
+    Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, StatsBase,
 		StanSample, JSON, RCall, CSV
-	include("task_functions.jl")
+	include("PLT_task_functions.jl")
 	include("stan_functions.jl")
 	include("plotting_functions.jl")
 end
@@ -72,6 +73,9 @@ begin
 		σ_ρ
 	)
 
+	sim_dat_100.isOptimal = (sim_dat_100.choice .== 1) .+ 0
+	
+
 	# And subsample to first 10
 	sim_dat = filter(x -> x.block <= 10, sim_dat_100)
 	nothing
@@ -83,8 +87,11 @@ begin
 		"group_QL",
 		"group_QL.stan",
 		to_standata(sim_dat,
-			feedback_magnitudes,
-			feedback_ns);
+			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
+			(sum(feedback_ns) * 2)], 2);
+			PID_col = :PID,
+			outcome_col = :outcome
+		);
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho",
 			"a[1]", "a[2]", "a[3]", "r[1]", "r[2]", "r[3]"]
 	)
@@ -119,8 +126,10 @@ begin
 		"group_QLrs",
 		"group_QLrs.stan",
 		to_standata(sim_dat,
-			feedback_magnitudes,
-			feedback_ns;
+			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
+			(sum(feedback_ns) * 2)], 2);
+			PID_col = :PID,
+			outcome_col = :outcome,
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
 		threads_per_chain = 3
@@ -134,8 +143,10 @@ begin
 		"group_QLrs100",
 		"group_QLrs.stan",
 		to_standata(sim_dat_100,
-			feedback_magnitudes,
-			feedback_ns;
+			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
+			(sum(feedback_ns) * 2)], 2);
+			PID_col = :PID,
+			outcome_col = :outcome,
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
 		threads_per_chain = 3
