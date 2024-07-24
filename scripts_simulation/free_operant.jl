@@ -38,6 +38,16 @@ begin
 end
 
 
+# ╔═╡ c8992cb5-559f-4a70-9281-6a50144f588c
+md"""
+# Possible models for free operant task
+Three possible models for a free operant task. The first one is suggested by Niv et al. 2005 for FR schedules. We've added a constant here to allow for linear relationships between reward and response, which is seen in the fishing task paper.
+
+Second is a naive attempt at Poisson regression - we see that response is exponentially related to reward, whcih doesn't make sense.
+
+Third takes the squeare root of reward in a naive Poisson regression. This takes care of exponential rise in response, but seems poorly motivated.
+"""
+
 # ╔═╡ 6b17bbab-f812-45de-91e6-1823a1b158c2
 function plot_free_operant_formula(
 	model::Function;
@@ -187,14 +197,15 @@ let task = free_operant_task_structure(4, 12, repeat([4., 0.5], 2), fill(collect
 end
 
 # ╔═╡ Cell order:
-# ╠═16cc5376-33b1-11ef-05af-69d6f8d63512
-# ╠═1f0aca6b-bfee-4f4d-86ff-4d318037f20f
-# ╠═7cd0f7b6-c3e0-4af8-bb99-6da71ea4789d
-# ╠═0a66c6cd-b199-40d2-bc32-582f73e339ed
-# ╠═bc16cda4-e392-4217-a8d6-d26e34bf5f4b
-# ╠═6b17bbab-f812-45de-91e6-1823a1b158c2
-# ╠═ecb833e2-cad6-44b3-a570-905e9e36aaa1
-# ╠═a4ed62da-e666-4879-822f-8605a587abfa
-# ╠═e9878079-ebe3-4b78-ab6d-6cb92b1f6431
-# ╠═493918f8-3d36-421a-8b6d-c34255d076e0
-# ╠═62c3de2c-7284-44e0-a3c8-b664124dc7c5
+# ╟─16cc5376-33b1-11ef-05af-69d6f8d63512
+# ╟─1f0aca6b-bfee-4f4d-86ff-4d318037f20f
+# ╟─c8992cb5-559f-4a70-9281-6a50144f588c
+# ╟─7cd0f7b6-c3e0-4af8-bb99-6da71ea4789d
+# ╟─0a66c6cd-b199-40d2-bc32-582f73e339ed
+# ╟─bc16cda4-e392-4217-a8d6-d26e34bf5f4b
+# ╟─6b17bbab-f812-45de-91e6-1823a1b158c2
+# ╟─ecb833e2-cad6-44b3-a570-905e9e36aaa1
+# ╟─a4ed62da-e666-4879-822f-8605a587abfa
+# ╟─e9878079-ebe3-4b78-ab6d-6cb92b1f6431
+# ╟─493918f8-3d36-421a-8b6d-c34255d076e0
+# ╟─62c3de2c-7284-44e0-a3c8-b664124dc7c5
