@@ -20,7 +20,7 @@ function to_standata(
 	sd = Dict(
         "N" => nrow(data),
         "N_p" => length(unique(data[!, PID_col])),
-		"N_bl" => maximum(data.block),
+		"N_bl" => maximum(data[!, block_col]),
         "total_N_bl" => nrow(unique(data[!, [PID_col, :session, block_col]])),
 		"pp" => data[!, PID_col],
 		"bl" => data[!, block_col],
