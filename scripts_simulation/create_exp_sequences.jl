@@ -6,9 +6,10 @@ using InteractiveUtils
 
 # ╔═╡ 9474a728-2e76-11ef-1e8d-f93766744325
 begin
+	cd("/home/jovyan/")
     import Pkg
     # activate the shared project environment
-    Pkg.activate(Base.current_project())
+    Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase,
@@ -16,7 +17,7 @@ begin
 	using IterTools: product
 	using LogExpFunctions: logsumexp
 	using Combinatorics: combinations
-	include("task_functions.jl")
+	include("PLT_task_functions.jl")
 	include("fisher_information_functions.jl")
 	include("plotting_functions.jl")
 end
@@ -261,7 +262,7 @@ function prepare_task_pilot1_by_condition(
 
 	# Stimuli
 	Random.seed!(0)
-	categories = shuffle(unique([replace(s, ".png" => "")[1:(end-1)] for s in  readlines("allimages.txt")]))
+	categories = shuffle(unique([replace(s, ".png" => "")[1:(end-1)] for s in  readlines("scripts_simulation/allimages.txt")]))
 	
 
 	@assert length(categories) >= n_sessions * n_blocks + n_sessions + 2 "categories needs to be of length $(n_sessions * n_blocks + n_sessions + 2) but it is of length $(length(categories))"
