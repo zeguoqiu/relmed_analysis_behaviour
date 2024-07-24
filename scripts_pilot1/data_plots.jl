@@ -48,6 +48,14 @@ begin
 	nothing
 end
 
+# ╔═╡ 95b7d6fa-b85f-4095-b53d-afb5fabe9095
+md"""
+# Data plots from first pilot of PLT
+This notebook contains plot of raw data from the fist PLT pilot.
+
+## Overall accuracy curve
+"""
+
 # ╔═╡ d97ba043-122c-47b8-ab3e-b3d157f47f42
 # Plot overall accuracy
 begin
@@ -59,6 +67,12 @@ begin
 	f_acc
 
 end
+
+# ╔═╡ fadee7a8-cffd-4d8f-b7cc-54ba09dffb50
+md"""
+## Accuracy curve by session
+The substantial difference between sessions is due to a mistake in the experimental design. The order of the feedback sequences was not randomized, resulting in all blocks in early confusing feedback being assigned to the second session.
+"""
 
 # ╔═╡ c6ce2aee-24d4-49f8-a57c-2b4e9a3ca022
 # Plot by session
@@ -75,6 +89,11 @@ begin
 
 end
 
+# ╔═╡ d9e65244-b9ff-48e1-9fa8-e34be86d0e99
+md"""
+## Accuracy curve by feedback valence
+"""
+
 # ╔═╡ 48d11871-5cd3-40f7-adb8-92db011a5d98
 # Plot accuracy by valence
 begin
@@ -88,6 +107,11 @@ begin
 	f_acc_valence
 
 end
+
+# ╔═╡ da0702d9-f1ae-4aef-9e8a-feec738b447b
+md"""
+## Accuracy cruve by early stopping
+"""
 
 # ╔═╡ 44985a70-bd56-4e61-a187-a7911c773457
 begin
@@ -103,6 +127,12 @@ begin
 
 end
 
+# ╔═╡ d8581ec0-c195-4040-8cb2-6b493a544cdb
+md"""
+### Accuracy curve by reward-punishment order
+This plot shows session 1 only, since sessions 1 and 2 have big baseline differences.
+"""
+
 # ╔═╡ 3c0fa20c-5543-4c92-92d6-3d4495d2cdf5
 begin
 	f_interleaved_grouped = Figure()
@@ -110,7 +140,7 @@ begin
 	axs = []
 	for (i, (vg, rf)) in enumerate([(false, missing), (true, true), (true, false)])
 		ax = plot_group_accuracy!(f_interleaved_grouped[1,i], 
-			filter(x -> (x.valence_grouped .== vg) & (ismissing(rf) .|| x.reward_first == rf), PLT_data); 
+			filter(x -> (x.valence_grouped .== vg) & (ismissing(rf) .|| x.reward_first == rf) & (x.session == "1"), PLT_data); 
 			group = :valence,
 			title = ["Interleaved", "Reward first", "Punishment first"][i]
 		)
@@ -159,11 +189,17 @@ function plot_split_by_condition(PLT_data)
 	f_all_cond
 end
 
-# ╔═╡ 5d8615c6-0c8b-4d7a-bc4a-79df915aeb58
-plot_split_by_condition(PLT_data)
+# ╔═╡ 28cf8cd4-fdf9-49de-bf02-9f40039a28c8
+md"""
+## Accuracy curve by early stopping and reward-punishment order
+First for session 1
+"""
 
 # ╔═╡ 61cffe15-3e9e-447b-8fa7-2cde9a83d906
 plot_split_by_condition(filter(x -> x.session == "1", PLT_data))
+
+# ╔═╡ 15ec3792-cb56-42e7-a8dd-9fe835862f62
+md"""Then for session 2. Note that condition names (Reward first, Punishment first) relate to the order in session 1. The order was reversed in session 2."""
 
 # ╔═╡ ca6b7a59-242e-44b1-9ef5-85759cfd9f93
 plot_split_by_condition(filter(x -> x.session == "2", PLT_data))
@@ -172,12 +208,18 @@ plot_split_by_condition(filter(x -> x.session == "2", PLT_data))
 # ╟─74c8335c-4095-11ef-21d3-0715bde378a8
 # ╟─fb5e4cda-5cdd-492a-8ca2-38fc3fc68ce9
 # ╟─1b7c9fc7-af54-4e2f-8303-b64ddd519453
+# ╟─95b7d6fa-b85f-4095-b53d-afb5fabe9095
 # ╟─d97ba043-122c-47b8-ab3e-b3d157f47f42
+# ╟─fadee7a8-cffd-4d8f-b7cc-54ba09dffb50
 # ╟─c6ce2aee-24d4-49f8-a57c-2b4e9a3ca022
+# ╟─d9e65244-b9ff-48e1-9fa8-e34be86d0e99
 # ╟─48d11871-5cd3-40f7-adb8-92db011a5d98
+# ╟─da0702d9-f1ae-4aef-9e8a-feec738b447b
 # ╟─44985a70-bd56-4e61-a187-a7911c773457
-# ╠═3c0fa20c-5543-4c92-92d6-3d4495d2cdf5
-# ╠═75162f83-a5f5-44f8-a62c-b0d318604074
-# ╠═5d8615c6-0c8b-4d7a-bc4a-79df915aeb58
-# ╠═61cffe15-3e9e-447b-8fa7-2cde9a83d906
-# ╠═ca6b7a59-242e-44b1-9ef5-85759cfd9f93
+# ╟─d8581ec0-c195-4040-8cb2-6b493a544cdb
+# ╟─3c0fa20c-5543-4c92-92d6-3d4495d2cdf5
+# ╟─75162f83-a5f5-44f8-a62c-b0d318604074
+# ╠═28cf8cd4-fdf9-49de-bf02-9f40039a28c8
+# ╟─61cffe15-3e9e-447b-8fa7-2cde9a83d906
+# ╟─15ec3792-cb56-42e7-a8dd-9fe835862f62
+# ╟─ca6b7a59-242e-44b1-9ef5-85759cfd9f93
