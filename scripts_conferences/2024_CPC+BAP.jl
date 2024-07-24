@@ -229,7 +229,7 @@ begin
 
 	m1s1_sum, m1s1_draws, m1s1_time = load_run_cmdstanr(
 		"m1s1",
-		"group_QLrs.stan",
+		"group_QLRs02.stan",
 		to_standata(sess1_forfit,
 			initV;
 			model_name = "group_QLrs");
@@ -253,7 +253,7 @@ odd_even_draws = let
 		
 		m1s1_sum, m1s1_draws, m1s1_time = load_run_cmdstanr(
 			"m1s1_$t",
-			"group_QLrs.stan",
+			"group_QLRs02.stan",
 			to_standata(tdata,
 				initV;
 				model_name = "group_QLrs",
@@ -400,7 +400,7 @@ begin
 
 	m1s2_sum, m1s2_draws, m1s2_time = load_run_cmdstanr(
 		"m1s2",
-		"group_QLrs.stan",
+		"group_QLRs02.stan",
 		to_standata(sess2_forfit,
 			initV;
 			model_name = "group_QLrs");
@@ -573,7 +573,7 @@ incremental_draws_sess1, incremental_draws_sess2 = let
 		
 			m1_sum, m1_draws, m1_time = load_run_cmdstanr(
 				i < 24 ? "m1s$(s)b$i" : "m1s$(s)",
-				"group_QLrs.stan",
+				"group_QLRs02.stan",
 				to_standata(tforfit,
 					initV;
 					model_name = "group_QLrs");
@@ -668,7 +668,7 @@ incremental_trial_draws_sess1, incremental_trial_draws_sess2 = let
 		
 			m1_sum, m1_draws, m1_time = load_run_cmdstanr(
 				i < 13 ? "m1s$(s)t$i" : "m1s$(s)",
-				"group_QLrs.stan",
+				"group_QLRs02.stan",
 				to_standata(tforfit,
 					initV;
 					model_name = "group_QLrs");
