@@ -6,9 +6,10 @@ using InteractiveUtils
 
 # ╔═╡ 5d9f27b4-2caf-11ef-3bee-51c614491e13
 begin
+	cd("/home/jovyan/")
     import Pkg
     # activate the shared project environment
-    Pkg.activate(Base.current_project())
+    Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase,
@@ -16,7 +17,7 @@ begin
 	using IterTools: product
 	using LogExpFunctions: logsumexp
 	using Combinatorics: combinations
-	include("task_functions.jl")
+	include("PLT_task_functions.jl")
 	include("fisher_information_functions.jl")
 	include("plotting_functions.jl")
 
@@ -119,7 +120,7 @@ begin
 	
 		# Plot
 		f = Figure(size = (386, 161) .* 72 ./ 25.4)
-		plot_q_value_acc!(f, 
+		plot_sim_q_value_acc!(f, 
 			sim_dat;
 			legend = false,
 			colors = ["#000000", "#52C152", "#34C6C6"]
@@ -360,10 +361,6 @@ let n_blocks = round.(Int64, range(sqrt(10), sqrt(500), 8).^2),
 	f_seq	
 end
 
-# ╔═╡ b6b43ce4-ff1b-4781-aaab-5133a43edebb
-cgrad(["#002248", "#34C6C6", "#B6DCE5", 
-					"#DEB8C3", "#AC145A", "#4B0A42"])
-
 # ╔═╡ Cell order:
 # ╠═5d9f27b4-2caf-11ef-3bee-51c614491e13
 # ╠═46595874-4cd8-4500-846f-93afbf3d264f
@@ -371,4 +368,3 @@ cgrad(["#002248", "#34C6C6", "#B6DCE5",
 # ╠═98b42ee5-f343-4b3f-af52-a2e3fff53409
 # ╠═273f93e0-208f-4dd1-ba7d-2d14bc5d2090
 # ╠═7554ea02-c54b-4fb1-9d07-79c49c891a80
-# ╠═b6b43ce4-ff1b-4781-aaab-5133a43edebb
