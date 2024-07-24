@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.42
+# v0.19.43
 
 using Markdown
 using InteractiveUtils
@@ -16,14 +16,15 @@ end
 
 # ╔═╡ bd5b4020-143d-11ef-28fb-f5108204e745
 begin
+	cd("/home/jovyan")
     import Pkg
     # activate the shared project environment
-    Pkg.activate(Base.current_project())
+    Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, StatsBase,
 		StanSample, JSON, RCall, CSV, PlutoUI
-	include("task_functions.jl")
+	include("PLT_task_functions.jl")
 	include("stan_functions.jl")
 	include("plotting_functions.jl")
 end
@@ -67,9 +68,14 @@ begin
 		ρ,
 		0.
 	)
+
+	sim_dat.isOptimal = (sim_dat.choice .== 1) .+ 0
 	nothing
 
 end
+
+# ╔═╡ f871c180-4332-4c9f-b0f0-37bedfb7276f
+sim_dat
 
 # ╔═╡ fe5dacf1-de3a-4ceb-9393-4b8045a3f76b
 md"""
@@ -95,8 +101,11 @@ begin
 		"single_p_QL_$n",
 		"single_p_QL.stan",
 		to_standata(filter(x -> x.block <= n, sim_dat),
-			feedback_magnitudes,
-			feedback_ns);
+			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
+			(sum(feedback_ns) * 2)], 2),
+			PID_col = :PID,
+			outcome_col = :outcome
+		);
 		print_vars = ["a", "rho"]
 		)
 
@@ -215,6 +224,7 @@ end
 # ╠═bd5b4020-143d-11ef-28fb-f5108204e745
 # ╟─38dd7f41-8ac0-4d1f-831d-3112417b6d4c
 # ╠═cb86fa8d-39dd-473d-82bf-3cd9176b76b2
+# ╠═f871c180-4332-4c9f-b0f0-37bedfb7276f
 # ╟─fe5dacf1-de3a-4ceb-9393-4b8045a3f76b
 # ╠═2bc42714-d182-467e-976e-ea426cb67e29
 # ╠═7677fef2-bc07-4087-8120-9ad15fbcfb07

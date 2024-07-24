@@ -187,7 +187,7 @@ function load_run_cmdstanr(
 		
 		fit_summary, fit_draws, fit_time = run_cmdstanr(
 			model_name,
-			model_file,
+			"stan_models/$model_file",
 			data;
 			seed,
 			chains,
@@ -362,13 +362,17 @@ function simulate_fit_sum(i::Int64;
 		true_σ_ρ;
 		random_seed = i)
 
+	sim_dat.isOptimal = (sim_dat.choice .== 1) .+ 0
+
 	# Fit model
 	_, QL_draws = load_run_cmdstanr(
 		"sim_$(model)_$(name != "" ? name * "_" : "")$(i)",
 		"$model.stan",
 		to_standata(sim_dat,
-			feedback_magnitudes,
-			feedback_ns,
+			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
+			(sum(feedback_ns) * 2)], 2);
+			PID_col = :PID,
+			outcome_col = :outcome,
 			model_name = model);
 		threads_per_chain = occursin("rs", model) ? 3 : 1
 	)
