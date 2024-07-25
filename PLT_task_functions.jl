@@ -187,6 +187,7 @@ end
 # Helper function to transform indices to upppercase letters
 n2l(n::Int64) = Char(n+64)
 
+# Function to simulate trials for single block
 function simulate_block(
 	task::AbstractDataFrame,
 	n_choices::Int64, # Number of stimuli to choose from on each trial
