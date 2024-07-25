@@ -112,72 +112,167 @@ begin
 	m1_sum, m1_time
 end
 
-# ╔═╡ 140f37e7-b345-4358-8ab2-62ff318f8758
-forfit[!, [:prolific_pid, :session, :block, :cblock, :trial]]
+# ╔═╡ eeaaea99-673d-4f34-a633-64955caa971e
+function extract_participant_params(
+	draws::DataFrame;
+	params::Vector{String} = ["a", "rho"],
+	rescale::Bool = true
+) 
 
-# ╔═╡ 08ba9b22-bb8d-4a0f-bbb9-277f089cc119
-begin
-	# Filter by session
-	sess1_data = filter(x -> x.session == "1", PLT_data)
+	res = Dict()
 
-	# Prepare
-	sess1_forfit, sess1_pids = prepare_data_for_fit(sess1_data)
+	for param in params
 
-	m1s1_sum, m1s1_draws, m1s1_time = load_run_cmdstanr(
-		"m1s1",
-		"group_QLrs.stan",
-		to_standata(sess1_forfit,
-			initV;
-			model_name = "group_QLrs");
-		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3,
-		load_model = true
-	)
-	m1s1_sum, m1s1_time
+		# Select columns in draws DataFrame
+		tdraws = select(draws, Regex("$(param)\\[\\d+\\]"))
+	
+		if rescale
+			# Add mean and multiply by SD
+			tdraws .*= draws[!, Symbol("sigma_$param")]
+			tdraws .+= draws[!, Symbol("mu_$param")]	
+		end
+	
+		rename!(s -> replace(s, Regex("$param\\[(\\d+)\\]") => s"\1"),
+			tdraws
+			)
+
+		res[param] = tdraws
+	end
+
+	return res
 end
 
-# ╔═╡ d2b13736-503e-421f-80d7-9f6d8156b0e9
-begin
-	# Filter by session
-	sess2_data = filter(x -> x.session == "2", PLT_data)
-
-	# Prepare
-	sess2_forfit, sess2_pids = prepare_data_for_fit(sess2_data)
-
-	m1s2_sum, m1s2_draws, m1s2_time = load_run_cmdstanr(
-		"m1s2",
-		"group_QLrs.stan",
-		to_standata(sess2_forfit,
-			initV;
-			model_name = "group_QLrs");
-		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3,
-		load_model = true
+# ╔═╡ cee9b208-46ad-4e31-92c4-d2bfdbad7ad3
+function q_learning_posterior_predictive_draw(i;
+	data::DataFrame = copy(forfit),
+	draw::DataFrame,
+	amr::Float64 = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])]) # Average mean reward per block
+)
+		
+	# Keep only needed variables
+	task = select(
+		data,
+		[:pp, :session, :block, :trial, :optimalRight, 
+			:outcomeRight, :outcomeLeft, :valence, :early_stop]
 	)
-	m1s2_sum, m1s2_time
+			
+	# Join data with parameters
+	task = leftjoin(task, draw, on = :pp)
+
+	# Rearrange data to conform to option A is optimal
+	task.feedback_A = ifelse.(
+		task.optimalRight .== 1,
+		task.outcomeRight,
+		task.outcomeLeft
+	)
+
+	task.feedback_B = ifelse.(
+		task.optimalRight .== 0,
+		task.outcomeRight,
+		task.outcomeLeft
+	)
+
+	# Compute initial values
+	task.initV = task.valence .* amr
+
+	# Stop after variable
+	task.stop_after = ifelse.(task.early_stop, 5, missing)
+
+	# Convenience function for simulation
+	function simulate_grouped_block(grouped_df)
+		simulate_block(grouped_df,
+			2,
+			grouped_df.initV[1] .* grouped_df.ρ[1], # Use average reward modulated by rho as initial Q value
+			q_learning_w_rho_update,
+			[:α, :ρ],
+			softmax_choice_direct,
+			Vector{Symbol}();
+			stop_after = grouped_df.stop_after[1]
+		)
+	end
+
+	# Simulate data per participants, block
+	grouped_task = groupby(task, [:pp, :session, :block])
+	sims = transform(grouped_task, simulate_grouped_block)
+
+	sims.draw .= i
+
+	return sims
 end
 
-# ╔═╡ cc321700-89fe-4867-ad0a-3d6af980219c
+
+# ╔═╡ 7d836234-8703-48d0-9c66-f39761a57d65
 begin
-	m1s2_test_sum, m1s2_test_draws, m1s2_test_time = load_run_cmdstanr(
-		"m1s2_test",
-		"group_QLrs02.stan",
-		to_standata(sess2_forfit,
-			initV;
-			model_name = "group_QLrs");
-		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3,
-		load_model = true
-	)
-	m1s2_test_sum, m1s2_test_time
+	participant_params = extract_participant_params(m1_draws)
+
+	Random.seed!(0)
+
+	m1_ppc = []
+	for i in sample(1:nrow(participant_params["a"]), 100)
+
+		# Extract draw
+		draw = DataFrame(
+			α = a2α.(stack(participant_params["a"][1, :])),
+			ρ = stack(participant_params["rho"][1, :])
+		)
+		draw.pp = 1:nrow(draw)
+
+		# Simulate task
+		ppd = q_learning_posterior_predictive_draw(i;
+			data = forfit,
+			draw = draw
+		)
+
+		push!(m1_ppc, ppd)
+	end
+
+	m1_ppc = vcat(m1_ppc...)
 end
+
+# ╔═╡ 1fc6a457-cd86-4835-a18a-75db1fe4a469
+begin
+	m1_ppc_sum = combine(
+		groupby(m1_ppc, 
+			[:pp, :draw, :trial]),
+		:choice => (x -> mean(x .== 1)) => :isOptimal
+	)
+
+	m1_ppc_sum = combine(
+		groupby(m1_ppc_sum, [:draw, :trial]),
+		:isOptimal => mean => :isOptimal
+	)
+
+	m1_ppc_sum = combine(
+		groupby(m1_ppc_sum, :trial),
+		:isOptimal => median => :m,
+		:isOptimal => lb => :lb,
+		:isOptimal => llb => :llb,
+		:isOptimal => ub => :ub,
+		:isOptimal => uub => :uub
+	)
+
+	f_acc = Figure()
+
+	# Plot data
+	ax_acc = plot_group_accuracy!(f_acc[1,1], forfit;
+		error_band = false
+	)
+
+	# Plot 
+
+	f_acc
+end
+
+# ╔═╡ 0bbcf2ce-4297-4543-8659-94ea07b2e0f7
+typeof(true)
 
 # ╔═╡ Cell order:
 # ╠═8c7452ce-49c8-11ef-2441-d5bcc4726e41
 # ╠═1645ffed-f945-4cb4-9e26-fa7ec40117aa
 # ╠═c3a58ad1-3a58-4689-b308-3d17b5325e22
 # ╠═821fe42b-c46d-4cc4-89b4-af23637c01e4
-# ╠═140f37e7-b345-4358-8ab2-62ff318f8758
-# ╠═08ba9b22-bb8d-4a0f-bbb9-277f089cc119
-# ╠═d2b13736-503e-421f-80d7-9f6d8156b0e9
-# ╠═cc321700-89fe-4867-ad0a-3d6af980219c
+# ╠═eeaaea99-673d-4f34-a633-64955caa971e
+# ╠═cee9b208-46ad-4e31-92c4-d2bfdbad7ad3
+# ╠═7d836234-8703-48d0-9c66-f39761a57d65
+# ╠═1fc6a457-cd86-4835-a18a-75db1fe4a469
+# ╠═0bbcf2ce-4297-4543-8659-94ea07b2e0f7
