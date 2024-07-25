@@ -36,7 +36,8 @@ function plot_group_accuracy!(
     legend_title::String = "",
     backgroundcolor = :white,
     ylabel::Union{String, Makie.RichText}="Prop. optimal choice",
-    levels::Union{AbstractVector, Missing} = missing
+    levels::Union{AbstractVector, Missing} = missing,
+	error_band::Bool = true
     )
 
     # Default group value
@@ -76,12 +77,14 @@ function plot_group_accuracy!(
         gdat = filter(:group => (x -> x==g), sum_data)
 
         # Plot line
-        band!(ax,
-            gdat.trial,
-            gdat.acc - gdat.acc_sem,
-            gdat.acc + gdat.acc_sem,
-            color = (colors[i], 0.3)
-        )
+		if error_band
+			band!(ax,
+				gdat.trial,
+				gdat.acc - gdat.acc_sem,
+				gdat.acc + gdat.acc_sem,
+				color = (colors[i], 0.3)
+			)
+		end
         
         lines!(ax, 
             gdat.trial, 
