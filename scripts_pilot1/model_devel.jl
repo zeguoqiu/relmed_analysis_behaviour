@@ -28,6 +28,8 @@ begin
 end
 
 # ╔═╡ f3babe5a-a0e3-4b5d-bc5e-630b460dcd06
+# ╠═╡ skip_as_script = true
+#=╠═╡
 begin
 	# Set theme
 	inter_bold = assetpath(pwd() * "/fonts/Inter/Inter-Bold.ttf")
@@ -49,6 +51,7 @@ begin
 	)
 	set_theme!(th)
 end
+  ╠═╡ =#
 
 # ╔═╡ 1645ffed-f945-4cb4-9e26-fa7ec40117aa
 # Load and clean data
@@ -121,6 +124,8 @@ begin
 end
 
 # ╔═╡ 183e0f9e-2710-4331-a5c0-25f02bbdb33e
+# ╠═╡ skip_as_script = true
+#=╠═╡
 begin
 	# Filter by session
 	sess1_no_early_data = filter(x -> (x.session == "1") & (!x.early_stop), PLT_data)
@@ -136,18 +141,35 @@ begin
 			aao;
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3,
-		load_model = true
+		threads_per_chain = 3
 	)
 	m1s1ne_sum, m1s1ne_time
 end
+  ╠═╡ =#
 
-# ╔═╡ 58c96d00-3247-4254-bf59-ef403708d9c3
-to_standata(sess1_no_early_forfit,
-			0.;
-			model_name = "group_QLrs")
+# ╔═╡ 7f967617-bb50-472b-93d8-28afbf75df79
+#=╠═╡
+begin
+	_, m1s1ne_mle, m1s1neml_time = load_run_cmdstanr(
+		"m1s1neml",
+		"group_QLRs02ml.stan",
+		to_standata(sess1_no_early_forfit,
+			aao);
+		print_vars = vcat([["a[$i]", "rho[i]"] for i in 1:5]...),
+		threads_per_chain = 12,
+		method = "optimize",
+		iter_warmup = 5000
+	)
+	m1s1ne_mle, m1s1neml_time
+end
+  ╠═╡ =#
+
+# ╔═╡ 80d80966-81a4-4e02-9445-eb0a11c94197
+
 
 # ╔═╡ 3d055263-edeb-48d4-9ea2-e076326ee207
+# ╠═╡ skip_as_script = true
+#=╠═╡
 begin
 	m1s1ne0i_sum, m1s1ne0i_draws, m1s1ne0i_time = load_run_cmdstanr(
 		"m1s1ne0i",
@@ -161,8 +183,11 @@ begin
 	)
 	m1s1ne_sum, m1s1ne_time
 end
+  ╠═╡ =#
 
 # ╔═╡ eeaaea99-673d-4f34-a633-64955caa971e
+# ╠═╡ skip_as_script = true
+#=╠═╡
 function extract_participant_params(
 	draws::DataFrame;
 	params::Vector{String} = ["a", "rho"],
@@ -191,8 +216,11 @@ function extract_participant_params(
 
 	return res
 end
+  ╠═╡ =#
 
 # ╔═╡ cee9b208-46ad-4e31-92c4-d2bfdbad7ad3
+# ╠═╡ skip_as_script = true
+#=╠═╡
 function q_learning_posterior_predictive_draw(i;
 	data::DataFrame = copy(forfit),
 	draw::DataFrame,
@@ -252,8 +280,11 @@ function q_learning_posterior_predictive_draw(i;
 	return sims
 end
 
+  ╠═╡ =#
 
 # ╔═╡ 7d836234-8703-48d0-9c66-f39761a57d65
+# ╠═╡ skip_as_script = true
+#=╠═╡
 function q_learning_posterior_predictive(
 	data::DataFrame,
 	draws::DataFrame
@@ -283,8 +314,11 @@ function q_learning_posterior_predictive(
 
 	return vcat(ppc...)
 end
+  ╠═╡ =#
 
 # ╔═╡ 1fc6a457-cd86-4835-a18a-75db1fe4a469
+# ╠═╡ skip_as_script = true
+#=╠═╡
 function plot_q_learning_ppc_accuracy(
 	data::DataFrame,
 	ppc::DataFrame;
@@ -347,23 +381,38 @@ function plot_q_learning_ppc_accuracy(
 	f_acc
 
 end
+  ╠═╡ =#
 
 # ╔═╡ 0bbcf2ce-4297-4543-8659-94ea07b2e0f7
+# ╠═╡ skip_as_script = true
+#=╠═╡
 m1s1ne_ppc = q_learning_posterior_predictive(sess1_no_early_forfit, m1s1ne_draws)
+  ╠═╡ =#
 
 # ╔═╡ e9da9e37-dea2-4ea0-8084-d280aa8e3e95
+# ╠═╡ skip_as_script = true
+#=╠═╡
 plot_q_learning_ppc_accuracy(sess1_no_early_forfit, m1s1ne_ppc;
 	title = "Initial value = $(round(aao, digits = 3))"
 )
+  ╠═╡ =#
 
 # ╔═╡ 7f1f513a-b960-4dd5-b1c5-9f87e4af5ae9
+# ╠═╡ skip_as_script = true
+#=╠═╡
 m1s1ne0i_ppc = q_learning_posterior_predictive(sess1_no_early_forfit, m1s1ne0i_draws)
+  ╠═╡ =#
 
 # ╔═╡ 3def17fd-3ac7-416d-bcb0-dba48ec1918b
+# ╠═╡ skip_as_script = true
+#=╠═╡
 plot_q_learning_ppc_accuracy(sess1_no_early_forfit, m1s1ne0i_ppc;
 	title = "Initial value = 0")
+  ╠═╡ =#
 
 # ╔═╡ dce1e578-055a-45fb-97d1-99842e222068
+# ╠═╡ skip_as_script = true
+#=╠═╡
 let
 	f_bivar_post = Figure()
 
@@ -431,6 +480,7 @@ let
 	f_bivar_post
 
 end
+  ╠═╡ =#
 
 # ╔═╡ Cell order:
 # ╠═8c7452ce-49c8-11ef-2441-d5bcc4726e41
@@ -439,7 +489,8 @@ end
 # ╠═c3a58ad1-3a58-4689-b308-3d17b5325e22
 # ╠═821fe42b-c46d-4cc4-89b4-af23637c01e4
 # ╠═183e0f9e-2710-4331-a5c0-25f02bbdb33e
-# ╠═58c96d00-3247-4254-bf59-ef403708d9c3
+# ╠═7f967617-bb50-472b-93d8-28afbf75df79
+# ╠═80d80966-81a4-4e02-9445-eb0a11c94197
 # ╠═3d055263-edeb-48d4-9ea2-e076326ee207
 # ╠═eeaaea99-673d-4f34-a633-64955caa971e
 # ╠═cee9b208-46ad-4e31-92c4-d2bfdbad7ad3

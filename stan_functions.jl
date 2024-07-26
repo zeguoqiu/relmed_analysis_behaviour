@@ -92,7 +92,8 @@ function run_cmdstanr(
 	iter_warmup::Int64 = 1000,
 	iter_sampling::Int64 = 1000,
 	adapt_delta::Union{Float64, Missing}=missing,
-	print_vars::Union{Vector{String}, Missing}=missing
+	print_vars::Union{Vector{String}, Missing}=missing,
+	method::String = "sample" # Stan method
 	)
 
 	# File paths
@@ -109,6 +110,31 @@ function run_cmdstanr(
 	end
 
 	# Prepare R script
+	if method == "sample"
+		cmdstanr_call = """fit <- mod\$sample(
+			data = "$json_file",
+			seed = $seed,
+			chains = $chains,
+			parallel_chains = $parallel_chains,
+			refresh = $refresh,
+			output_dir = "$model_dir",
+			$(threads_per_chain > 1 ? "threads_per_chain = $threads_per_chain," : "")
+			iter_warmup = $iter_warmup,
+			iter_sampling = $iter_sampling,
+			$(!ismissing(adapt_delta) ? "adapt_delta = $adapt_delta" : "")
+		  )"""
+	elseif method == "optimize"
+		cmdstanr_call = """fit <- mod\$optimize(
+			data = "$json_file",
+			seed = $seed,
+			refresh = $refresh,
+			output_dir = "$model_dir",
+			iter = $iter_warmup,
+			$(threads_per_chain > 1 ? "threads = $threads_per_chain," : "")
+			)"""
+	end
+
+
 	r_script = """
 	library(cmdstanr)
     set_cmdstan_path("/home/jovyan/.cmdstanr/cmdstan-2.34.1")
@@ -122,18 +148,7 @@ function run_cmdstanr(
 	)
 
 	# Fit model
-	fit <- mod\$sample(
-	  data = "$json_file",
-	  seed = $seed,
-	  chains = $chains,
-	  parallel_chains = $parallel_chains,
-	  refresh = $refresh,
-	  output_dir = "$model_dir",
-	  $(threads_per_chain > 1 ? "threads_per_chain = $threads_per_chain," : "")
-	  iter_warmup = $iter_warmup,
-	  iter_sampling = $iter_sampling,
-	  $(!ismissing(adapt_delta) ? "adapt_delta = $adapt_delta" : "")
-	)
+	$cmdstanr_call
 
 
 	# Save draws as csv
@@ -172,7 +187,8 @@ function load_run_cmdstanr(
 	iter_sampling::Int64 = 1000,
 	adapt_delta::Union{Float64, Missing}=missing,
 	print_vars::Union{Vector{String}, Missing}=missing,
-	load_model::Bool=false # Whehter to load model in R, or just return draws
+	load_model::Bool=false, # Whehter to load model in R, or just return draws,
+	method::String = "sample"
 )
 	model_dir = joinpath(output_dir, model_name) # Subfolder in saved models folder
 	
@@ -183,16 +199,17 @@ function load_run_cmdstanr(
 			model_name,
 			"stan_models/$model_file",
 			data;
-			seed,
-			chains,
-			parallel_chains,
-			refresh,
-			output_dir,
-			threads_per_chain,
-			iter_warmup,
-			iter_sampling,
-			adapt_delta,
-			print_vars
+			seed = seed,
+			chains = chains,
+			parallel_chains = parallel_chains,
+			refresh = refresh,
+			output_dir = output_dir,
+			threads_per_chain = threads_per_chain,
+			iter_warmup = iter_warmup,
+			iter_sampling = iter_sampling,
+			adapt_delta = adapt_delta,
+			print_vars = print_vars,
+			method = method
 		)
 	else
 		println("Found previous model fit for $model_name, loading.")
