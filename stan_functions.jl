@@ -1,21 +1,15 @@
 function to_standata(
 	data::DataFrame,
-    initV::Function; # Function that returns initial Q values per block
+    aao::Float64; # Function that returns initial Q values per block
 	model_name::String = "group_QLrs",
     choice_col::Symbol = :isOptimal, # Should be 0, 1
     outcome_col::Symbol = :chosenOutcome,
     PID_col::Symbol = :pp,
-    block_col::Symbol = :block
+    block_col::Symbol = :block,
+	valence_col::Symbol = :valence
     )
 
     @assert sort(unique(data[!, choice_col])) == [0, 1]
-
-    cbl = unique(data[!, [PID_col, block_col]])
-    cbl.cbl = 1:nrow(cbl)
-
-    cbl = innerjoin(data[!, [PID_col, block_col]], cbl, 
-        on = [PID_col, block_col], 
-        order = :left)
     
 	sd = Dict(
         "N" => nrow(data),
@@ -24,10 +18,10 @@ function to_standata(
         "total_N_bl" => nrow(unique(data[!, [PID_col, :session, block_col]])),
 		"pp" => data[!, PID_col],
 		"bl" => data[!, block_col],
-        "cbl" => cbl.cbl,
+		"valence" => data[!, valence_col],
 		"choice" => data[!, choice_col] .+ 0,
 		"outcome" => data[!, outcome_col],
-		"initV" => initV(data)
+		"aao" => aao
     )
 
     sd["grainsize"] = 1
