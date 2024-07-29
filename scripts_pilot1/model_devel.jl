@@ -164,69 +164,97 @@ begin
 end
   ╠═╡ =#
 
+# ╔═╡ 4341ed9d-deba-412a-9669-8f27abd0fdb3
+Makie.wong_colors()[2:end]
+
 # ╔═╡ 35dc9f76-7c1f-41c9-a43e-66629c8c9345
 #=╠═╡
 function compare_post_mle(
 	f::Figure,
 	mle_pars::Dict,
-	post_params::Dict
+	post_params::Dict;
+	extreme_rho_threshold::Float64 = 100.,
+	extreme_a_threshold::Float64 = 10.
 )
 
+	# Plot mle alpha vs rho
 	ax = Axis(
 		f[1,1],
-		xlabel = "MLE a",
-		ylabel = "MLE rho"
+		xlabel = "MLE α",
+		ylabel = "MLE ρ"
 	)
 
 	scatter!(
 		ax,
-		collect(mle_pars["a"][1, :]),
+		a2α.(collect(mle_pars["a"][1, :])),
 		collect(mle_pars["rho"][1, :])
 	)
 
+	# Plot posterior alpha vs rho
 	ax = Axis(
 		f[1,2],
-		xlabel = "Posterior a",
-		ylabel = "Posterior rho"
+		xlabel = "Posterior α",
+		ylabel = "Posterior ρ"
 	)
 
 	scatter!(
 		ax,
-		collect(post_params["a"][1, :]),
+		collect(post_params["a"][1, :]) .|> a2α,
 		collect(post_params["rho"][1, :])
 	)
 
 
+	# Plot posterior alpha vs mle alpha. Higlight extreme values
 	ax = Axis(
 		f[2,1],
-		xlabel = "MLE a",
-		ylabel = "Posterior a"
+		xlabel = "MLE α",
+		ylabel = "Posterior α"
 	)
+
+	extreme_a_func = x -> extreme_a_threshold > 0 ?
+		x > extreme_a_threshold : 
+		x < extreme_a_threshold
+
 
 	scatter!(
 		ax,
-		collect(mle_pars["a"][1, :]),
-		collect(post_params["a"][1, :])
+		collect(mle_pars["a"][1, :]) .|> a2α,
+		collect(post_params["a"][1, :]) .|> a2α,
+		color = ifelse.(extreme_a_func.(collect(mle_pars["a"][1, :])), 
+			Makie.wong_colors()[4],
+			Makie.wong_colors()[1]
+		)
 	)
 
+	# Plot posterior rho vs mle rho. Higlight extreme values
 	ax = Axis(
 		f[2,2],
-		xlabel = "MLE rho",
-		ylabel = "Posterior rho"
+		xlabel = "MLE ρ",
+		ylabel = "Posterior ρ"
 	)
+
+	extreme_rho_func = x -> extreme_rho_threshold > 0 ?
+		x > extreme_rho_threshold : 
+		x < extreme_rho_threshold
+
 
 	scatter!(
 		ax,
 		collect(mle_pars["rho"][1, :]),
-		collect(post_params["rho"][1, :])
+		collect(post_params["rho"][1, :]),
+		color = ifelse.(extreme_rho_func.(collect(mle_pars["rho"][1, :])), 
+			Makie.wong_colors()[2],
+			Makie.wong_colors()[1]
+		)
 	)
 
-	extreme_a = findall(x -> x > 10, collect(mle_pars["a"][1, :]))
-
-	extreme_a = filter(x -> x.pp in extreme_a, sess1_no_early_forfit)
-
-	# Plot data
-	function plot_subset_participants(data::DataFrame, r::Int64, c::Int64)
+	# Plot data for extreme values
+	function plot_subset_participants(
+		data::DataFrame,
+		r::Int64,
+		c::Int64; 
+		color = Makie.wong_colors()
+	)
 		ax_extreme_a = nothing
 		for (i, p) in enumerate(unique(data.pp))
 			
@@ -235,28 +263,35 @@ function compare_post_mle(
 				ax_extreme_a = plot_group_accuracy!(f[r,c], 
 					tp, 
 					error_band = false,
-					linewidth = 1.
+					linewidth = 1.,
+					colors = color
 				)
 			else
 				plot_group_accuracy!(ax_extreme_a, tp, error_band = false,
-					linewidth = 1.
+					linewidth = 1.,
+					colors = color
 				)
 			end
 		end
 	end
-	
+
+	# Find and plot extreme as
+	extreme_a = findall(extreme_a_func, 
+		collect(mle_pars["a"][1, :]))
+
+	extreme_a = filter(x -> x.pp in extreme_a, sess1_no_early_forfit)
+
 	if nrow(extreme_a) > 0
-		plot_subset_participants(extreme_a, 3, 1)
+		plot_subset_participants(extreme_a, 3, 1; color = Makie.wong_colors()[4:end])
 	end
 
-
-	extreme_rho = findall(x -> x > 100, collect(mle_pars["rho"][1, :]))
+	# Find and plot extreme rhos
+	extreme_rho = findall(extreme_rho_func, collect(mle_pars["rho"][1, :]))
 
 	extreme_rho = filter(x -> x.pp in extreme_rho, sess1_no_early_forfit)
 
-	# Plot data
 	if nrow(extreme_rho) > 0
-		plot_subset_participants(extreme_rho, 3, 2)
+		plot_subset_participants(extreme_rho, 3, 2, color = Makie.wong_colors()[2:end])
 	end
 
 	return f
@@ -341,7 +376,7 @@ begin
 
 	f_post_mle = Figure(size = (700,800))
 
-	compare_post_mle(f_post_mle, mle_pars, post_params)
+	compare_post_mle(f_post_mle, mle_pars, post_params; extreme_a_threshold = 10.)
 
 end
   ╠═╡ =#
@@ -351,9 +386,12 @@ end
 begin
 	pmle_pars = extract_participant_params(m1s1ne_pmle; rescale = false)
 
-	f_post_pmle = Figure(size = (700, 600))
+	f_post_pmle = Figure(size = (700, 800))
 
-	compare_post_mle(f_post_pmle, pmle_pars, post_params)
+	compare_post_mle(f_post_pmle, pmle_pars, post_params;
+		extreme_rho_threshold = 6.,
+		extreme_a_threshold = -0.5
+	)
 end
   ╠═╡ =#
 
@@ -629,6 +667,7 @@ end
 # ╠═821fe42b-c46d-4cc4-89b4-af23637c01e4
 # ╠═183e0f9e-2710-4331-a5c0-25f02bbdb33e
 # ╠═7f967617-bb50-472b-93d8-28afbf75df79
+# ╠═4341ed9d-deba-412a-9669-8f27abd0fdb3
 # ╠═35dc9f76-7c1f-41c9-a43e-66629c8c9345
 # ╠═80d80966-81a4-4e02-9445-eb0a11c94197
 # ╠═d1ce306b-139c-481c-936b-c68978c2e2a1
