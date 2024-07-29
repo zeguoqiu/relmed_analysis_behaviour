@@ -164,9 +164,6 @@ begin
 end
   ╠═╡ =#
 
-# ╔═╡ 4341ed9d-deba-412a-9669-8f27abd0fdb3
-Makie.wong_colors()[2:end]
-
 # ╔═╡ 35dc9f76-7c1f-41c9-a43e-66629c8c9345
 #=╠═╡
 function compare_post_mle(
@@ -174,14 +171,16 @@ function compare_post_mle(
 	mle_pars::Dict,
 	post_params::Dict;
 	extreme_rho_threshold::Float64 = 100.,
-	extreme_a_threshold::Float64 = 10.
+	extreme_a_threshold::Float64 = 10.,
+	label1 = "MLE",
+	label2 = "Posterior"
 )
 
 	# Plot mle alpha vs rho
 	ax = Axis(
 		f[1,1],
-		xlabel = "MLE α",
-		ylabel = "MLE ρ"
+		xlabel = "$label1 α",
+		ylabel = "$label1 ρ"
 	)
 
 	scatter!(
@@ -193,8 +192,8 @@ function compare_post_mle(
 	# Plot posterior alpha vs rho
 	ax = Axis(
 		f[1,2],
-		xlabel = "Posterior α",
-		ylabel = "Posterior ρ"
+		xlabel = "$label2 α",
+		ylabel = "$label2 ρ"
 	)
 
 	scatter!(
@@ -207,8 +206,8 @@ function compare_post_mle(
 	# Plot posterior alpha vs mle alpha. Higlight extreme values
 	ax = Axis(
 		f[2,1],
-		xlabel = "MLE α",
-		ylabel = "Posterior α"
+		xlabel = "$label1 α",
+		ylabel = "$label2 α"
 	)
 
 	extreme_a_func = x -> extreme_a_threshold > 0 ?
@@ -229,8 +228,8 @@ function compare_post_mle(
 	# Plot posterior rho vs mle rho. Higlight extreme values
 	ax = Axis(
 		f[2,2],
-		xlabel = "MLE ρ",
-		ylabel = "Posterior ρ"
+		xlabel = "$label1 ρ",
+		ylabel = "$label2 ρ"
 	)
 
 	extreme_rho_func = x -> extreme_rho_threshold > 0 ?
@@ -315,6 +314,23 @@ begin
 end
   ╠═╡ =#
 
+# ╔═╡ d0b8a80c-713e-47b8-bf4b-001ce0fa668d
+#=╠═╡
+begin
+	_, m1s1ne_map, m1s1nemap_time = load_run_cmdstanr(
+		"m1s1nemap",
+		"group_QLrs02.stan",
+		to_standata(sess1_no_early_forfit,
+			aao);
+		print_vars = vcat([["a[$i]", "rho[$i]"] for i in 1:5]...),
+		threads_per_chain = 12,
+		method = "optimize",
+		iter_warmup = 5000
+	)
+	m1s1ne_map, m1s1nemap_time
+end
+  ╠═╡ =#
+
 # ╔═╡ 3d055263-edeb-48d4-9ea2-e076326ee207
 # ╠═╡ skip_as_script = true
 #=╠═╡
@@ -390,7 +406,24 @@ begin
 
 	compare_post_mle(f_post_pmle, pmle_pars, post_params;
 		extreme_rho_threshold = 6.,
-		extreme_a_threshold = -0.5
+		extreme_a_threshold = -0.5,
+		label1 = "Penalized MLE"
+	)
+end
+  ╠═╡ =#
+
+# ╔═╡ 8cdc4def-6c8e-4313-8023-a80c910e1e94
+#=╠═╡
+begin
+	map_pars = extract_participant_params(m1s1ne_map; rescale = false)
+
+	f_post_map = Figure(size = (700, 800))
+
+	compare_post_mle(f_post_map, map_pars, post_params;
+		extreme_rho_threshold = 0.005,
+		extreme_a_threshold = 0.7,
+		label1 = "MAP",
+		label2 = "Sampling MAP"
 	)
 end
   ╠═╡ =#
@@ -667,11 +700,12 @@ end
 # ╠═821fe42b-c46d-4cc4-89b4-af23637c01e4
 # ╠═183e0f9e-2710-4331-a5c0-25f02bbdb33e
 # ╠═7f967617-bb50-472b-93d8-28afbf75df79
-# ╠═4341ed9d-deba-412a-9669-8f27abd0fdb3
 # ╠═35dc9f76-7c1f-41c9-a43e-66629c8c9345
 # ╠═80d80966-81a4-4e02-9445-eb0a11c94197
 # ╠═d1ce306b-139c-481c-936b-c68978c2e2a1
 # ╠═56e25bac-ced8-4793-a533-5da8aa768d8a
+# ╠═d0b8a80c-713e-47b8-bf4b-001ce0fa668d
+# ╠═8cdc4def-6c8e-4313-8023-a80c910e1e94
 # ╠═3d055263-edeb-48d4-9ea2-e076326ee207
 # ╠═eeaaea99-673d-4f34-a633-64955caa971e
 # ╠═cee9b208-46ad-4e31-92c4-d2bfdbad7ad3
