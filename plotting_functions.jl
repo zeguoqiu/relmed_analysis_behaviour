@@ -37,7 +37,55 @@ function plot_group_accuracy!(
     backgroundcolor = :white,
     ylabel::Union{String, Makie.RichText}="Prop. optimal choice",
     levels::Union{AbstractVector, Missing} = missing,
-	error_band::Bool = true
+	error_band::Bool = true,
+	linewidth::Float64 = 3.
+    )
+
+	# Set up axis
+		ax = Axis(f[1,1],
+        xlabel = "Trial #",
+        ylabel = ylabel,
+        xautolimitmargin = (0., 0.),
+        backgroundcolor = backgroundcolor,
+        title = title
+    )
+
+	plot_group_accuracy!(
+		ax,
+		data;
+		group = group,
+		pid_col = pid_col,
+		acc_col = acc_col,
+		colors = colors,
+		title = title,
+		legend = legend,
+		legend_title = legend_title,
+		backgroundcolor = backgroundcolor,
+		ylabel = ylabel,
+		levels = levels,
+		error_band = error_band,
+		linewidth = linewidth
+		)
+
+	return ax
+
+end
+
+function plot_group_accuracy!(
+    ax::Axis,
+    data::DataFrame;
+    group::Union{Symbol, Missing} = missing,
+    pid_col::Symbol = :prolific_pid,
+    acc_col::Symbol = :isOptimal,
+    colors = Makie.wong_colors(),
+    title::String = "",
+    legend::Union{Dict, Missing} = missing,
+    legend_title::String = "",
+    backgroundcolor = :white,
+    ylabel::Union{String, Makie.RichText}="Prop. optimal choice",
+    levels::Union{AbstractVector, Missing} = missing,
+	error_band::Bool = true,
+	linewidth::Float64 = 3.
     )
 
     # Default group value
@@ -62,15 +110,8 @@ function plot_group_accuracy!(
         :acc => sem => :acc_sem
     )
 
-    # Set up axis
-    ax = Axis(f[1,1],
-        xlabel = "Trial #",
-        ylabel = ylabel,
-        xautolimitmargin = (0., 0.),
-        xticks = range(1, round(Int64, maximum(sum_data.trial)), 4),
-        backgroundcolor = backgroundcolor,
-        title = title
-    )
+	# Set axis xticks
+	ax.xticks = range(1, round(Int64, maximum(sum_data.trial)), 4)
 
     group_levels = ismissing(levels) ? unique(sum_data.group) : levels
     for (i,g) in enumerate(group_levels)
@@ -90,7 +131,7 @@ function plot_group_accuracy!(
             gdat.trial, 
             gdat.acc, 
             color = colors[i],
-            linewidth = 3)
+            linewidth = linewidth)
     end
 
     if !ismissing(legend)
@@ -109,9 +150,6 @@ function plot_group_accuracy!(
         # rowsize!(f.layout, 0, Relative(0.1))
     end
         
-
-    return ax
-
 end
 
 function plot_sim_group_q_values!(
