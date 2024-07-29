@@ -6,24 +6,24 @@ using InteractiveUtils
 
 # ╔═╡ 8c7452ce-49c8-11ef-2441-d5bcc4726e41
 begin
-	cd("/home/jovyan/")
+	cd("/home/jovyan")
 	import Pkg
 	
 	# activate the shared project environment
-    Pkg.activate("relmed_environment")
+    Pkg.activate("$(pwd())/relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase,
-		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO, JuMP, CSV, Dates, JSON, RCall
+		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO, JuMP, CSV, Dates, JSON, RCall, HTTP
 	using IterTools: product
 	using LogExpFunctions: logsumexp
 	using Combinatorics: combinations
 
-	include("fetch_preprocess_data.jl")
-	include("stan_functions.jl")
-	include("PLT_task_functions.jl")
-	include("fisher_information_functions.jl")
-	include("plotting_functions.jl")
+	include("$(pwd())/fetch_preprocess_data.jl")
+	include("$(pwd())/stan_functions.jl")
+	include("$(pwd())/PLT_task_functions.jl")
+	include("$(pwd())/fisher_information_functions.jl")
+	include("$(pwd())/plotting_functions.jl")
 
 end
 
@@ -155,7 +155,7 @@ begin
 		"group_QLRs02ml.stan",
 		to_standata(sess1_no_early_forfit,
 			aao);
-		print_vars = vcat([["a[$i]", "rho[i]"] for i in 1:5]...),
+		print_vars = vcat([["a[$i]", "rho[$i]"] for i in 1:5]...),
 		threads_per_chain = 12,
 		method = "optimize",
 		iter_warmup = 5000
@@ -164,8 +164,121 @@ begin
 end
   ╠═╡ =#
 
-# ╔═╡ 80d80966-81a4-4e02-9445-eb0a11c94197
+# ╔═╡ 35dc9f76-7c1f-41c9-a43e-66629c8c9345
+#=╠═╡
+function compare_post_mle(
+	f::Figure,
+	mle_pars::Dict,
+	post_params::Dict
+)
 
+	ax = Axis(
+		f[1,1],
+		xlabel = "MLE a",
+		ylabel = "MLE rho"
+	)
+
+	scatter!(
+		ax,
+		collect(mle_pars["a"][1, :]),
+		collect(mle_pars["rho"][1, :])
+	)
+
+	ax = Axis(
+		f[1,2],
+		xlabel = "Posterior a",
+		ylabel = "Posterior rho"
+	)
+
+	scatter!(
+		ax,
+		collect(post_params["a"][1, :]),
+		collect(post_params["rho"][1, :])
+	)
+
+
+	ax = Axis(
+		f[2,1],
+		xlabel = "MLE a",
+		ylabel = "Posterior a"
+	)
+
+	scatter!(
+		ax,
+		collect(mle_pars["a"][1, :]),
+		collect(post_params["a"][1, :])
+	)
+
+	ax = Axis(
+		f[2,2],
+		xlabel = "MLE rho",
+		ylabel = "Posterior rho"
+	)
+
+	scatter!(
+		ax,
+		collect(mle_pars["rho"][1, :]),
+		collect(post_params["rho"][1, :])
+	)
+
+	extreme_a = findall(x -> x > 10, collect(mle_pars["a"][1, :]))
+
+	extreme_a = filter(x -> x.pp in extreme_a, sess1_no_early_forfit)
+
+	# Plot data
+	function plot_subset_participants(data::DataFrame, r::Int64, c::Int64)
+		ax_extreme_a = nothing
+		for (i, p) in enumerate(unique(data.pp))
+			
+			tp = filter(x -> x.pp == p, data)
+			if i == 1
+				ax_extreme_a = plot_group_accuracy!(f[r,c], 
+					tp, 
+					error_band = false,
+					linewidth = 1.
+				)
+			else
+				plot_group_accuracy!(ax_extreme_a, tp, error_band = false,
+					linewidth = 1.
+				)
+			end
+		end
+	end
+	
+	if nrow(extreme_a) > 0
+		plot_subset_participants(extreme_a, 3, 1)
+	end
+
+
+	extreme_rho = findall(x -> x > 100, collect(mle_pars["rho"][1, :]))
+
+	extreme_rho = filter(x -> x.pp in extreme_rho, sess1_no_early_forfit)
+
+	# Plot data
+	if nrow(extreme_rho) > 0
+		plot_subset_participants(extreme_rho, 3, 2)
+	end
+
+	return f
+end
+  ╠═╡ =#
+
+# ╔═╡ d1ce306b-139c-481c-936b-c68978c2e2a1
+#=╠═╡
+begin
+	_, m1s1ne_pmle, m1s1nepml_time = load_run_cmdstanr(
+		"m1s1nepml",
+		"group_QLrs02pml.stan",
+		to_standata(sess1_no_early_forfit,
+			aao);
+		print_vars = vcat([["a[$i]", "rho[$i]"] for i in 1:5]...),
+		threads_per_chain = 12,
+		method = "optimize",
+		iter_warmup = 5000
+	)
+	m1s1ne_pmle, m1s1nepml_time
+end
+  ╠═╡ =#
 
 # ╔═╡ 3d055263-edeb-48d4-9ea2-e076326ee207
 # ╠═╡ skip_as_script = true
@@ -178,8 +291,7 @@ begin
 			0.;
 			model_name = "group_QLrs");
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3,
-		load_model = true
+		threads_per_chain = 3
 	)
 	m1s1ne_sum, m1s1ne_time
 end
@@ -215,6 +327,33 @@ function extract_participant_params(
 	end
 
 	return res
+end
+  ╠═╡ =#
+
+# ╔═╡ 80d80966-81a4-4e02-9445-eb0a11c94197
+#=╠═╡
+begin
+	filter(x -> x.lp__ == maximum(m1s1ne_draws.lp__), m1s1ne_draws)
+	post_params = extract_participant_params(filter(x -> x.lp__ == 
+		maximum(m1s1ne_draws.lp__), m1s1ne_draws))
+	
+	mle_pars = extract_participant_params(m1s1ne_mle; rescale = false)
+
+	f_post_mle = Figure(size = (700,800))
+
+	compare_post_mle(f_post_mle, mle_pars, post_params)
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 56e25bac-ced8-4793-a533-5da8aa768d8a
+#=╠═╡
+begin
+	pmle_pars = extract_participant_params(m1s1ne_pmle; rescale = false)
+
+	f_post_pmle = Figure(size = (700, 600))
+
+	compare_post_mle(f_post_pmle, pmle_pars, post_params)
 end
   ╠═╡ =#
 
@@ -490,7 +629,10 @@ end
 # ╠═821fe42b-c46d-4cc4-89b4-af23637c01e4
 # ╠═183e0f9e-2710-4331-a5c0-25f02bbdb33e
 # ╠═7f967617-bb50-472b-93d8-28afbf75df79
+# ╠═35dc9f76-7c1f-41c9-a43e-66629c8c9345
 # ╠═80d80966-81a4-4e02-9445-eb0a11c94197
+# ╠═d1ce306b-139c-481c-936b-c68978c2e2a1
+# ╠═56e25bac-ced8-4793-a533-5da8aa768d8a
 # ╠═3d055263-edeb-48d4-9ea2-e076326ee207
 # ╠═eeaaea99-673d-4f34-a633-64955caa971e
 # ╠═cee9b208-46ad-4e31-92c4-d2bfdbad7ad3
