@@ -19,11 +19,11 @@ begin
 	using LogExpFunctions: logsumexp
 	using Combinatorics: combinations
 	
-	include("fetch_preprocess_data.jl")
-	include("stan_functions.jl")
-	include("PLT_task_functions.jl")
-	include("fisher_information_functions.jl")
-	include("plotting_functions.jl")
+	include("$(pwd())/fetch_preprocess_data.jl")
+	include("$(pwd())/stan_functions.jl")
+	include("$(pwd())/PLT_task_functions.jl")
+	include("$(pwd())/fisher_information_functions.jl")
+	include("$(pwd())/plotting_functions.jl")
 
 end
 
