@@ -205,21 +205,21 @@ md"""Then for session 2. Note that condition names (Reward first, Punishment fir
 plot_split_by_condition(filter(x -> x.session == "2", PLT_data))
 
 # ╔═╡ Cell order:
-# ╟─74c8335c-4095-11ef-21d3-0715bde378a8
-# ╟─fb5e4cda-5cdd-492a-8ca2-38fc3fc68ce9
-# ╟─1b7c9fc7-af54-4e2f-8303-b64ddd519453
+# ╠═74c8335c-4095-11ef-21d3-0715bde378a8
+# ╠═fb5e4cda-5cdd-492a-8ca2-38fc3fc68ce9
+# ╠═1b7c9fc7-af54-4e2f-8303-b64ddd519453
 # ╟─95b7d6fa-b85f-4095-b53d-afb5fabe9095
-# ╟─d97ba043-122c-47b8-ab3e-b3d157f47f42
+# ╠═d97ba043-122c-47b8-ab3e-b3d157f47f42
 # ╟─fadee7a8-cffd-4d8f-b7cc-54ba09dffb50
-# ╟─c6ce2aee-24d4-49f8-a57c-2b4e9a3ca022
+# ╠═c6ce2aee-24d4-49f8-a57c-2b4e9a3ca022
 # ╟─d9e65244-b9ff-48e1-9fa8-e34be86d0e99
-# ╟─48d11871-5cd3-40f7-adb8-92db011a5d98
+# ╠═48d11871-5cd3-40f7-adb8-92db011a5d98
 # ╟─da0702d9-f1ae-4aef-9e8a-feec738b447b
-# ╟─44985a70-bd56-4e61-a187-a7911c773457
+# ╠═44985a70-bd56-4e61-a187-a7911c773457
 # ╟─d8581ec0-c195-4040-8cb2-6b493a544cdb
-# ╟─3c0fa20c-5543-4c92-92d6-3d4495d2cdf5
-# ╟─75162f83-a5f5-44f8-a62c-b0d318604074
+# ╠═3c0fa20c-5543-4c92-92d6-3d4495d2cdf5
+# ╠═75162f83-a5f5-44f8-a62c-b0d318604074
 # ╠═28cf8cd4-fdf9-49de-bf02-9f40039a28c8
-# ╟─61cffe15-3e9e-447b-8fa7-2cde9a83d906
+# ╠═61cffe15-3e9e-447b-8fa7-2cde9a83d906
 # ╟─15ec3792-cb56-42e7-a8dd-9fe835862f62
-# ╟─ca6b7a59-242e-44b1-9ef5-85759cfd9f93
+# ╠═ca6b7a59-242e-44b1-9ef5-85759cfd9f93
