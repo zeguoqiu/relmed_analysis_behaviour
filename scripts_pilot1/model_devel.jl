@@ -415,13 +415,11 @@ end
 # ╔═╡ 8cdc4def-6c8e-4313-8023-a80c910e1e94
 #=╠═╡
 begin
-	map_pars = extract_participant_params(m1s1ne_map; rescale = false)
+	map_pars = extract_participant_params(m1s1ne_map)
 
-	f_post_map = Figure(size = (700, 800))
+	f_post_map = Figure(size = (700, 600))
 
 	compare_post_mle(f_post_map, map_pars, post_params;
-		extreme_rho_threshold = 0.005,
-		extreme_a_threshold = 0.7,
 		label1 = "MAP",
 		label2 = "Sampling MAP"
 	)
