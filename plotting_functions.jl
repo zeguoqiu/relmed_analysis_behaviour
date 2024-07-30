@@ -26,7 +26,7 @@ range_regression_line(x::Vector{Float64}; res = 200) =
 # Plot accuracy for a group, divided by condition / group
 function plot_group_accuracy!(
     f::GridPosition,
-    data::DataFrame;
+    data::Union{DataFrame, SubDataFrame};
     group::Union{Symbol, Missing} = missing,
     pid_col::Symbol = :prolific_pid,
     acc_col::Symbol = :isOptimal,
@@ -92,7 +92,7 @@ end
 
 function plot_group_accuracy!(
     ax::Axis,
-    data::DataFrame;
+    data::Union{DataFrame, SubDataFrame};
     group::Union{Symbol, Missing} = missing,
     pid_col::Symbol = :prolific_pid,
     acc_col::Symbol = :isOptimal,
@@ -137,19 +137,21 @@ function plot_group_accuracy!(
         gdat = filter(:group => (x -> x==g), sum_data)
 
         # Plot line
+		mc = length(colors)
+
 		if error_band
 			band!(ax,
 				gdat.trial,
 				gdat.acc - gdat.acc_sem,
 				gdat.acc + gdat.acc_sem,
-				color = (colors[i], 0.3)
+				color = (colors[rem(i - 1, mc) + 1], 0.3)
 			)
 		end
         
         lines!(ax, 
             gdat.trial, 
             gdat.acc, 
-            color = colors[i],
+            color = colors[rem(i - 1, mc) + 1],
             linewidth = linewidth)
     end
         
