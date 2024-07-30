@@ -12,7 +12,7 @@ begin
     Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
-	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP, JLD2, Dates
+	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP, JLD2, Dates, RCall, LinearAlgebra
 
 	include("fetch_preprocess_data.jl")
 	include("plotting_functions.jl")
@@ -249,11 +249,14 @@ begin
 	
 			if !("Int64[]" in gdf.confusing_sequence)
 				vlines!(
+					ax,
 					filter(x -> x <= 13, eval(Meta.parse(unique(gdf.confusing_sequence)[1])) .+ 1),
 					color = :red,
 					linewidth = 1
 				)
 			end
+
+			#vlines!(ax, [6], linestyle = :dash, color = :grey)
 			
 			hideydecorations!(ax, ticks = c != 1, ticklabels = c != 1)
 			hidexdecorations!(ax, 
@@ -296,6 +299,125 @@ let
 
 end
 
+# ╔═╡ 2d4123e5-b9fa-42f6-b7d3-79cfd7b96395
+km0_draws = let
+	forfit = transform(
+		groupby(no_early_data, [:prolific_pid, :session, :block]),
+		:confusing => (x -> circshift(x, 1) .+ 0) => :prev_confusing
+	)
+
+	filter!(x -> x.trial > 1, forfit)
+
+	saved_model_fld = "saved_models/kernel_method"
+
+	csv_file = joinpath(saved_model_fld, "kernel_method_data.csv")
+
+	CSV.write(csv_file, forfit)
+
+	model_file = joinpath(saved_model_fld, "km0.rda")
+
+	draws_file = joinpath(saved_model_fld, "km0_draws.csv")
+
+
+	rscript = """
+		library(brms)
+		library(cmdstanr)
+	    set_cmdstan_path("/home/jovyan/.cmdstanr/cmdstan-2.34.1")
+
+		dat <- read.csv("$csv_file")
+
+		# Trial as factor
+		dat\$trial <- factor(dat\$trial)
+		contrasts(dat\$trial) <- contr.sum(length(unique(dat\$trial)))
+	
+		km0 <- brm(
+			isOptimal ~ 1 + trial * prev_confusing + 
+				(1 + trial * prev_confusing | prolific_pid),
+			dat,
+			family = bernoulli(),
+			prior = prior(normal(0,1), class = "b") +
+				prior(normal(0,1), class = "sd") +
+				prior(lkj(2), class = "cor"),
+			backend = "cmdstanr",
+			threads = 3,
+			cores = 4,
+			file = "$model_file"
+		)
+		
+		write.csv(as.data.frame(km0), file = "$draws_file")
+
+		km0
+	"""
+
+	if !isfile(draws_file)
+		fit_summary = RCall.reval(rscript)
+	end
+
+	km0_draws = DataFrame(CSV.File(draws_file))
+
+end
+
+# ╔═╡ b83502e2-53da-4808-86db-9f8b2add5caa
+let
+
+	# Select only needed columns from draws
+	confusing_trial_coefs = Matrix(select(km0_draws, r"b_.*confusing"))
+
+	# This is the contast matrix used to fit the data
+	contrasts = vcat(Matrix(1.0I, 11, 11), fill(-1., (1, 11)))
+
+	# Multiply contrast matrix by coefficients, and add the prev_confusing mean coefficient
+	kernel_coefs = confusing_trial_coefs[:, 1] .+ transpose(contrasts * transpose(confusing_trial_coefs[:, 2:end]))
+
+	# Compute summary statistics of posterior distribution
+	kernel_coefs_m = median(kernel_coefs, dims = 1)
+
+	kernel_coefs_lb = quantile.(eachcol(kernel_coefs), 0.25)
+
+	kernel_coefs_ub = quantile.(eachcol(kernel_coefs), 0.75)
+
+	kernel_coefs_llb = quantile.(eachcol(kernel_coefs), 0.025)
+
+	kernel_coefs_uub = quantile.(eachcol(kernel_coefs), 0.975)
+
+	# Plot
+	f_kernel = Figure()
+
+	ax = Axis(
+		f_kernel[1,1],
+		xlabel = "Confusing trial #",
+		ylabel = "Effect on subsequent accuracy",
+		xticks = 1:12
+	)
+
+	band!(
+		ax,
+		1:12,
+		vec(kernel_coefs_llb),
+		vec(kernel_coefs_uub),
+		color = (Makie.wong_colors()[1], 0.1)
+	)
+
+	band!(
+		ax,
+		1:12,
+		vec(kernel_coefs_lb),
+		vec(kernel_coefs_ub),
+		color = (Makie.wong_colors()[1], 0.3)
+	)
+
+	lines!(
+		ax,
+		1:12,
+		vec(kernel_coefs_m)
+	)
+
+	hlines!([0.], linestyle = :dash, color = :grey)
+
+	f_kernel
+
+end
+
 # ╔═╡ Cell order:
 # ╠═74c8335c-4095-11ef-21d3-0715bde378a8
 # ╠═fb5e4cda-5cdd-492a-8ca2-38fc3fc68ce9
@@ -317,3 +439,5 @@ end
 # ╠═ca6b7a59-242e-44b1-9ef5-85759cfd9f93
 # ╠═0ac2f4bd-b64c-4437-b3aa-3d1f2938c3dd
 # ╠═90f87386-c510-4586-8739-e89ff6e67dac
+# ╠═2d4123e5-b9fa-42f6-b7d3-79cfd7b96395
+# ╠═b83502e2-53da-4808-86db-9f8b2add5caa
