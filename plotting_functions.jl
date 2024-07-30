@@ -67,6 +67,25 @@ function plot_group_accuracy!(
 		linewidth = linewidth
 		)
 
+	# Legend
+	if !ismissing(legend)
+		group_levels = ismissing(levels) ? unique(data[!, group]) : levels
+		elements = [PolyElement(color = colors[i]) for i in 1:length(group_levels)]
+		labels = [legend[g] for g in group_levels]
+		
+		Legend(f[0,1],
+			elements,
+			labels,
+			legend_title,
+			framevisible = false,
+			tellwidth = false,
+			orientation = :horizontal,
+			titleposition = :left
+		)
+		# rowsize!(f.layout, 0, Relative(0.1))
+	end
+	
+
 	return ax
 
 end
@@ -132,22 +151,6 @@ function plot_group_accuracy!(
             gdat.acc, 
             color = colors[i],
             linewidth = linewidth)
-    end
-
-    if !ismissing(legend)
-        elements = [PolyElement(color = colors[i]) for i in 1:length(group_levels)]
-        labels = [legend[g] for g in group_levels]
-        
-        Legend(f[0,1],
-            elements,
-            labels,
-            legend_title,
-            framevisible = false,
-            tellwidth = false,
-            orientation = :horizontal,
-            titleposition = :left
-        )
-        # rowsize!(f.layout, 0, Relative(0.1))
     end
         
 end
