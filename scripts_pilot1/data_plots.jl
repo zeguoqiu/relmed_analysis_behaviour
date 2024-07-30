@@ -12,7 +12,7 @@ begin
     Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
-	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP, JLD2
+	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase, JSON, CSV, HTTP, JLD2, Dates
 
 	include("fetch_preprocess_data.jl")
 	include("plotting_functions.jl")
@@ -45,13 +45,14 @@ end
 # Load data
 begin
 	PLT_data = load_PLT_data()
+	PLT_data = exclude_PLT_sessions(PLT_data)
 	nothing
 end
 
 # ╔═╡ 95b7d6fa-b85f-4095-b53d-afb5fabe9095
 md"""
 # Data plots from first pilot of PLT
-This notebook contains plot of raw data from the fist PLT pilot.
+This notebook contains plot of raw data from the first PLT pilot.
 
 ## Overall accuracy curve
 """
@@ -204,6 +205,97 @@ md"""Then for session 2. Note that condition names (Reward first, Punishment fir
 # ╔═╡ ca6b7a59-242e-44b1-9ef5-85759cfd9f93
 plot_split_by_condition(filter(x -> x.session == "2", PLT_data))
 
+# ╔═╡ 0ac2f4bd-b64c-4437-b3aa-3d1f2938c3dd
+begin
+	no_early_data = filter(x -> !x.early_stop, PLT_data)
+
+	no_early_data.confusing = ifelse.(
+		no_early_data.optimalRight .== 1, 
+		no_early_data.outcomeRight .< no_early_data.outcomeLeft,
+		no_early_data.outcomeLeft .< no_early_data.outcomeRight
+	)
+
+	transform!(groupby(no_early_data, [:prolific_pid, :session, :block]),
+		:confusing => (x -> string(findall(x))) => :confusing_sequence
+	)
+
+	sequences = unique(no_early_data.confusing_sequence)
+	sequences = DataFrame(
+		confusing_sequence = sequences,
+		sequence = 1:length(sequences)
+	)
+
+	no_early_data = leftjoin(no_early_data, sequences, on = :confusing_sequence)
+
+	function plot_by_sequence(
+		data::DataFrame;
+		group::Union{Symbol, Missing}=missing
+	)
+		by_sequence = groupby(data, :sequence)
+	
+		f_sequences = Figure(size = (600, 800))
+		axs = []
+		for (i, gdf) in enumerate(by_sequence)
+		
+			r = div(i - 1, 5) + 1
+			c = rem(i - 1, 5) + 1
+			
+			ax = plot_group_accuracy!(
+				f_sequences[r, c], 
+				gdf; 
+				group = group,
+				linewidth = 1.
+			)
+	
+			if !("Int64[]" in gdf.confusing_sequence)
+				vlines!(
+					filter(x -> x <= 13, eval(Meta.parse(unique(gdf.confusing_sequence)[1])) .+ 1),
+					color = :red,
+					linewidth = 1
+				)
+			end
+			
+			hideydecorations!(ax, ticks = c != 1, ticklabels = c != 1)
+			hidexdecorations!(ax, 
+				ticks = length(by_sequence) >= (5 * r + c), 
+				ticklabels = length(by_sequence) >= (5 * r + c))
+			hidespines!(ax)
+	
+			push!(axs, ax)
+			
+		end
+	
+		linkyaxes!(axs...)
+		
+		f_sequences
+	end
+
+	plot_by_sequence(no_early_data)
+end
+
+# ╔═╡ 90f87386-c510-4586-8739-e89ff6e67dac
+let
+	avg_acc = combine(
+		groupby(no_early_data, [:prolific_pid, :session, :block]),
+		:isOptimal => mean => :overall_acc
+	)
+
+	avg_acc = combine(
+		groupby(avg_acc, [:prolific_pid, :session]),
+		:overall_acc => mean => :overall_acc
+	)
+
+	avg_acc.overall_acc_grp = avg_acc.overall_acc .> median(avg_acc.overall_acc)
+
+	no_early_data = leftjoin(no_early_data, avg_acc, 
+		on = [:prolific_pid, :session],
+		order = :left
+	)
+
+	plot_by_sequence(no_early_data; group = :overall_acc_grp)
+
+end
+
 # ╔═╡ Cell order:
 # ╠═74c8335c-4095-11ef-21d3-0715bde378a8
 # ╠═fb5e4cda-5cdd-492a-8ca2-38fc3fc68ce9
@@ -223,3 +315,5 @@ plot_split_by_condition(filter(x -> x.session == "2", PLT_data))
 # ╠═61cffe15-3e9e-447b-8fa7-2cde9a83d906
 # ╟─15ec3792-cb56-42e7-a8dd-9fe835862f62
 # ╠═ca6b7a59-242e-44b1-9ef5-85759cfd9f93
+# ╠═0ac2f4bd-b64c-4437-b3aa-3d1f2938c3dd
+# ╠═90f87386-c510-4586-8739-e89ff6e67dac
