@@ -16,6 +16,7 @@ begin
 
 	include("fetch_preprocess_data.jl")
 	include("plotting_functions.jl")
+	include("stan_functions.jl")
 end
 
 # ╔═╡ fb5e4cda-5cdd-492a-8ca2-38fc3fc68ce9
@@ -273,7 +274,11 @@ begin
 		f_sequences
 	end
 
-	plot_by_sequence(no_early_data)
+	f_sequences = plot_by_sequence(no_early_data)
+
+	save("results/acc_by_sequence.png", f_sequences, pt_per_unit = 1)
+
+	f_sequences
 end
 
 # ╔═╡ 90f87386-c510-4586-8739-e89ff6e67dac
@@ -295,7 +300,25 @@ let
 		order = :left
 	)
 
-	plot_by_sequence(no_early_data; group = :overall_acc_grp)
+	f_seuqnce_overall_acc = plot_by_sequence(
+		no_early_data; 
+		group = :overall_acc_grp
+	)
+
+	Legend(
+		f_seuqnce_overall_acc[0, 1:5],
+		[LineElement(color = c, linewidth = 3) for c in Makie.wong_colors()[[2, 1]]],
+		["Best performing half", "Worst performing half"],
+		framevisible = false,
+		orientation = :horizontal
+	)
+
+	rowsize!(f_seuqnce_overall_acc.layout, 0, Relative(0.01))
+
+	save("results/acc_by_sequence+overal_acc.png", 
+		f_seuqnce_overall_acc, pt_per_unit = 1)
+
+	f_seuqnce_overall_acc
 
 end
 
@@ -358,65 +381,111 @@ km0_draws = let
 end
 
 # ╔═╡ b83502e2-53da-4808-86db-9f8b2add5caa
-let
+begin
+	function plot_kernel_method(;
+		draws::DataFrame,
+		filter::Regex,
+		ylabel::String = "Effect on subsequent accuracy",
+		apply_contrasts::Bool = true
+	)
+		# Select only needed columns from draws
+		confusing_trial_coefs = Matrix(select(draws, filter))
 
-	# Select only needed columns from draws
-	confusing_trial_coefs = Matrix(select(km0_draws, r"b_.*confusing"))
+		if apply_contrasts
+			# This is the contast matrix used to fit the data
+			contrasts = vcat(Matrix(1.0I, 11, 11), fill(-1., (1, 11)))
+		
+			# Multiply contrast matrix by coefficients, and add the prev_confusing mean coefficient
+			kernel_coefs = confusing_trial_coefs[:, 1] .+ transpose(contrasts * transpose(confusing_trial_coefs[:, 2:end]))
+		else
+			kernel_coefs = confusing_trial_coefs
+		end
+	
+		# Compute summary statistics of posterior distribution
+		kernel_coefs_m = median(kernel_coefs, dims = 1)
+	
+		kernel_coefs_lb = quantile.(eachcol(kernel_coefs), 0.25)
+	
+		kernel_coefs_ub = quantile.(eachcol(kernel_coefs), 0.75)
+	
+		kernel_coefs_llb = quantile.(eachcol(kernel_coefs), 0.025)
+	
+		kernel_coefs_uub = quantile.(eachcol(kernel_coefs), 0.975)
+	
+		# Plot
+		f_kernel = Figure()
+	
+		ax = Axis(
+			f_kernel[1,1],
+			xlabel = "Confusing trial #",
+			ylabel = ylabel,
+			xticks = 1:length(kernel_coefs_m),
+		)
+	
+		band!(
+			ax,
+			1:length(kernel_coefs_m),
+			vec(kernel_coefs_llb),
+			vec(kernel_coefs_uub),
+			color = (Makie.wong_colors()[1], 0.1)
+		)
+	
+		band!(
+			ax,
+			1:length(kernel_coefs_m),
+			vec(kernel_coefs_lb),
+			vec(kernel_coefs_ub),
+			color = (Makie.wong_colors()[1], 0.3)
+		)
+	
+		lines!(
+			ax,
+			1:length(kernel_coefs_m),
+			vec(kernel_coefs_m)
+		)
+	
+		hlines!([0.], linestyle = :dash, color = :grey)
 
-	# This is the contast matrix used to fit the data
-	contrasts = vcat(Matrix(1.0I, 11, 11), fill(-1., (1, 11)))
+		return f_kernel
+	end
 
-	# Multiply contrast matrix by coefficients, and add the prev_confusing mean coefficient
-	kernel_coefs = confusing_trial_coefs[:, 1] .+ transpose(contrasts * transpose(confusing_trial_coefs[:, 2:end]))
-
-	# Compute summary statistics of posterior distribution
-	kernel_coefs_m = median(kernel_coefs, dims = 1)
-
-	kernel_coefs_lb = quantile.(eachcol(kernel_coefs), 0.25)
-
-	kernel_coefs_ub = quantile.(eachcol(kernel_coefs), 0.75)
-
-	kernel_coefs_llb = quantile.(eachcol(kernel_coefs), 0.025)
-
-	kernel_coefs_uub = quantile.(eachcol(kernel_coefs), 0.975)
-
-	# Plot
-	f_kernel = Figure()
-
-	ax = Axis(
-		f_kernel[1,1],
-		xlabel = "Confusing trial #",
-		ylabel = "Effect on subsequent accuracy",
-		xticks = 1:12
+	f_kernel = plot_kernel_method(;
+		draws = km0_draws,
+		filter = r"b_.*confusing"
 	)
 
-	band!(
-		ax,
-		1:12,
-		vec(kernel_coefs_llb),
-		vec(kernel_coefs_uub),
-		color = (Makie.wong_colors()[1], 0.1)
-	)
-
-	band!(
-		ax,
-		1:12,
-		vec(kernel_coefs_lb),
-		vec(kernel_coefs_ub),
-		color = (Makie.wong_colors()[1], 0.3)
-	)
-
-	lines!(
-		ax,
-		1:12,
-		vec(kernel_coefs_m)
-	)
-
-	hlines!([0.], linestyle = :dash, color = :grey)
+	save("results/kernel_method_confusing_feedback.png", 
+		f_kernel, pt_per_unit = 1)
 
 	f_kernel
 
 end
+
+# ╔═╡ 344e9f00-c8a7-41b1-a2a2-5074e59044cc
+let
+	f_kernel_cor = plot_kernel_method(;
+			draws = km0_draws,
+			filter = r"cor_prolific_pid__Intercept__trial.*confusing",
+			ylabel = "Correlation between intercept\nand confusing trial coefficient",
+			apply_contrasts = false
+		)
+	
+	save("results/kernel_method_confusing_feedback_corr.png", 
+		f_kernel_cor, pt_per_unit = 1)
+
+	f_kernel_cor
+end
+
+# ╔═╡ bacc8ce8-4481-4142-a582-f4fc673374b7
+print_CI(x) = 
+"$(round(median(x), digits = 2)), 95% CI=[$(round(llb(x), digits = 2)), $(round(uub(x), digits = 2))]"
+
+# ╔═╡ 07a30c6b-8956-42f5-861e-6de7792b6c7b
+km0_draws[!, Symbol("cor_prolific_pid__Intercept__prev_confusing")] |>
+	print_CI
+
+# ╔═╡ 954b4741-fb6c-4afd-bd5c-94722a01fc29
+names(select(km0_draws, r"cor_prolific_pid__Intercept.*confusing"))
 
 # ╔═╡ Cell order:
 # ╠═74c8335c-4095-11ef-21d3-0715bde378a8
@@ -441,3 +510,7 @@ end
 # ╠═90f87386-c510-4586-8739-e89ff6e67dac
 # ╠═2d4123e5-b9fa-42f6-b7d3-79cfd7b96395
 # ╠═b83502e2-53da-4808-86db-9f8b2add5caa
+# ╠═344e9f00-c8a7-41b1-a2a2-5074e59044cc
+# ╠═bacc8ce8-4481-4142-a582-f4fc673374b7
+# ╠═07a30c6b-8956-42f5-861e-6de7792b6c7b
+# ╠═954b4741-fb6c-4afd-bd5c-94722a01fc29
