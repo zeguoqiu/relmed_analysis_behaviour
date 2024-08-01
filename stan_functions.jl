@@ -10,6 +10,14 @@ function to_standata(
     )
 
     @assert sort(unique(data[!, choice_col])) == [0, 1]
+
+	if !("session" in names(data))
+		data.session .= 1
+	end
+
+	if !("valence" in names(data))
+		data.valence .= 1
+	end
     
 	sd = Dict(
         "N" => nrow(data),
@@ -380,8 +388,8 @@ function simulate_fit_sum(i::Int64;
 		"sim_$(model)_$(name != "" ? name * "_" : "")$(i)",
 		"$model.stan",
 		to_standata(sim_dat,
-			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
-			(sum(feedback_ns) * 2)], 2);
+			sum(feedback_magnitudes .* feedback_ns) / 
+			(sum(feedback_ns) * 2);
 			PID_col = :PID,
 			outcome_col = :outcome,
 			model_name = model);
@@ -403,4 +411,34 @@ function simulate_fit_sum(i::Int64;
 		n_blocks = n_blocks,
 		n_trials = n_trials)
 	
+end
+
+# Extract parameters per participant from draws DataFrame
+function extract_participant_params(
+	draws::DataFrame;
+	params::Vector{String} = ["a", "rho"],
+	rescale::Bool = true
+) 
+
+	res = Dict()
+
+	for param in params
+
+		# Select columns in draws DataFrame
+		tdraws = select(draws, Regex("$(param)\\[\\d+\\]"))
+	
+		if rescale
+			# Add mean and multiply by SD
+			tdraws .*= draws[!, Symbol("sigma_$param")]
+			tdraws .+= draws[!, Symbol("mu_$param")]	
+		end
+	
+		rename!(s -> replace(s, Regex("$param\\[(\\d+)\\]") => s"\1"),
+			tdraws
+			)
+
+		res[param] = tdraws
+	end
+
+	return res
 end
