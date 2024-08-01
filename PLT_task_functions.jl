@@ -313,22 +313,7 @@ function simulate_q_learning_dataset(
 	)
 
 	# For initial Q values, get the average reward in each block
-	@assert issorted(task.block) "Can't calculte average reward - task is not sorted by block"
-	if "valence" in names(task)
-		avg_reward = combine(
-				groupby(task, :valence),
-				[:feedback_A, :feedback_B] => ((a, b) -> mean(vcat(a, b))) => :avg_reward
-				)
-
-		blocks = sort(unique(task[!, [:block, :valence]]), :block)
-
-		avg_reward = leftjoin(blocks, avg_reward, on = :valence).avg_reward
-	else
-		avg_reward = combine(
-				groupby(task, :block),
-				[:feedback_A, :feedback_B] => ((a, b) -> mean(vcat(a, b))) => :avg_reward
-				).avg_reward
-	end
+	avg_reward = compute_avg_reward(task)
 
 	# Combine into single DataFrame
 	task = crossjoin(participants, task)
@@ -349,6 +334,30 @@ function simulate_q_learning_dataset(
 	# Simulate data per participants, block
 	grouped_task = groupby(task, [:PID, :block])
 	sims = transform(grouped_task, simulate_grouped_block)
+end
+
+# Function to compute average reward in block for initial values
+function compute_avg_reward(
+	task::AbstractDataFrame
+)
+	@assert issorted(task.block) "Can't calculte average reward - task is not sorted by block"
+	if "valence" in names(task)
+		avg_reward = combine(
+				groupby(task, :valence),
+				[:feedback_A, :feedback_B] => ((a, b) -> mean(vcat(a, b))) => :avg_reward
+				)
+
+		blocks = sort(unique(task[!, [:block, :valence]]), :block)
+
+		avg_reward = leftjoin(blocks, avg_reward, on = :valence).avg_reward
+	else
+		avg_reward = combine(
+				groupby(task, :block),
+				[:feedback_A, :feedback_B] => ((a, b) -> mean(vcat(a, b))) => :avg_reward
+				).avg_reward
+	end
+	
+	return avg_reward
 end
 
 function simulate_groups_q_learning_dataset(

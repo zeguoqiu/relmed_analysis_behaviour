@@ -46,6 +46,14 @@ COPY docker_setup/install-julia.bash /opt/setup-scripts/install-julia.bash
 RUN chmod +x /opt/setup-scripts/install-julia.bash
 RUN /opt/setup-scripts/install-julia.bash
 
+# Prerequisites for GLMakie
+ENV DISPLAY=:0
+RUN apt-get update --yes && \
+    apt-get install --yes --no-install-recommends \
+    cmake xorg-dev mesa-utils xvfb libgl1 freeglut3-dev &&\
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN xvfb -s '-screen 0 1024x768x24'
+
 # USER ${NB_UID}
 
 # Setup packages
