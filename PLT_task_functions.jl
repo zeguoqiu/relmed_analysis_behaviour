@@ -251,6 +251,7 @@ function simulate_block(
 	return res
 end
 
+# Simulate dataset - draw task plan and participant parameters
 function simulate_q_learning_dataset(
 	n_participants::Int64,
 	n_trials::Int64, # Number of trials per block
@@ -288,6 +289,7 @@ function simulate_q_learning_dataset(
 	return sims
 end
 
+# Simulate dataset from given trial plan, draw participant parameters
 function simulate_q_learning_dataset(
 	n_participants::Int64,
 	n_trials::Int64, # Number of trials per block
@@ -306,10 +308,66 @@ function simulate_q_learning_dataset(
 
 	Random.seed!(random_seed)
 	
+	ρ = rand(ρ_dist, n_participants)
+	α = cdf.(Normal(), rand(a_dist, n_participants))
+
+	sims = simulate_q_learning_dataset(
+		task,
+		α, # Learning rate for each participatn
+		ρ; # Reward sensitivity for each participant
+		ranodm_seed = missing, # We've already set the random seed. 
+		stop_after = stop_after # Stop after n correct choices. Missing means don't stop
+	)
+
+	return sims
+end
+
+# Simulate data set from given participant parameters but draw trial plan
+function simulate_q_learning_dataset(
+	n_trials::Int64, # Number of trials per block
+	feedback_values::Vector{Vector{Float64}}, # Values of non-zero feedback on each block. A vector of unique values per block, arbitrarily sized.
+	feedback_ns::Vector{Vector{Int64}}, # Number of each non-zero feedback value on each block. A vector of proportions per block, sized the same as feedback_value
+	feedback_common::Vector{Vector{Int64}}, # Vector with value for each block. Value can be vector n_trials long, with 1 for common and 0 for rare type feedback, or a single number of common type feedbacks for the block. In the latter case, common/rare will be randomly ordered.
+	α::Vector{Float64}, # Learning rate for each participatn
+	ρ::Vector{Float64}; # Reward sensitivity for each participant
+	random_seed::Int64=0, # This is for drawing participants. 
+	stop_after::Union{Int64, Missing} = missing # Stop after n correct choices. Missing means don't stop
+)
+
+	# Prepare task structure
+	Random.seed!(0)
+	task = task_structure(n_trials, 
+		feedback_values, 
+		feedback_ns, 
+		feedback_common
+	)
+
+	sims = simulate_q_learning_dataset(
+		task,
+		α, # Learning rate for each participatn
+		ρ, # Reward sensitivity for each participant
+		random_seed=random_seed,
+		stop_after = stop_after
+	)
+
+	return sims
+end
+
+
+# Simulate data set from given trial plan and participant parameters
+function simulate_q_learning_dataset(
+	task::DataFrame,
+	α::Vector{Float64}, # Learning rate for each participatn
+	ρ::Vector{Float64}; # Reward sensitivity for each participant
+	random_seed::Union{Int64, Missing}=missing, 
+	stop_after::Union{Int64, Missing} = missing # Stop after n correct choices. Missing means don't stop
+)
+	
+	# Prepare DataFrame
 	participants = DataFrame(
-		PID = 1:n_participants,
-		ρ = rand(ρ_dist, n_participants),
-		α = cdf.(Normal(), rand(a_dist, n_participants))
+		PID = 1:length(α),
+		ρ = ρ,
+		α = α
 	)
 
 	# For initial Q values, get the average reward in each block
@@ -331,16 +389,22 @@ function simulate_q_learning_dataset(
 		)
 	end
 
+	# Set random seed if requested
+	if !ismissing(random_seed)
+		Random.seed!(random_seed)
+	end
+
 	# Simulate data per participants, block
 	grouped_task = groupby(task, [:PID, :block])
 	sims = transform(grouped_task, simulate_grouped_block)
+
+	return sims
 end
 
 # Function to compute average reward in block for initial values
 function compute_avg_reward(
 	task::AbstractDataFrame
 )
-	@assert issorted(task.block) "Can't calculte average reward - task is not sorted by block"
 	if "valence" in names(task)
 		avg_reward = combine(
 				groupby(task, :valence),
