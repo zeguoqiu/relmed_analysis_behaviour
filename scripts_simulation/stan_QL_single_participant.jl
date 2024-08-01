@@ -101,8 +101,8 @@ begin
 		"single_p_QL_$n",
 		"single_p_QL.stan",
 		to_standata(filter(x -> x.block <= n, sim_dat),
-			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
-			(sum(feedback_ns) * 2)], 2),
+			sum(feedback_magnitudes .* feedback_ns) / 
+			(sum(feedback_ns) * 2),
 			PID_col = :PID,
 			outcome_col = :outcome
 		);
