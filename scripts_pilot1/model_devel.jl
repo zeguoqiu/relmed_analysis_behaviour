@@ -297,6 +297,22 @@ function compare_post_mle(
 end
   ╠═╡ =#
 
+# ╔═╡ 80d80966-81a4-4e02-9445-eb0a11c94197
+#=╠═╡
+begin
+	filter(x -> x.lp__ == maximum(m1s1ne_draws.lp__), m1s1ne_draws)
+	post_params = extract_participant_params(filter(x -> x.lp__ == 
+		maximum(m1s1ne_draws.lp__), m1s1ne_draws))
+	
+	mle_pars = extract_participant_params(m1s1ne_mle; rescale = false)
+
+	f_post_mle = Figure(size = (700,800))
+
+	compare_post_mle(f_post_mle, mle_pars, post_params; extreme_a_threshold = 10.)
+
+end
+  ╠═╡ =#
+
 # ╔═╡ d1ce306b-139c-481c-936b-c68978c2e2a1
 #=╠═╡
 begin
@@ -311,6 +327,21 @@ begin
 		iter_warmup = 5000
 	)
 	m1s1ne_pmle, m1s1nepml_time
+end
+  ╠═╡ =#
+
+# ╔═╡ 56e25bac-ced8-4793-a533-5da8aa768d8a
+#=╠═╡
+begin
+	pmle_pars = extract_participant_params(m1s1ne_pmle; rescale = false)
+
+	f_post_pmle = Figure(size = (700, 800))
+
+	compare_post_mle(f_post_pmle, pmle_pars, post_params;
+		extreme_rho_threshold = 6.,
+		extreme_a_threshold = -0.5,
+		label1 = "Penalized MLE"
+	)
 end
   ╠═╡ =#
 
@@ -331,6 +362,20 @@ begin
 end
   ╠═╡ =#
 
+# ╔═╡ 8cdc4def-6c8e-4313-8023-a80c910e1e94
+#=╠═╡
+begin
+	map_pars = extract_participant_params(m1s1ne_map)
+
+	f_post_map = Figure(size = (700, 600))
+
+	compare_post_mle(f_post_map, map_pars, post_params;
+		label1 = "MAP",
+		label2 = "Sampling MAP"
+	)
+end
+  ╠═╡ =#
+
 # ╔═╡ 3d055263-edeb-48d4-9ea2-e076326ee207
 # ╠═╡ skip_as_script = true
 #=╠═╡
@@ -345,84 +390,6 @@ begin
 		threads_per_chain = 3
 	)
 	m1s1ne_sum, m1s1ne_time
-end
-  ╠═╡ =#
-
-# ╔═╡ eeaaea99-673d-4f34-a633-64955caa971e
-# ╠═╡ skip_as_script = true
-#=╠═╡
-function extract_participant_params(
-	draws::DataFrame;
-	params::Vector{String} = ["a", "rho"],
-	rescale::Bool = true
-) 
-
-	res = Dict()
-
-	for param in params
-
-		# Select columns in draws DataFrame
-		tdraws = select(draws, Regex("$(param)\\[\\d+\\]"))
-	
-		if rescale
-			# Add mean and multiply by SD
-			tdraws .*= draws[!, Symbol("sigma_$param")]
-			tdraws .+= draws[!, Symbol("mu_$param")]	
-		end
-	
-		rename!(s -> replace(s, Regex("$param\\[(\\d+)\\]") => s"\1"),
-			tdraws
-			)
-
-		res[param] = tdraws
-	end
-
-	return res
-end
-  ╠═╡ =#
-
-# ╔═╡ 80d80966-81a4-4e02-9445-eb0a11c94197
-#=╠═╡
-begin
-	filter(x -> x.lp__ == maximum(m1s1ne_draws.lp__), m1s1ne_draws)
-	post_params = extract_participant_params(filter(x -> x.lp__ == 
-		maximum(m1s1ne_draws.lp__), m1s1ne_draws))
-	
-	mle_pars = extract_participant_params(m1s1ne_mle; rescale = false)
-
-	f_post_mle = Figure(size = (700,800))
-
-	compare_post_mle(f_post_mle, mle_pars, post_params; extreme_a_threshold = 10.)
-
-end
-  ╠═╡ =#
-
-# ╔═╡ 56e25bac-ced8-4793-a533-5da8aa768d8a
-#=╠═╡
-begin
-	pmle_pars = extract_participant_params(m1s1ne_pmle; rescale = false)
-
-	f_post_pmle = Figure(size = (700, 800))
-
-	compare_post_mle(f_post_pmle, pmle_pars, post_params;
-		extreme_rho_threshold = 6.,
-		extreme_a_threshold = -0.5,
-		label1 = "Penalized MLE"
-	)
-end
-  ╠═╡ =#
-
-# ╔═╡ 8cdc4def-6c8e-4313-8023-a80c910e1e94
-#=╠═╡
-begin
-	map_pars = extract_participant_params(m1s1ne_map)
-
-	f_post_map = Figure(size = (700, 600))
-
-	compare_post_mle(f_post_map, map_pars, post_params;
-		label1 = "MAP",
-		label2 = "Sampling MAP"
-	)
 end
   ╠═╡ =#
 
@@ -705,7 +672,6 @@ end
 # ╠═d0b8a80c-713e-47b8-bf4b-001ce0fa668d
 # ╠═8cdc4def-6c8e-4313-8023-a80c910e1e94
 # ╠═3d055263-edeb-48d4-9ea2-e076326ee207
-# ╠═eeaaea99-673d-4f34-a633-64955caa971e
 # ╠═cee9b208-46ad-4e31-92c4-d2bfdbad7ad3
 # ╠═7d836234-8703-48d0-9c66-f39761a57d65
 # ╠═1fc6a457-cd86-4835-a18a-75db1fe4a469
