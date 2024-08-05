@@ -106,7 +106,12 @@ begin
 		legend = Dict(1 => "Reward", -1 => "Punishment")
 	)
 
+	save("results/acc_curve_by_valence.pdf", 
+		f_acc_valence, pt_per_unit = 1)
+
+
 	f_acc_valence
+
 
 end
 
