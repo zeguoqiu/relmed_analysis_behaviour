@@ -263,7 +263,8 @@ function simulate_q_learning_dataset(
 	μ_ρ::Float64, # Mean of reward sensitivity
 	σ_ρ::Float64; # SD of reward sensitivity
 	random_seed::Int64=0, # This is for drawing participants. 
-	stop_after::Union{Int64, Missing} = missing # Stop after n correct choices. Missing means don't stop
+	stop_after::Union{Int64, Missing} = missing, # Stop after n correct choices. Missing means don't stop
+	aao::Union{Vector{Float64}, Missing} = missing # Initial value for Q learner
 	)
 
 	# Prepare task structure
@@ -283,7 +284,8 @@ function simulate_q_learning_dataset(
 				μ_ρ,
 				σ_ρ;
 				random_seed=random_seed,
-				stop_after = stop_after
+				stop_after = stop_after,
+				aao = aao
 	)
 
 	return sims
@@ -298,7 +300,8 @@ function simulate_q_learning_dataset(
 	μ_ρ::Float64, # Mean of reward sensitivity
 	σ_ρ::Float64; # SD of reward sensitivity
 	random_seed::Int64=0, # This is for drawing participants. 
-	stop_after::Union{Int64, Missing} = missing # Stop after n correct choices. Missing means don't stop
+	stop_after::Union{Int64, Missing} = missing, # Stop after n correct choices. Missing means don't stop
+	aao::Union{Vector{Float64}, Missing} = missing # Initial value for Q learner
 
 )
 	# Draw participant parameters
@@ -315,7 +318,8 @@ function simulate_q_learning_dataset(
 		α, # Learning rate for each participatn
 		ρ; # Reward sensitivity for each participant
 		random_seed = missing, # We've already set the random seed. 
-		stop_after = stop_after # Stop after n correct choices. Missing means don't stop
+		stop_after = stop_after, # Stop after n correct choices. Missing means don't stop
+		aao = aao
 	)
 
 	return sims
@@ -330,7 +334,9 @@ function simulate_q_learning_dataset(
 	α::Vector{Float64}, # Learning rate for each participatn
 	ρ::Vector{Float64}; # Reward sensitivity for each participant
 	random_seed::Int64=0, # This is for drawing participants. 
-	stop_after::Union{Int64, Missing} = missing # Stop after n correct choices. Missing means don't stop
+	stop_after::Union{Int64, Missing} = missing, # Stop after n correct choices. Missing means don't stop
+	aao::Union{Vector{Float64}, Missing} = missing # Initial value for Q learner
+
 )
 
 	# Prepare task structure
@@ -346,7 +352,8 @@ function simulate_q_learning_dataset(
 		α, # Learning rate for each participatn
 		ρ, # Reward sensitivity for each participant
 		random_seed=random_seed,
-		stop_after = stop_after
+		stop_after = stop_after,
+		aao = aao
 	)
 
 	return sims
@@ -359,7 +366,8 @@ function simulate_q_learning_dataset(
 	α::Vector{Float64}, # Learning rate for each participatn
 	ρ::Vector{Float64}; # Reward sensitivity for each participant
 	random_seed::Union{Int64, Missing}=missing, 
-	stop_after::Union{Int64, Missing} = missing # Stop after n correct choices. Missing means don't stop
+	stop_after::Union{Int64, Missing} = missing, # Stop after n correct choices. Missing means don't stop
+	aao::Union{Vector{Float64}, Missing} = missing # Initial value for Q learner
 )
 	
 	# Prepare DataFrame
@@ -370,7 +378,11 @@ function simulate_q_learning_dataset(
 	)
 
 	# For initial Q values, get the average reward in each block
-	avg_reward = compute_avg_reward(task)
+	if ismissing(aao)
+		avg_reward = compute_avg_reward(task)
+	else
+		avg_reward = aao
+	end
 
 	# Combine into single DataFrame
 	task = crossjoin(participants, task)
