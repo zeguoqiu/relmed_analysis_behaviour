@@ -51,6 +51,7 @@ First, simulate a single dataset with 172 participants, and check for hyper-para
 # ╔═╡ 1975aff3-11a5-4b69-9b73-f61425bfd531
 # Simulate one data set
 begin
+	n_participants = 140
 	n_blocks = 100
 	n_trials = 13
 	sequence_file = "results/PLT_task_structure_00.csv"
@@ -62,9 +63,15 @@ begin
 	# Get task from sequence used for pilot 1
 	task = DataFrame(CSV.File(sequence_file))
 
-	# Replicate task 10 times
+	# Renumber blocks
+	task.block = task.block + maximum(task.block) .* (task.session .- 1)
+
+	# Valence to Int64
+	task.valence = round.(Int64, task.valence)
+
+	#Replicate task 10 times
 	function task_replicate(task::DataFrame, i::Int64)
-		ntask = select(task, [:session, :block, :trial, :feedback_A, :feedback_B, :optimal_A])
+		ntask = select(task, [:block, :valence, :trial, :feedback_A, :feedback_B, :optimal_A])
 
 		ntask.block = ntask.block .+ (i - 1) * maximum(ntask.block)
 
@@ -72,74 +79,41 @@ begin
 
 	end
 
-	task = vcat([task_replicate(task, i) for i in 1:5]...)
+	task = vcat([task_replicate(task, i) for i in 1:3]...)
 
-	# Simulate 120 blocks
-	sim_dat_large = simulate_q_learning_dataset(172,
+	# Initial value for Q learning
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+	aaos = repeat(unique(task[!, [:block, :valence]]).valence .* aao, n_participants)
+
+	# # Simulate 144 blocks
+	sim_dat_large = simulate_q_learning_dataset(n_participants,
 		task,
 		μ_a,
 		σ_a,
 		μ_ρ,
-		σ_ρ
+		σ_ρ;
+		aao = aaos
 	)
 
 	sim_dat_large.isOptimal = (sim_dat_large.choice .== 1) .+ 0
 	
 
 	# And subsample to first 24
-	sim_dat = filter(x -> x.block <= 24, sim_dat_large);
+	sim_dat = filter(x -> x.block <= 24, sim_dat_large)
+
+	
+	nothing
 end
-
-# ╔═╡ 2b68c173-2879-42a0-a8a6-5152faafdf2b
-begin
-	group_QL_sum, group_QL_draws = load_run_cmdstanr(
-		"group_QL",
-		"group_QL.stan",
-		to_standata(sim_dat,
-			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
-			(sum(feedback_ns) * 2)], 2);
-			PID_col = :PID,
-			outcome_col = :outcome
-		);
-		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho",
-			"a[1]", "a[2]", "a[3]", "r[1]", "r[2]", "r[3]"]
-	)
-	group_QL_sum
-end
-
-# ╔═╡ ae92d50f-ae2a-4d91-b6d0-36da071bcde4
-begin
-	hyperparam_labels = [rich("μ", subscript("a")), rich("σ", subscript("a")), 
-		rich("μ", subscript("ρ")), rich("σ", subscript("ρ"))]
-	plot_posteriors(
-		[group_QL_draws],
-		["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		labels = hyperparam_labels,
-		true_values = [μ_a, σ_a, μ_ρ, σ_ρ]
-	)
-end
-
-# ╔═╡ 5e8d9995-b7b1-4fb7-953c-09e0c62bd05d
-md"""
-## Parallelized model
-Next, we test a parallelized model, that runs faster.
-
-We repeat the simulation and fit procedure, this time also fitting a dataset where each participant completes 100 blocks, for comparison.
-
-Again we see good recovery of hyper parameters, and see that unsurprisingly, more data results in narrower posteriors, especially for the learning rate.
-"""
 
 # ╔═╡ 0b06c81e-7df2-40da-b335-622a4d696153
 begin
 	group_QLrs_sum, group_QLrs_draws, group_QLrs_time = load_run_cmdstanr(
-		"group_QLrs",
-		"group_QLrs.stan",
+		"group_QLrs02",
+		"group_QLrs02.stan",
 		to_standata(sim_dat,
-			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
-			(sum(feedback_ns) * 2)], 2);
+			aao;
 			PID_col = :PID,
-			outcome_col = :outcome,
-			model_name = "group_QLrs");
+			outcome_col = :outcome);
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
 		threads_per_chain = 3
 	)
@@ -148,12 +122,11 @@ end
 
 # ╔═╡ 8d6146f2-48c1-4683-bfd2-bba2f077f7c0
 begin	
-	group_QLrs100_sum, group_QLrs100_draws, group_QLrs100_time = load_run_cmdstanr(
-		"group_QLrs100",
-		"group_QLrs.stan",
-		to_standata(sim_dat_100,
-			x -> repeat([sum(feedback_magnitudes .* feedback_ns) / 
-			(sum(feedback_ns) * 2)], 2);
+	group_QLrs_large_sum, group_QLrs_large_draws, group_QLrs_large_time = load_run_cmdstanr(
+		"group_QLrs02_large",
+		"group_QLrs02.stan",
+		to_standata(sim_dat_large,
+			aao;
 			PID_col = :PID,
 			outcome_col = :outcome,
 			model_name = "group_QLrs");
@@ -164,13 +137,17 @@ begin
 end
 
 # ╔═╡ d279e83b-85c3-4dba-aab0-aa8e0dfe94ce
-plot_posteriors(
-	[group_QLrs_draws, group_QLrs100_draws],
-	["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-	true_values = [μ_a, σ_a, μ_ρ, σ_ρ],
-	labels = hyperparam_labels,
-	model_labels = ["10 block", "100 blocks"]
-)
+begin
+	hyperparam_labels = [rich("μ", subscript("a")), rich("σ", subscript("a")),
+               rich("μ", subscript("ρ")), rich("σ", subscript("ρ"))]
+	plot_posteriors(
+		[group_QLrs_draws, group_QLrs_large_draws],
+		["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
+		true_values = [μ_a, σ_a, μ_ρ, σ_ρ],
+		labels = hyperparam_labels,
+		model_labels = ["10 block", "100 blocks"]
+	)
+end
 
 # ╔═╡ 14088c9e-57f4-483e-a743-7e15461f4731
 md"""
@@ -320,9 +297,6 @@ plot_prior_predictive(sum_fits;
 # ╠═6dc9d218-1647-4802-9842-7c815cb44afb
 # ╟─f3c846dc-698c-40b1-a60d-ef66eefb6d24
 # ╠═1975aff3-11a5-4b69-9b73-f61425bfd531
-# ╠═2b68c173-2879-42a0-a8a6-5152faafdf2b
-# ╠═ae92d50f-ae2a-4d91-b6d0-36da071bcde4
-# ╟─5e8d9995-b7b1-4fb7-953c-09e0c62bd05d
 # ╠═0b06c81e-7df2-40da-b335-622a4d696153
 # ╠═8d6146f2-48c1-4683-bfd2-bba2f077f7c0
 # ╠═d279e83b-85c3-4dba-aab0-aa8e0dfe94ce
