@@ -23,7 +23,6 @@ function to_standata(
         "N" => nrow(data),
         "N_p" => length(unique(data[!, PID_col])),
 		"N_bl" => maximum(data[!, block_col]),
-        "total_N_bl" => nrow(unique(data[!, [PID_col, :session, block_col]])),
 		"pp" => data[!, PID_col],
 		"bl" => data[!, block_col],
 		"valence" => data[!, valence_col],
@@ -47,6 +46,7 @@ function to_standata(
 
     @assert length(sd["outcome"]) == sd["N"]
     @assert length(sd["choice"]) == sd["N"]
+	@assert length(sd["valence"]) == sd["N"]
     @assert length(sd["bl"]) == sd["N"]
     @assert length(sd["pp"]) == sd["N"]
 	@assert length(sd["p1t"]) == sd["N_p"] + 1
