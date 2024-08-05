@@ -53,32 +53,41 @@ First, simulate a single dataset with 172 participants, and check for hyper-para
 begin
 	n_blocks = 100
 	n_trials = 13
-	feedback_magnitudes = [1., 2.]
-	feedback_ns = [7, 6]
-	μ_a = 1.
+	sequence_file = "results/PLT_task_structure_00.csv"
+	μ_a = -0.6
 	σ_a = 0.3
-	μ_ρ = 0.8
-	σ_ρ = 0.3
+	μ_ρ = 6.5
+	σ_ρ = 3.
 
-	# Simulate 100 blocks
-	sim_dat_100 = simulate_q_learning_dataset(172,
-		n_trials,
-		repeat([feedback_magnitudes], n_blocks),
-		repeat([feedback_ns], n_blocks),
-		vcat([[n_trials], [n_trials-1], [n_trials-1], [n_trials-2]],
-			repeat([[n_trials-3]], n_blocks - 4)),
+	# Get task from sequence used for pilot 1
+	task = DataFrame(CSV.File(sequence_file))
+
+	# Replicate task 10 times
+	function task_replicate(task::DataFrame, i::Int64)
+		ntask = select(task, [:session, :block, :trial, :feedback_A, :feedback_B, :optimal_A])
+
+		ntask.block = ntask.block .+ (i - 1) * maximum(ntask.block)
+
+		return ntask
+
+	end
+
+	task = vcat([task_replicate(task, i) for i in 1:5]...)
+
+	# Simulate 120 blocks
+	sim_dat_large = simulate_q_learning_dataset(172,
+		task,
 		μ_a,
 		σ_a,
 		μ_ρ,
 		σ_ρ
 	)
 
-	sim_dat_100.isOptimal = (sim_dat_100.choice .== 1) .+ 0
+	sim_dat_large.isOptimal = (sim_dat_large.choice .== 1) .+ 0
 	
 
-	# And subsample to first 10
-	sim_dat = filter(x -> x.block <= 10, sim_dat_100)
-	nothing
+	# And subsample to first 24
+	sim_dat = filter(x -> x.block <= 24, sim_dat_large);
 end
 
 # ╔═╡ 2b68c173-2879-42a0-a8a6-5152faafdf2b
@@ -310,7 +319,7 @@ plot_prior_predictive(sum_fits;
 # ╠═285b7932-112e-11ef-13c2-fba601473764
 # ╠═6dc9d218-1647-4802-9842-7c815cb44afb
 # ╟─f3c846dc-698c-40b1-a60d-ef66eefb6d24
-# ╟─1975aff3-11a5-4b69-9b73-f61425bfd531
+# ╠═1975aff3-11a5-4b69-9b73-f61425bfd531
 # ╠═2b68c173-2879-42a0-a8a6-5152faafdf2b
 # ╠═ae92d50f-ae2a-4d91-b6d0-36da071bcde4
 # ╟─5e8d9995-b7b1-4fb7-953c-09e0c62bd05d
