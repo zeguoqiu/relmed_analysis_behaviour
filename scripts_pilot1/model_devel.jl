@@ -567,9 +567,16 @@ m1s1ne_ppc = q_learning_posterior_predictive(sess1_no_early_forfit, m1s1ne_draws
 # ╔═╡ e9da9e37-dea2-4ea0-8084-d280aa8e3e95
 # ╠═╡ skip_as_script = true
 #=╠═╡
-plot_q_learning_ppc_accuracy(sess1_no_early_forfit, m1s1ne_ppc;
-	title = "Initial value = $(round(aao, digits = 3))"
-)
+let
+	f = plot_q_learning_ppc_accuracy(sess1_no_early_forfit, m1s1ne_ppc;
+		#title = "Initial value = $(round(aao, digits = 3))"
+	)
+
+	save("results/PPC_q_learning_acc_curve.pdf", 
+		f, pt_per_unit = 1)
+
+	f
+end
   ╠═╡ =#
 
 # ╔═╡ 7f1f513a-b960-4dd5-b1c5-9f87e4af5ae9
