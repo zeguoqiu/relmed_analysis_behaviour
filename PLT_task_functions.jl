@@ -292,7 +292,6 @@ end
 # Simulate dataset from given trial plan, draw participant parameters
 function simulate_q_learning_dataset(
 	n_participants::Int64,
-	n_trials::Int64, # Number of trials per block
 	task::DataFrame,
 	μ_a::Float64, # Mean of Φ−1(α), learning rate
 	σ_a::Float64, # SD of Φ−1(α), learning rate
@@ -315,7 +314,7 @@ function simulate_q_learning_dataset(
 		task,
 		α, # Learning rate for each participatn
 		ρ; # Reward sensitivity for each participant
-		ranodm_seed = missing, # We've already set the random seed. 
+		random_seed = missing, # We've already set the random seed. 
 		stop_after = stop_after # Stop after n correct choices. Missing means don't stop
 	)
 
