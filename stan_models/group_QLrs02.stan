@@ -106,9 +106,9 @@ model {
   
   // Population level parameters
   mu_a  ~ normal(0, 1);
-  mu_rho  ~ normal(0, 1);
-  sigma_a ~ normal(0, 0.2);
-  sigma_rho ~ normal(0, 0.2);
+  mu_rho  ~ normal(0, 2);
+  sigma_a ~ normal(0, 1);
+  sigma_rho ~ normal(0, 2);
 
   // individual parameters
   a ~ normal(0, 1);
