@@ -271,68 +271,6 @@ odd_even_draws = let
 	draws
 end
 
-# ╔═╡ 30f821eb-6c91-40cf-b218-44025b1e8904
-function scatter_regression_line!(
-	f::GridPosition,
-	df::DataFrame,
-	x_col::Symbol,
-	y_col::Symbol,
-	xlabel::String,
-	ylabel::String;
-	transform_x::Function = x -> x,
-	transform_y::Function = x -> x,
-	color = Makie.wong_colors()[1],
-	legend::Union{Dict, Missing} = missing,
-	legend_title::String = "",
-	write_cor::Bool = true,
-	cor_correction::Function = x -> x, # Correction to apply for correlation, e.g. Spearman Brown
-	cor_label::String = "r"
-)
-
-	x = df[!, x_col]
-	y = df[!, y_col]
-	
-	ax = Axis(f,
-		xlabel = xlabel,
-		ylabel = ylabel,
-		subtitle = write_cor ? "$cor_label=$(round(
-			cor_correction(cor(x, y)), digits= 2))" : ""
-	)
-
-	# Regression line
-	treg = regression_line_func(df, x_col, y_col)
-	lines!(
-		ax,
-		range_regression_line(x) |> transform_x,
-		treg.(range_regression_line(x)) |> transform_y,
-		color = :grey,
-		linewidth = 4
-	)
-
-	sc = scatter!(
-		ax,
-		transform_x.(x),
-		transform_y.(y),
-		markersize = 6,
-		color = color
-	)
-
-	if !ismissing(legend)
-		Legend(
-			f,
-			[MarkerElement(color = k, marker = :circle) for k in keys(legend)],
-			[legend[k] for k in keys(legend)],
-			legend_title,
-			halign = :right,
-			valign = :top,
-			framevisible = false,
-			tellwidth = false,
-			tellheight = false
-		)
-
-	end
-end
-
 # ╔═╡ 76ca2319-9ae5-463e-a53d-47d14373bf87
 let
 
@@ -845,7 +783,6 @@ end
 # ╠═fe070ddf-82cd-4c5f-8bb1-8adab53f654f
 # ╠═78549c5d-48b4-4634-b380-b2b8d883d430
 # ╠═d3aee72b-8d6b-4a63-a788-2e5f91b1f67e
-# ╠═30f821eb-6c91-40cf-b218-44025b1e8904
 # ╠═76ca2319-9ae5-463e-a53d-47d14373bf87
 # ╠═844bcefd-81a4-489f-9a44-534253553bf2
 # ╠═d3bc8bba-e2b0-4399-9eb7-bfc10b8f65ae
