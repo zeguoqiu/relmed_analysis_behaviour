@@ -105,46 +105,127 @@ md"""
 # Full dataset test-retest
 """
 
-# ╔═╡ d05df98e-2717-4f24-bfc6-4af22885e276
-# Fit session 1
-begin
+# ╔═╡ ee0d1233-79ee-4c0a-a360-09c9b4b3ed94
+function fit_subset(
+	data::DataFrame,
+	name::String;
+	filter_func::Function = x -> true,
+	model::String = "group_QLrs02.stan",
+	aao::Float64 = aao
+)
+
 	# Filter by session
-	sess1_data = filter(x -> x.session == "1", PLT_data)
+	tdata = filter(filter_func, data)
 
 	# Prepare
-	sess1_forfit, sess1_pids = prepare_data_for_fit(sess1_data)
+	tdata_forfit, tdata_pids = prepare_data_for_fit(tdata)
 
-	m1s1_sum, m1s1_draws, m1s1_time = load_run_cmdstanr(
-		"m1s1",
-		"group_QLRs02.stan",
-		to_standata(sess1_forfit,
-			aao;
-			model_name = "group_QLrs");
+	m_sum, m_draws, m_trime =  load_run_cmdstanr(
+		name,
+		"group_QLrs02.stan",
+		to_standata(tdata_forfit,
+			aao);
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
 		threads_per_chain = 3
 	)
-	m1s1_sum, m1s1_time
+
+	return m_sum, m_draws, m_trime, tdata_pids
+
 end
 
-# ╔═╡ dbb31f0d-b0ce-4c55-b932-d51a249e248e
-# Fit session 2
+# ╔═╡ d05df98e-2717-4f24-bfc6-4af22885e276
+# Fit both sessions all conditions, aao = aao
 begin
-	# Filter by session
-	sess2_data = filter(x -> x.session == "2", PLT_data)
-
-	# Prepare
-	sess2_forfit, sess2_pids = prepare_data_for_fit(sess2_data)
-
-	m1s2_sum, m1s2_draws, m1s2_time = load_run_cmdstanr(
-		"m1s2",
-		"group_QLRs02.stan",
-		to_standata(sess2_forfit,
-			aao;
-			model_name = "group_QLrs");
-		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3
+	m1s1_sum, m1s1_draws, m1s1_time, m1s1_pids = fit_subset(
+		PLT_data,
+		"sess1_QL_init_aao",
+		filter_func = x -> x.session == "1"
 	)
-	m1s2_sum, m1s2_time
+
+	m1s2_sum, m1s2_draws, m1s2_time, m1s2_pids = fit_subset(
+		PLT_data,
+		"sess2_QL_init_aao",
+		filter_func = x -> x.session == "2"
+	)
+	
+end
+
+# ╔═╡ 8939f2f2-9293-4780-b4c5-67584f9fe4a8
+function reliability_scatter(
+	draws1::DataFrame,
+	draw2::DataFrame,
+	pids1::DataFrame,
+	pids2::DataFrame
+)
+
+	function combine_dfs(
+		draws1::DataFrame,
+		draws2::DataFrame,
+		pids1::DataFrame,
+		pids2::DataFrame;
+		param::String
+	)
+			
+		p1 = sum_p_params(draws1, param)[!, [:pp, :median]] |>
+			x -> rename(x, :median => :m1)
+	
+		p1 = innerjoin(p1, pids1, on = :pp)
+	
+		p2 = sum_p_params(draw2, param)[!, [:pp, :median]] |>
+			x -> rename(x, :median => :m2)
+	
+		p2 = innerjoin(p2, pids2, on = :pp)
+	
+		p1p2 = innerjoin(
+			p1[!, Not(:pp)],
+			p2[!, Not(:pp)],
+			on = :prolific_pid
+		)
+
+		return p1p2
+	end
+
+	rho1rho2 = combine_dfs(
+		draws1,
+		draws2,
+		pids1,
+		pids2;
+		param = "rho"
+	)
+
+	a1a2 = combine_dfs(
+		draws1,
+		draws2,
+		pids1,
+		pids2;
+		param = "a"
+	)
+
+	# Plot -----------------------------------
+	f = Figure(size = (800, 400))
+
+	scatter_regression_line!(
+		f[1,1],
+		rho1rho2,
+		:m1,
+		:m2,
+		"$label1 reawrd sensitivity",
+		"$label2 reawrd sensitivity"
+	)
+
+	scatter_regression_line!(
+		f[1,2],
+		a1a2,
+		:m1,
+		:m2,
+		"$label1 learning rate",
+		"$label2 learning rate";
+		transform_x = a2α,
+		transform_y = a2α
+	)
+
+
+	return f
 end
 
 # ╔═╡ Cell order:
@@ -153,5 +234,6 @@ end
 # ╠═1fdd69b2-8b02-428a-a7a5-3e7c76656cf5
 # ╠═b64cabeb-f82b-4ce7-af56-63c8f02c44de
 # ╟─91759c41-a311-4861-9868-6665b31b88da
+# ╠═ee0d1233-79ee-4c0a-a360-09c9b4b3ed94
 # ╠═d05df98e-2717-4f24-bfc6-4af22885e276
-# ╠═dbb31f0d-b0ce-4c55-b932-d51a249e248e
+# ╠═8939f2f2-9293-4780-b4c5-67584f9fe4a8
