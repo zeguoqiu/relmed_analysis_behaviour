@@ -356,7 +356,8 @@ function simulate_fit_sum(i::Int64;
 	prior_σ_ρ::Distribution = Dirac(0.),
 	aao::Float64 = 0., # Initial Q value
 	model::String = "single_p_QL",
-	name::String = ""
+	name::String = "",
+	method::String = "sample"
 	)
 
 	# Draw hyper-parameters
@@ -387,8 +388,10 @@ function simulate_fit_sum(i::Int64;
 			PID_col = :PID,
 			outcome_col = :outcome,
 			model_name = model);
-		threads_per_chain = occursin("rs", model) ? 3 : 1,
-		iter_sampling = 500
+		method = method,
+		threads_per_chain = method == "optimize" ? 12 : (occursin("rs", model) ? 3 : 1),
+		iter_sampling = 500,
+		iter_warmup = method == "optimize" ? 5000 : 1000
 	)
 
 	# Summarize draws
