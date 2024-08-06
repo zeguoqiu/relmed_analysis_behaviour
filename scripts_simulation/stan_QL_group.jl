@@ -14,9 +14,9 @@ begin
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, StatsBase,
 		StanSample, JSON, RCall, CSV
-	include("PLT_task_functions.jl")
-	include("stan_functions.jl")
-	include("plotting_functions.jl")
+	include("$(pwd())/PLT_task_functions.jl")
+	include("$(pwd())/stan_functions.jl")
+	include("$(pwd())/plotting_functions.jl")
 end
 
 # ╔═╡ 6dc9d218-1647-4802-9842-7c815cb44afb
@@ -145,7 +145,7 @@ begin
 		["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
 		true_values = [μ_a, σ_a, μ_ρ, σ_ρ],
 		labels = hyperparam_labels,
-		model_labels = ["10 block", "100 blocks"]
+		model_labels = ["24 blocks", "144 blocks"]
 	)
 end
 
@@ -160,37 +160,39 @@ The first plot shows reward sensitivity values on the standardized scale, the se
 
 # ╔═╡ b7d33b38-3c85-41c4-9902-c0d377b06e51
 plot_posteriors(
-	[group_QLrs_draws, group_QLrs100_draws],
+	[group_QLrs_draws, group_QLrs_large_draws],
 	["rho[$n]" for n in 1:8],
 	nrows = 2,
 	labels = ["r$n" for n in 1:8],
-	model_labels = ["10 block", "100 blocks"]
+	model_labels = ["24 blocks", "144 blocks"]
 )
 
 # ╔═╡ 59e8fda6-f3a0-4ab3-ac38-c7b8afa5ed5c
 plot_posteriors(
-	[group_QLrs_draws, group_QLrs100_draws],
+	[group_QLrs_draws, group_QLrs_large_draws],
 	["rho[$n]" for n in 1:8],
 	nrows = 2,
 	labels = ["ρ$n" for n in 1:8],
 	scale_col = :sigma_rho,
 	mean_col = :mu_rho,
-	model_labels = ["10 block", "100 blocks"]
+	model_labels = ["24 blocks", "144 blocks"]
 )
 
 # ╔═╡ f7564178-f850-4063-9b9a-075ff82497fd
 md"""
+_**No longer relevant**_
+
 Now, looking at the same for learning rate.
 Looking first at unstandardized single-participant learning rates (on the inverse Phi scale) we see that the posteriors are quite wide, and only slightly narrower for the 100 block dataset.
 """
 
 # ╔═╡ 36c261f1-f2e3-4e36-a409-bb57cbb71c85
 plot_posteriors(
-	[group_QLrs_draws, group_QLrs100_draws],
+	[group_QLrs_draws, group_QLrs_large_draws],
 	["a[$n]" for n in 1:8],
 	nrows = 2,
 	labels = ["a$n" for n in 1:8],
-	model_labels = ["10 block", "100 blocks"]
+	model_labels = ["24 block", "144 blocks"]
 )
 
 # ╔═╡ 95954638-0306-4fb3-8f45-c0c087151f09
@@ -200,13 +202,13 @@ On the unstandardized scale, there is hardly a difference between 10 and 100 blo
 
 # ╔═╡ 12ba8eba-5a1b-43a7-ab8b-675781542865
 plot_posteriors(
-	[group_QLrs_draws, group_QLrs100_draws],
+	[group_QLrs_draws, group_QLrs_large_draws],
 	["a[$n]" for n in 1:8],
 	nrows = 2,
 	labels = ["a$n" for n in 1:8],
 	scale_col = :sigma_a,
 	mean_col = :mu_a,
-	model_labels = ["10 block", "100 blocks"]
+	model_labels = ["24 block", "144 blocks"]
 )
 
 # ╔═╡ 13c208f9-9ca7-46f0-a8d8-85ae5eae3838
@@ -223,17 +225,17 @@ begin
 	sim_dat.rho = sim_dat.ρ
 
 
-	function plot_p_est_10_100(param::String)
+	function plot_p_est_small_large(param::String)
 		f_p = Figure()
 	
 		fp_axes = []
-		for (i, d) in enumerate([group_QLrs_draws, group_QLrs100_draws])
+		for (i, d) in enumerate([group_QLrs_draws, group_QLrs_large_draws])
 			axs = plot_p_params!(
 				f_p[i,1],
 				d,
 				sim_dat,
 				param;
-				ylabel = rich(rich("$([10, 100][i]) blocks", font = :bold), "\nParticipant #")
+				ylabel = rich(rich("$([24, 144][i]) blocks", font = :bold), "\nParticipant #")
 			)
 			push!(fp_axes, axs)
 		end
@@ -243,7 +245,7 @@ begin
 		return f_p
 	end
 
-	plot_p_est_10_100("a")
+	plot_p_est_small_large("a")
 end
 
 # ╔═╡ cb08c28e-9074-4913-a231-2ba3bbc10670
@@ -252,25 +254,36 @@ For reward sensitivity, things look better. We can distinguish between participa
 """
 
 # ╔═╡ ed185b55-e824-4187-89fa-a3da1350f8c0
-plot_p_est_10_100("rho")
+plot_p_est_small_large("rho")
 
 # ╔═╡ e07604ed-945d-469c-b8ea-850781929c90
+# ╠═╡ disabled = true
+#=╠═╡
 begin
-	n_sims = 100
+	n_sims = 50
 
 	# Simulate, fit and summarise multiple times
 	Random.seed!(0)
-	sum_fits = DataFrame([simulate_fit_sum(i; 
-		model = "group_QLrs",
-		n_participants = 172,
-		prior_σ_a = Uniform(0.001, 0.8),
-		prior_σ_ρ = Uniform(0.001, 0.8),
-		) for i in 1:n_sims],
+	sum_fits = DataFrame([
+		simulate_fit_sum(i; 
+			n_participants = 140,
+			model = "group_QLrs02",
+			name = "map",
+			task = filter(x -> x.block < 49, task),
+			aao = aao,
+			prior_μ_a = Normal(),
+			prior_μ_ρ = Normal(0, 2),
+			prior_σ_a = Normal(),
+			prior_σ_ρ = Normal(0,2),
+			method = "optimize"
+		) 
+		for i in 1:n_sims],
 		
 	)
 	nothing
 
 end
+  ╠═╡ =#
 
 # ╔═╡ 0e6cf135-8871-4edf-b495-0c4395eb7f88
 md"""
@@ -285,12 +298,19 @@ We see that σ_a is not recovered well at all. This is the root of the problems 
 """
 
 # ╔═╡ fb13db5f-de92-4f99-ba7b-e3d789299482
-plot_prior_predictive(sum_fits;
+#=╠═╡
+plot_prior_predictive(insertcols!(sum_fits, :n_blocks => 48);
 	params = ["mu_a", "mu_rho", "sigma_a", "sigma_rho", "a[1]", "rho[1]"],
 	labels = [rich("μ", subscript("a")), rich("μ", subscript("ρ")),
 		rich("σ", subscript("a")), rich("σ", subscript("ρ")),
 		rich("a", subscript("1")), rich("ρ", subscript("1"))]
 )
+  ╠═╡ =#
+
+# ╔═╡ fff890c1-a457-45a1-80e0-8c2fc9251efa
+#=╠═╡
+sum_fits
+  ╠═╡ =#
 
 # ╔═╡ Cell order:
 # ╠═285b7932-112e-11ef-13c2-fba601473764
@@ -311,6 +331,7 @@ plot_prior_predictive(sum_fits;
 # ╠═02b9a2a0-46f9-46cb-8bd4-40aa982ba8c5
 # ╟─cb08c28e-9074-4913-a231-2ba3bbc10670
 # ╠═ed185b55-e824-4187-89fa-a3da1350f8c0
-# ╟─e07604ed-945d-469c-b8ea-850781929c90
+# ╠═e07604ed-945d-469c-b8ea-850781929c90
 # ╟─0e6cf135-8871-4edf-b495-0c4395eb7f88
 # ╠═fb13db5f-de92-4f99-ba7b-e3d789299482
+# ╠═fff890c1-a457-45a1-80e0-8c2fc9251efa
