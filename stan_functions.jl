@@ -348,38 +348,33 @@ end
 # High-level function to simulate a dataset, fit it with stan, and then summarise it.
 # Used for prior predictive checks
 function simulate_fit_sum(i::Int64;
-	n_blocks::Int64 = 10,
-	n_trials::Int64 = 13,
 	n_participants::Int64 = 1,
-	feedback_magnitudes::Vector{Float64} = [1., 2.],
-	feedback_ns::Vector{Int64} = [7, 6],
+	task::DataFrame,
 	prior_μ_a::Distribution = Uniform(-2, 2),
 	prior_μ_ρ::Distribution = Uniform(0.001, 0.999),
 	prior_σ_a::Distribution = Dirac(0.), # For single participant. This just gives 0. always
 	prior_σ_ρ::Distribution = Dirac(0.),
+	aao::Float64 = 0., # Initial Q value
 	model::String = "single_p_QL",
 	name::String = ""
 	)
 
 	# Draw hyper-parameters
 	true_μ_a = rand(prior_μ_a)
-	true_μ_ρ = abs(rand(prior_μ_ρ))
+	true_μ_ρ = rand(prior_μ_ρ)
 	true_σ_a = abs(rand(prior_σ_a))
 	true_σ_ρ = abs(rand(prior_σ_ρ))
 	
 	# Simulate data
 	sim_dat = simulate_q_learning_dataset(
 		n_participants,
-		n_trials,
-		repeat([feedback_magnitudes], n_blocks),
-		repeat([feedback_ns], n_blocks),
-		vcat([[n_trials], [n_trials-1], [n_trials-1], [n_trials-2]],
-			repeat([[n_trials-3]], n_blocks - 4)),
+		task,
 		true_μ_a,
 		true_σ_a,
 		true_μ_ρ,
 		true_σ_ρ;
-		random_seed = i)
+		random_seed = i,
+		aao = repeat(unique(task[!, [:block, :valence]]).valence .* aao, n_participants))
 
 	sim_dat.isOptimal = (sim_dat.choice .== 1) .+ 0
 
@@ -388,28 +383,27 @@ function simulate_fit_sum(i::Int64;
 		"sim_$(model)_$(name != "" ? name * "_" : "")$(i)",
 		"$model.stan",
 		to_standata(sim_dat,
-			sum(feedback_magnitudes .* feedback_ns) / 
-			(sum(feedback_ns) * 2);
+			aao;
 			PID_col = :PID,
 			outcome_col = :outcome,
 			model_name = model);
-		threads_per_chain = occursin("rs", model) ? 3 : 1
+		threads_per_chain = occursin("rs", model) ? 3 : 1,
+		iter_sampling = 500
 	)
 
 	# Summarize draws
 	var_half_normal = var(truncated(Normal(), lower = 0))
+	var_half_normal_sd_2 = var(truncated(Normal(0, 2), lower = 0))
 
 	sum_draws = sum_prior_predictive_draws(QL_draws,
 		params = n_participants == 1 ? [:a, :rho] : [:mu_a, :mu_rho, :sigma_a, :sigma_rho, Symbol("a[1]"), Symbol("rho[1]")],
 		true_values = n_participants == 1 ? [true_μ_a, true_μ_ρ] : [true_μ_a, true_μ_ρ, true_σ_a, true_σ_ρ, 
 			quantile(Normal(), filter(x -> x.PID == 1, sim_dat).α[1]),
 			filter(x -> x.PID == 1, sim_dat).ρ[1]],
-		prior_var = n_participants == 1 ? [1., 1.] : [1., 1., var_half_normal, var_half_normal, 1., 1.]
+		prior_var = n_participants == 1 ? [1., 1.] : [1., 4., var_half_normal, var_half_normal_sd_2, 1., 1.]
 	)
 
-	return (; sum_draws..., 
-		n_blocks = n_blocks,
-		n_trials = n_trials)
+	return (; sum_draws...)
 	
 end
 
