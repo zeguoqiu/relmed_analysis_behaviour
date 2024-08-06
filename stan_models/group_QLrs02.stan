@@ -92,7 +92,7 @@ parameters {
   real mu_a; // Average learning rate on unconstrained scale
   real<lower=0> sigma_a; // Standard deviation of learning rate on unconstrained scale
 
-  real mu_rho; // Average reward sensitivy
+  real<lower=0> mu_rho; // Average reward sensitivy
   real<lower=0> sigma_rho; // Standard deviation of reward sensitivy
 
   // Subject-level deviations
