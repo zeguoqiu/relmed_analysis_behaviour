@@ -126,7 +126,8 @@ function fit_subset(
 		to_standata(tdata_forfit,
 			aao);
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3
+		threads_per_chain = 3,
+		iter_sampling = 500
 	)
 
 	return m_sum, m_draws, m_trime, tdata_pids
@@ -150,12 +151,31 @@ begin
 	
 end
 
+# ╔═╡ 225e8909-b044-4ab6-80ec-b34a34b07b2c
+# Split-half
+begin
+	m1s1odd_sum, m1s1odd_draws, m1s1odd_time, m1s1odd_pids = fit_subset(
+		PLT_data,
+		"sess1_QL_init_aao_odd",
+		filter_func = x -> (x.session == "1") & isodd(x.block)
+	)
+
+	m1s1even_sum, m1s1even_draws, m1s1even_time, m1s1even_pids = fit_subset(
+		PLT_data,
+		"sess1_QL_init_aao_even",
+		filter_func = x -> (x.session == "1") & iseven(x.block)
+	)
+	
+end
+
 # ╔═╡ 8939f2f2-9293-4780-b4c5-67584f9fe4a8
 function reliability_scatter(
 	draws1::DataFrame,
-	draw2::DataFrame,
+	draws2::DataFrame,
 	pids1::DataFrame,
-	pids2::DataFrame
+	pids2::DataFrame,
+	label1::String,
+	label2::String
 )
 
 	function combine_dfs(
@@ -171,7 +191,7 @@ function reliability_scatter(
 	
 		p1 = innerjoin(p1, pids1, on = :pp)
 	
-		p2 = sum_p_params(draw2, param)[!, [:pp, :median]] |>
+		p2 = sum_p_params(draws2, param)[!, [:pp, :median]] |>
 			x -> rename(x, :median => :m2)
 	
 		p2 = innerjoin(p2, pids2, on = :pp)
@@ -228,6 +248,26 @@ function reliability_scatter(
 	return f
 end
 
+# ╔═╡ c265528e-cdf7-4dc5-ad29-da302ceeeeb6
+reliability_scatter(
+	m1s1_draws,
+	m1s2_draws,
+	m1s1_pids,
+	m1s2_pids,
+	"Session 1",
+	"Session 2"
+)
+
+# ╔═╡ a12cff45-fe95-48f6-89f8-cf77a8607319
+reliability_scatter(
+	m1s1odd_draws,
+	m1s1even_draws,
+	m1s1odd_pids,
+	m1s1even_pids,
+	"Odd blocks",
+	"Even blocks"
+)
+
 # ╔═╡ Cell order:
 # ╠═ed4ee070-530e-11ef-143e-09c737b06d9b
 # ╠═0136c52b-019f-490a-87b5-487d2a91414f
@@ -236,4 +276,7 @@ end
 # ╟─91759c41-a311-4861-9868-6665b31b88da
 # ╠═ee0d1233-79ee-4c0a-a360-09c9b4b3ed94
 # ╠═d05df98e-2717-4f24-bfc6-4af22885e276
+# ╠═c265528e-cdf7-4dc5-ad29-da302ceeeeb6
+# ╠═225e8909-b044-4ab6-80ec-b34a34b07b2c
+# ╠═a12cff45-fe95-48f6-89f8-cf77a8607319
 # ╠═8939f2f2-9293-4780-b4c5-67584f9fe4a8
