@@ -102,7 +102,7 @@ function run_cmdstanr(
 	adapt_delta::Union{Float64, Missing}=missing,
 	print_vars::Union{Vector{String}, Missing}=missing,
 	method::String = "sample", # Stan method
-	loo::Bool = false # Whether to compute loo
+	loo::Bool = false, # Whether to compute loo
 	loo_cores::Int64 = 11
 	)
 
@@ -182,7 +182,7 @@ function run_cmdstanr(
 	# Return fit summary
 	fit\$summary($(!ismissing(print_vars) ? "variables = c($(join(["\"$var\"" for var in print_vars], ", ")))," : "") .cores = $parallel_chains)
 	"""
-	
+
 	# Run R script
 	start_time = time()
 	fit_summary = RCall.reval(r_script)
