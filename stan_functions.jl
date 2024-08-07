@@ -101,7 +101,9 @@ function run_cmdstanr(
 	iter_sampling::Int64 = 1000,
 	adapt_delta::Union{Float64, Missing}=missing,
 	print_vars::Union{Vector{String}, Missing}=missing,
-	method::String = "sample" # Stan method
+	method::String = "sample", # Stan method
+	loo::Bool = false # Whether to compute loo
+	loo_cores::Int64 = 11
 	)
 
 	# File paths
@@ -166,10 +168,21 @@ function run_cmdstanr(
 	fit\$draws() # Load posterior draws into the object.
 	try(fit\$sampler_diagnostics(), silent = TRUE) # Load sampler diagnostics.
 	qs::qsave(x = fit, file = "$(joinpath(model_dir, "$(model_name)")).qs")
-
+	"""
+	
+	if loo
+		r_script += """
+			loo_result <- fit\$loo(cores = $loo_cores)
+			print(loo_result)
+			qs::qsave(loo_result, file = "$(joinpath(model_dir, "$(model_name)_loo")).qs")
+	"""
+	end
+	
+	r_script += """
 	# Return fit summary
 	fit\$summary($(!ismissing(print_vars) ? "variables = c($(join(["\"$var\"" for var in print_vars], ", ")))," : "") .cores = $parallel_chains)
 	"""
+	
 	# Run R script
 	start_time = time()
 	fit_summary = RCall.reval(r_script)
