@@ -387,6 +387,13 @@ function simulate_q_learning_dataset(
 	# Combine into single DataFrame
 	task = crossjoin(participants, task)
 
+	# Use :early_stop in task if supplied
+	if !("early_stop" in names(task))
+		task[!, :stop_after] .= stop_after
+	else
+		task[!, :stop_after] = ifelse.(task.early_stop, 5, missing)
+	end
+
 	# Convenience function for simulation
 	function simulate_grouped_block(grouped_df)
 		simulate_block(grouped_df,
@@ -396,7 +403,7 @@ function simulate_q_learning_dataset(
 			[:α, :ρ],
 			softmax_choice_direct,
 			Vector{Symbol}();
-			stop_after = stop_after
+			stop_after = grouped_df.stop_after[1]
 		)
 	end
 
