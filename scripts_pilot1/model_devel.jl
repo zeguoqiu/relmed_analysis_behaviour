@@ -461,8 +461,9 @@ end
 # ╠═╡ skip_as_script = true
 #=╠═╡
 function q_learning_posterior_predictive(
-	data::DataFrame,
-	draws::DataFrame
+	task::DataFrame,
+	draws::DataFrame;
+	init::Union{Vector{Float64}, Missing} = missing # Initial value for Q learner
 )
 	participant_params = extract_participant_params(draws)
 
@@ -472,17 +473,19 @@ function q_learning_posterior_predictive(
 	for i in sample(1:nrow(participant_params["a"]), 50)
 
 		# Extract draw
-		draw = DataFrame(
-			α = a2α.(stack(participant_params["a"][1, :])),
-			ρ = stack(participant_params["rho"][1, :])
-		)
-		draw.pp = 1:nrow(draw)
-
+		α = a2α.(stack(participant_params["a"][1, :])),
+		ρ = stack(participant_params["rho"][1, :])
+		
 		# Simulate task
-		ppd = q_learning_posterior_predictive_draw(i;
-			data = data,
-			draw = draw
+		ppd = simulate_q_learning_dataset(
+			task,
+			α,
+			ρ,
+			aao = init
 		)
+
+		# Set draw index
+		ppd[!, :draw] .= i
 
 		push!(ppc, ppd)
 	end
