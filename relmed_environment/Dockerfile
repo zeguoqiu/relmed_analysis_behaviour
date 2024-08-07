@@ -46,14 +46,6 @@ COPY docker_setup/install-julia.bash /opt/setup-scripts/install-julia.bash
 RUN chmod +x /opt/setup-scripts/install-julia.bash
 RUN /opt/setup-scripts/install-julia.bash
 
-# Prerequisites for GLMakie
-ENV DISPLAY=:0
-RUN apt-get update --yes && \
-    apt-get install --yes --no-install-recommends \
-    cmake xorg-dev mesa-utils xvfb libgl1 freeglut3-dev &&\
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN xvfb -s '-screen 0 1024x768x24'
-
 # USER ${NB_UID}
 
 # Setup packages
@@ -82,9 +74,6 @@ RUN apt-get update --yes && \
 COPY docker_setup/install_cmdstan.R install_cmdstan.R
 RUN ["Rscript", "install_cmdstan.R"] && \
     fix-permissions "/home/${NB_USER}"
-
-# Set threads for Julia
-ENV JULIA_NUM_THREADS=11
 
 # Set CMDSTAN home
 ENV CMDSTAN_HOME=/home/jovyan/.cmdstanr/cmdstan-2.34.1
