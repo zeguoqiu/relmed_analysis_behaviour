@@ -91,10 +91,10 @@ md"""
 """
 
 # ╔═╡ 07492d7a-a15a-4e12-97b6-1e85aac23e4f
-@model function single_p_QL(
+@model function single_p_QL(;
 	N::Int64, # Total number of trials
 	bl::Vector{Int64}, # Block number
-	choice, # Binary choice, coded true for optimal
+	choice, # Binary choice, coded true for optimal. Not typed so that it can be simulated
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
 	initV::Matrix{Float64} # Initial Q values
 )
@@ -131,12 +131,16 @@ md"""
 
 end
 
+# ╔═╡ 6db868b8-18b0-4a8e-bd2c-fb7b35534ebd
+Random.default_rng()
+
 # ╔═╡ eaecfccd-242c-437f-b7a8-a00a303b367e
 function simulate_single_p_QL(
 	n::Int64; # How many datasets to simulate
 	bl::Vector{Int64}, # Block number
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
-	initV::Matrix{Float64} # Initial Q values
+	initV::Matrix{Float64}, # Initial Q values
+	random_seed::Union{Int64, Nothing} = nothing
 )
 
 	# Trial number
@@ -144,16 +148,17 @@ function simulate_single_p_QL(
 
 	# Prepare model for simulation
 	prior_model = single_p_QL(
-		N,
-		bl,
-		fill(missing, length(bl)),
-		outcomes,
-		initV
+		N = N,
+		bl = bl,
+		choice = fill(missing, length(bl)),
+		outcomes = outcomes,
+		initV = initV
 	)
 
 
 	# Draw parameters and simulate choice
 	prior_sample = sample(
+		isnothing(random_seed) ? Random.default_rng() : Xoshiro(random_seed),
 		prior_model,
 		Prior(),
 		n
@@ -197,7 +202,8 @@ prior_sample = let
 		10;
 		bl = task.block .+ (task.session .- 1) * maximum(task.block),
 		outcomes = outcomes,
-		initV = fill(aao, 1, 2)
+		initV = fill(aao, 1, 2),
+		random_seed = 0
 	)
 
 end
@@ -213,6 +219,7 @@ size(prior_sample.choice)
 # ╠═0c0a8b5f-efe1-4a21-8d9f-64c2de112847
 # ╟─43d7b28a-97a3-4db7-9e41-a7e73aa18b81
 # ╠═07492d7a-a15a-4e12-97b6-1e85aac23e4f
+# ╠═6db868b8-18b0-4a8e-bd2c-fb7b35534ebd
 # ╠═eaecfccd-242c-437f-b7a8-a00a303b367e
 # ╠═14b82fda-229b-4a52-bc49-51201d4706be
 # ╠═78b422d6-c70f-4a29-a433-7173e1b108a0
