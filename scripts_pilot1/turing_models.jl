@@ -93,7 +93,10 @@ md"""
 # ╔═╡ 07492d7a-a15a-4e12-97b6-1e85aac23e4f
 @model function single_p_QL(;
 	N::Int64, # Total number of trials
+	n_blocks::Int64, # Number of blocks
+	n_trials::Int64, # Number of trials in block
 	bl::Vector{Int64}, # Block number
+	valence::AbstractVector, # Valence of each block
 	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
 	initV::Matrix{Float64} # Initial Q values
@@ -107,7 +110,7 @@ md"""
 	α = logistic(π/sqrt(3) * a) # hBayesDM uses Phi_approx from Stan. Here, logistic with the variance of the logistic multiplying a to equate the scales to that of a probit function.
 
 	# Initialize Q values
-	Qs = repeat(initV .* ρ, N)
+	Qs = vcat([repeat(initV .* (ρ * valence[i]), n_trials) for i in 1:n_blocks]...)
 
 	# Loop over trials, updating Q values and incrementing log-density
 	for i in 1:N
@@ -131,25 +134,29 @@ md"""
 
 end
 
-# ╔═╡ 6db868b8-18b0-4a8e-bd2c-fb7b35534ebd
-Random.default_rng()
-
-# ╔═╡ eaecfccd-242c-437f-b7a8-a00a303b367e
+# ╔═╡ 69f78ddd-2310-4534-997c-6888e2808ea5
 function simulate_single_p_QL(
 	n::Int64; # How many datasets to simulate
 	bl::Vector{Int64}, # Block number
+	valence::AbstractVector, # Valence of each block
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
 	initV::Matrix{Float64}, # Initial Q values
 	random_seed::Union{Int64, Nothing} = nothing
 )
 
-	# Trial number
+	# Total trial number
 	N = length(bl)
+
+	# Trials per block
+	n_trials = div(length(bl), maximum(bl))
 
 	# Prepare model for simulation
 	prior_model = single_p_QL(
 		N = N,
+		n_trials = n_trials,
+		n_blocks = maximum(bl),
 		bl = bl,
+		valence = valence,
 		choice = fill(missing, length(bl)),
 		outcomes = outcomes,
 		initV = initV
@@ -170,6 +177,8 @@ function simulate_single_p_QL(
 		ρ = repeat(prior_sample[:, :ρ, 1], inner = N),
 		α = repeat(prior_sample[:, :a, 1], inner = N) .|> a2α,
 		block = repeat(bl, n),
+		valence = repeat(valence, inner = n_trials, outer = n),
+		trial = repeat(1:n_trials, n * maximum(bl)),
 		choice = prior_sample[:, [Symbol("choice[$i]") for i in 1:N], 1] |>
 			Array |> transpose |> vec
 	)
@@ -199,8 +208,9 @@ prior_sample = let
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
 	simulate_single_p_QL(
-		10;
+		100;
 		bl = task.block .+ (task.session .- 1) * maximum(task.block),
+		valence = unique(task[!, [:session, :block, :valence]]).valence,
 		outcomes = outcomes,
 		initV = fill(aao, 1, 2),
 		random_seed = 0
@@ -209,7 +219,45 @@ prior_sample = let
 end
 
 # ╔═╡ 78b422d6-c70f-4a29-a433-7173e1b108a0
-size(prior_sample.choice)
+let
+	df = rename(prior_sample, 
+		:Q_A => :EV_A,
+		:Q_B => :EV_B
+	)
+
+	df[!, :group] .= 1
+	
+	f = Figure(size = (700, 1000))
+
+	g_all = f[1,1] = GridLayout()
+	
+	plot_sim_q_value_acc!(
+		g_all,
+		df;
+		plw = 1,
+		legend = false
+	)
+
+	g_reward = f[2,1] = GridLayout()
+	
+	plot_sim_q_value_acc!(
+		g_reward,
+		filter(x -> x.valence > 0, df);
+		plw = 1,
+		legend = false
+	)
+
+	g_reward = f[3,1] = GridLayout()
+	
+	plot_sim_q_value_acc!(
+		g_reward,
+		filter(x -> x.valence < 0, df);
+		plw = 1,
+		legend = false
+	)
+
+	f
+end
 
 # ╔═╡ Cell order:
 # ╠═ac7fd352-555d-11ef-0f98-07f8c7c23d25
@@ -219,7 +267,6 @@ size(prior_sample.choice)
 # ╠═0c0a8b5f-efe1-4a21-8d9f-64c2de112847
 # ╟─43d7b28a-97a3-4db7-9e41-a7e73aa18b81
 # ╠═07492d7a-a15a-4e12-97b6-1e85aac23e4f
-# ╠═6db868b8-18b0-4a8e-bd2c-fb7b35534ebd
-# ╠═eaecfccd-242c-437f-b7a8-a00a303b367e
 # ╠═14b82fda-229b-4a52-bc49-51201d4706be
 # ╠═78b422d6-c70f-4a29-a433-7173e1b108a0
+# ╠═69f78ddd-2310-4534-997c-6888e2808ea5
