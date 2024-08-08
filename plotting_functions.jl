@@ -317,7 +317,7 @@ function plot_sim_group_q_values!(
 end
 
 function plot_sim_q_value_acc!(
-	f::Figure,
+	f::Union{Figure, GridLayout},
 	sim_dat::DataFrame;
 	legend = true,
 	colors = Makie.wong_colors(),
