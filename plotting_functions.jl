@@ -225,11 +225,13 @@ function plot_sim_group_q_values!(
 	traces = true,
 	legend = true,
 	colors = Makie.wong_colors(),
-	backgroundcolor = :white
+	backgroundcolor = :white,
+	plw = 0.2
 	)
 
 	p_data = copy(data)
 
+	# Normalize by ρ
 	p_data.EV_A_s = p_data.EV_A ./ p_data.ρ
 	p_data.EV_B_s = p_data.EV_B ./ p_data.ρ
 
@@ -275,6 +277,7 @@ function plot_sim_group_q_values!(
 		gp_dat_A = filter(:group => (x -> x == g), p_data_A)
 		gp_dat_B = filter(:group => (x -> x == g), p_data_B)
 
+
 		# Plot group means
 		lines!(ax, gsum_dat.trial, gsum_dat.EV_A, 
 			color = colors[g],
@@ -287,11 +290,11 @@ function plot_sim_group_q_values!(
 		# Plot per participant
 		series!(ax, transpose(Matrix(gp_dat_A[!, 3:end])), 
 			solid_color = (colors[g], 0.1),
-			linewidth = .2)
+			linewidth = plw)
 
 		series!(ax, transpose(Matrix(gp_dat_B[!, 3:end])), 
 			solid_color = (colors[g], 0.1),
-			linewidth = .2,
+			linewidth = plw,
 			linestyle = :dash)
 
 		if legend
