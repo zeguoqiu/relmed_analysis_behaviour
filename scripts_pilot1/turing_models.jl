@@ -92,11 +92,11 @@ md"""
 
 # ╔═╡ 07492d7a-a15a-4e12-97b6-1e85aac23e4f
 @model function single_p_QL(
-	N, # Total number of trials
-	bl, # Block number
+	N::Int64, # Total number of trials
+	bl::Vector{Int64}, # Block number
 	choice, # Binary choice, coded true for optimal
-	outcomes, # Outcomes for options, first column optimal
-	initV # Initial Q values
+	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
+	initV::Matrix{Float64} # Initial Q values
 )
 
 	# Priors on parameters
@@ -107,12 +107,12 @@ md"""
 	α = logistic(π/sqrt(3) * a) # hBayesDM uses Phi_approx from Stan. Here, logistic with the variance of the logistic multiplying a to equate the scales to that of a probit function.
 
 	# Initialize Q values
-	Qs = repeat(initV, N)
+	Qs = repeat(initV .* ρ, N)
 
 	# Loop over trials, updating Q values and incrementing log-density
 	for i in 1:N
 		
-		# Increment log density
+		# Define choice distribution
 		choice[i] ~ BernoulliLogit(Qs[i, 1] - Qs[i, 2])
 
 		choice_idx::Int64 = choice[i] + 1
@@ -127,8 +127,56 @@ md"""
 		end
 	end
 
-	return choice, Qs
+	return Qs
 
+end
+
+# ╔═╡ eaecfccd-242c-437f-b7a8-a00a303b367e
+function simulate_single_p_QL(
+	n::Int64; # How many datasets to simulate
+	bl::Vector{Int64}, # Block number
+	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
+	initV::Matrix{Float64} # Initial Q values
+)
+
+	# Trial number
+	N = length(bl)
+
+	# Prepare model for simulation
+	prior_model = single_p_QL(
+		N,
+		bl,
+		fill(missing, length(bl)),
+		outcomes,
+		initV
+	)
+
+
+	# Draw parameters and simulate choice
+	prior_sample = sample(
+		prior_model,
+		Prior(),
+		n
+	)
+
+	# Arrange choice for return
+	sim_data = DataFrame(
+		PID = repeat(1:n, inner = N),
+		ρ = repeat(prior_sample[:, :ρ, 1], inner = N),
+		α = repeat(prior_sample[:, :a, 1], inner = N) .|> a2α,
+		block = repeat(bl, n),
+		choice = prior_sample[:, [Symbol("choice[$i]") for i in 1:N], 1] |>
+			Array |> transpose |> vec
+	)
+
+	# Compute Q values
+	Qs = generated_quantities(prior_model, prior_sample) |> vec
+
+	sim_data.Q_A = vcat([qs[:, 1] for qs in Qs]...) 
+	sim_data.Q_B = vcat([qs[:, 2] for qs in Qs]...) 
+
+	return sim_data
+			
 end
 
 # ╔═╡ 14b82fda-229b-4a52-bc49-51201d4706be
@@ -145,22 +193,17 @@ prior_sample = let
 	# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
-	prior_sample = sample(
-		single_p_QL(
-			nrow(task),
-			task.block,
-			fill(missing, nrow(task)),
-			outcomes,
-			fill(aao, 1, 2)
-		),
-		Prior(),
-		100
+	simulate_single_p_QL(
+		10;
+		bl = task.block .+ (task.session .- 1) * maximum(task.block),
+		outcomes = outcomes,
+		initV = fill(aao, 1, 2)
 	)
 
 end
 
 # ╔═╡ 78b422d6-c70f-4a29-a433-7173e1b108a0
-repeat([3. 3.], 10)
+size(prior_sample.choice)
 
 # ╔═╡ Cell order:
 # ╠═ac7fd352-555d-11ef-0f98-07f8c7c23d25
@@ -170,5 +213,6 @@ repeat([3. 3.], 10)
 # ╠═0c0a8b5f-efe1-4a21-8d9f-64c2de112847
 # ╟─43d7b28a-97a3-4db7-9e41-a7e73aa18b81
 # ╠═07492d7a-a15a-4e12-97b6-1e85aac23e4f
+# ╠═eaecfccd-242c-437f-b7a8-a00a303b367e
 # ╠═14b82fda-229b-4a52-bc49-51201d4706be
 # ╠═78b422d6-c70f-4a29-a433-7173e1b108a0
