@@ -99,7 +99,7 @@ function plot_group_accuracy!(
     backgroundcolor = :white,
     ylabel::Union{String, Makie.RichText}="Prop. optimal choice",
     levels::Union{AbstractVector, Missing} = missing,
-	error_band::Bool = true,
+	error_band::Union{Bool, String} = "se",
 	linewidth::Float64 = 3.
     )
 
@@ -165,7 +165,7 @@ function plot_group_accuracy!(
     backgroundcolor = :white,
     ylabel::Union{String, Makie.RichText}="Prop. optimal choice",
     levels::Union{AbstractVector, Missing} = missing,
-	error_band::Bool = true,
+	error_band::Union{String, Bool} = "se", # Whether and which type of error band to plot
 	linewidth::Float64 = 3.
     )
 
@@ -188,7 +188,11 @@ function plot_group_accuracy!(
     sum_data = combine(
         groupby(sum_data, [:group, :trial]),
         :acc => mean => :acc,
-        :acc => sem => :acc_sem
+        :acc => sem => :acc_sem,
+		:acc => lb => :acc_lb,
+		:acc => ub => :acc_ub,
+		:acc => llb => :acc_llb,
+		:acc => uub => :acc_uub
     )
 
 	# Set axis xticks
@@ -201,11 +205,19 @@ function plot_group_accuracy!(
         # Plot line
 		mc = length(colors)
 
-		if error_band
+		if typeof(error_band) == String
+			if error_band == "PI"
+				band!(ax,
+					gdat.trial,
+					gdat.acc_llb,
+					gdat.acc_uub,
+					color = (colors[rem(i - 1, mc) + 1], 0.1)
+				)
+			end 
 			band!(ax,
 				gdat.trial,
-				gdat.acc - gdat.acc_sem,
-				gdat.acc + gdat.acc_sem,
+				error_band == "se" ? gdat.acc - gdat.acc_sem : gdat.acc_lb,
+				error_band == "se" ? gdat.acc + gdat.acc_sem : gdat.acc_ub,
 				color = (colors[rem(i - 1, mc) + 1], 0.3)
 			)
 		end
@@ -322,7 +334,8 @@ function plot_sim_q_value_acc!(
 	legend = true,
 	colors = Makie.wong_colors(),
 	backgroundcolor = :white,
-	plw = 0.2
+	plw = 0.2,
+	acc_error_band = "se"
 	)
 
     # Calcualte accuracy
@@ -332,7 +345,7 @@ function plot_sim_q_value_acc!(
 		legend = legend, colors = colors, backgroundcolor = backgroundcolor, plw = plw)
 	plot_group_accuracy!(f[1 + legend,2], sim_dat;
         group = :group, pid_col = :PID,
-		colors = colors, backgroundcolor = backgroundcolor)
+		colors = colors, backgroundcolor = backgroundcolor, error_band = acc_error_band)
 
 	if (legend)
 		# Add legend

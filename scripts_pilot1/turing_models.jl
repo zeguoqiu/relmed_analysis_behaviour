@@ -235,7 +235,8 @@ let
 		g_all,
 		df;
 		plw = 1,
-		legend = false
+		legend = false,
+		acc_error_band = "PI"
 	)
 
 	g_reward = f[2,1] = GridLayout()
@@ -244,7 +245,8 @@ let
 		g_reward,
 		filter(x -> x.valence > 0, df);
 		plw = 1,
-		legend = false
+		legend = false,
+		acc_error_band = "PI"
 	)
 
 	g_reward = f[3,1] = GridLayout()
@@ -253,11 +255,15 @@ let
 		g_reward,
 		filter(x -> x.valence < 0, df);
 		plw = 1,
-		legend = false
+		legend = false,
+		acc_error_band = "PI"
 	)
 
 	f
 end
+
+# ╔═╡ 8e4f80e1-bdd8-4080-a64c-e4d703ef5544
+typeof("a") == String
 
 # ╔═╡ Cell order:
 # ╠═ac7fd352-555d-11ef-0f98-07f8c7c23d25
@@ -270,3 +276,4 @@ end
 # ╠═14b82fda-229b-4a52-bc49-51201d4706be
 # ╠═78b422d6-c70f-4a29-a433-7173e1b108a0
 # ╠═69f78ddd-2310-4534-997c-6888e2808ea5
+# ╠═8e4f80e1-bdd8-4080-a64c-e4d703ef5544
