@@ -94,7 +94,7 @@ md"""
 @model function single_p_QL(;
 	N::Int64, # Total number of trials
 	bl::Vector{Int64}, # Block number
-	choice, # Binary choice, coded true for optimal. Not typed so that it can be simulated
+	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
 	initV::Matrix{Float64} # Initial Q values
 )
