@@ -321,14 +321,15 @@ function plot_sim_q_value_acc!(
 	sim_dat::DataFrame;
 	legend = true,
 	colors = Makie.wong_colors(),
-	backgroundcolor = :white
+	backgroundcolor = :white,
+	plw = 0.2
 	)
 
     # Calcualte accuracy
     sim_dat.isOptimal = sim_dat.choice .== 1
 	
 	plot_sim_group_q_values!(f[1 + legend ,1], sim_dat; 
-		legend = legend, colors = colors, backgroundcolor = backgroundcolor)
+		legend = legend, colors = colors, backgroundcolor = backgroundcolor, plw = plw)
 	plot_group_accuracy!(f[1 + legend,2], sim_dat;
         group = :group, pid_col = :PID,
 		colors = colors, backgroundcolor = backgroundcolor)
