@@ -14,7 +14,7 @@ begin
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase,
-		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO, JuMP, CSV, Dates, JSON, RCall, HTTP
+		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO, JuMP, CSV, Dates, JSON, RCall
 	using IterTools: product
 	using LogExpFunctions: logsumexp
 	using Combinatorics: combinations
@@ -457,43 +457,6 @@ end
 
   ╠═╡ =#
 
-# ╔═╡ 7d836234-8703-48d0-9c66-f39761a57d65
-# ╠═╡ skip_as_script = true
-#=╠═╡
-function q_learning_posterior_predictive(
-	task::DataFrame,
-	draws::DataFrame;
-	init::Union{Vector{Float64}, Missing} = missing # Initial value for Q learner
-)
-	participant_params = extract_participant_params(draws)
-
-	Random.seed!(0)
-
-	ppc = []
-	for i in sample(1:nrow(participant_params["a"]), 50)
-
-		# Extract draw
-		α = a2α.(stack(participant_params["a"][1, :])),
-		ρ = stack(participant_params["rho"][1, :])
-		
-		# Simulate task
-		ppd = simulate_q_learning_dataset(
-			task,
-			α,
-			ρ,
-			aao = init
-		)
-
-		# Set draw index
-		ppd[!, :draw] .= i
-
-		push!(ppc, ppd)
-	end
-
-	return vcat(ppc...)
-end
-  ╠═╡ =#
-
 # ╔═╡ 1fc6a457-cd86-4835-a18a-75db1fe4a469
 # ╠═╡ skip_as_script = true
 #=╠═╡
@@ -559,6 +522,86 @@ function plot_q_learning_ppc_accuracy(
 	f_acc
 
 end
+  ╠═╡ =#
+
+# ╔═╡ 0e055091-bfd4-4e25-9c94-f9268722f0bc
+#=╠═╡
+sess1_no_early_forfit
+  ╠═╡ =#
+
+# ╔═╡ 0d266269-9704-47aa-9375-b4f4cd85fc17
+function prepare_data_for_ppc(
+	data::DataFrame;
+	task_struct_location::String = "data/"
+)
+
+	# Get conditions in this dataset
+	conds = unique(data.condition)
+
+	task_structures = Dict(
+		c => DataFrame(CSV.File(joinpath(task_struct_location, "PLT_task_structure_$c.csv"))) for c in conds
+	)
+
+	# Create unified task structure
+	pp_conds = unique(data[!, [:pp, :condition]])
+	
+	task = vcat([
+		insertcols(
+			task_structures[r.condition],
+			:pp => fill(r.pp, nrow(task_structures[r.condition]))
+		) for r in eachrow(pp_conds)
+	]...)
+
+	@assert nrow(task) >= nrow(data) "Task structure has less rows than data"
+
+	return task
+
+end
+
+# ╔═╡ 7d836234-8703-48d0-9c66-f39761a57d65
+# ╠═╡ skip_as_script = true
+#=╠═╡
+function q_learning_posterior_predictive(
+	data::DataFrame,
+	draws::DataFrame;
+	init::Union{Vector{Float64}, Missing} = missing # Initial value for Q learner
+)
+	# Exctract participant params from draws DataFrame
+	participant_params = extract_participant_params(draws)
+
+	# Prepare task structure from saved files
+	task = prepare_data_for_ppc(data)
+
+	Random.seed!(0)
+
+	ppc = []
+	for i in sample(1:nrow(participant_params["a"]), 50)
+
+		# Extract draw
+		α = a2α.(stack(participant_params["a"][1, :]))
+		ρ = stack(participant_params["rho"][1, :])
+		
+		# Simulate task
+		ppd = simulate_q_learning_dataset(
+			task,
+			α,
+			ρ,
+			aao = init
+		)
+
+		# Set draw index
+		ppd[!, :draw] .= i
+
+		push!(ppc, ppd)
+	end
+
+	return vcat(ppc...)
+end
+  ╠═╡ =#
+
+# ╔═╡ 40a15cdd-2eff-4677-8f96-a9f83e5985c6
+#=╠═╡
+prepare_data_for_ppc(sess1_no_early_forfit)
   ╠═╡ =#
 
 # ╔═╡ 0bbcf2ce-4297-4543-8659-94ea07b2e0f7
@@ -685,6 +728,9 @@ end
 # ╠═cee9b208-46ad-4e31-92c4-d2bfdbad7ad3
 # ╠═7d836234-8703-48d0-9c66-f39761a57d65
 # ╠═1fc6a457-cd86-4835-a18a-75db1fe4a469
+# ╠═0e055091-bfd4-4e25-9c94-f9268722f0bc
+# ╠═0d266269-9704-47aa-9375-b4f4cd85fc17
+# ╠═40a15cdd-2eff-4677-8f96-a9f83e5985c6
 # ╠═0bbcf2ce-4297-4543-8659-94ea07b2e0f7
 # ╠═e9da9e37-dea2-4ea0-8084-d280aa8e3e95
 # ╠═7f1f513a-b960-4dd5-b1c5-9f87e4af5ae9
