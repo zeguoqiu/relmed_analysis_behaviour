@@ -73,7 +73,7 @@ md"""
 	bl::Vector{Int64}, # Block number
 	valence::AbstractVector, # Valence of each block
 	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
-	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
+	outcomes::Matrix{Float64}, # Outcomes for options, second column optimal
 	initV::Matrix{Float64} # Initial Q values
 )
 
@@ -106,6 +106,38 @@ md"""
 	end
 
 	return Qs
+
+end
+
+# ╔═╡ 842bda72-9c09-4170-a40c-04d2510b7673
+function fit_to_df_single_p_QL(
+	data::DataFrame;
+	initV::Float64,
+	random_seed::Union{Int64, Nothing} = nothing
+)
+	model = single_p_QL(;
+		N = nrow(data),
+		n_blocks = maximum(data.block),
+		n_trials = maximum(data.trial),
+		bl = data.block,
+		valence = unique(data[!, [:block, :valence]]).valence,
+		choice = data.choice,
+		outcomes = hcat(
+			data.feedback_suboptimal,
+			data.feedback_optimal,
+		),
+		initV = fill(initV, 1, 2)
+	)
+
+	fit = sample(
+		isnothing(random_seed) ? Random.default_rng() : Xoshiro(random_seed),
+		model, 
+		NUTS(), 
+		MCMCThreads(), 
+		1000, 
+		4)
+
+	return fit
 
 end
 
@@ -161,8 +193,8 @@ function simulate_single_p_QL(
 	# Compute Q values
 	Qs = generated_quantities(prior_model, prior_sample) |> vec
 
-	sim_data.Q_A = vcat([qs[:, 1] for qs in Qs]...) 
-	sim_data.Q_B = vcat([qs[:, 2] for qs in Qs]...) 
+	sim_data.Q_optimal = vcat([qs[:, 2] for qs in Qs]...) 
+	sim_data.Q_suboptimal = vcat([qs[:, 1] for qs in Qs]...) 
 
 	return sim_data
 			
@@ -173,31 +205,60 @@ prior_sample = let
 	# Load sequence from file
 	task = DataFrame(CSV.File("data/PLT_task_structure_00.csv"))
 
-	# Arrange outcomes such as first column is optimal
-	outcomes = hcat(
-		ifelse.(task.optimal_A .== 1, task.feedback_A, task.feedback_B),
+	# Renumber block
+	task.block = task.block .+ (task.session .- 1) * maximum(task.block)
+
+	# Arrange feedback by optimal / suboptimal
+	task.feedback_optimal = 
+		ifelse.(task.optimal_A .== 1, task.feedback_A, task.feedback_B)
+
+	task.feedback_suboptimal = 
 		ifelse.(task.optimal_A .== 0, task.feedback_A, task.feedback_B)
+
+
+	# Arrange outcomes such as second column is optimal
+	outcomes = hcat(
+		task.feedback_suboptimal,
+		task.feedback_optimal,
 	)
 
 	# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
-	simulate_single_p_QL(
+	prior_sample = simulate_single_p_QL(
 		100;
-		bl = task.block .+ (task.session .- 1) * maximum(task.block),
-		valence = unique(task[!, [:session, :block, :valence]]).valence,
+		bl = task.block,
+		valence = unique(task[!, [:block, :valence]]).valence,
 		outcomes = outcomes,
 		initV = fill(aao, 1, 2),
 		random_seed = 0
 	)
 
+
+	leftjoin(prior_sample, 
+		task[!, [:block, :trial, :feedback_optimal, :feedback_suboptimal]],
+		on = [:block, :trial]
+	)
+
+end
+
+# ╔═╡ 24f05d41-c1a8-4251-a4f5-bab478b7f1f0
+let
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+	
+	fit_to_df_single_p_QL(
+		filter(x -> x.PID == 1, prior_sample); 
+		initV = aao,
+		random_seed = 0
+	)
 end
 
 # ╔═╡ 78b422d6-c70f-4a29-a433-7173e1b108a0
 let
 	df = rename(prior_sample, 
-		:Q_A => :EV_A,
-		:Q_B => :EV_B
+		:Q_optimal => :EV_A,
+		:Q_suboptimal => :EV_B
 	)
 
 	df[!, :group] .= 1
@@ -246,6 +307,8 @@ typeof("a") == String
 # ╠═76412db2-9b4c-4aea-a049-3831321347ab
 # ╟─43d7b28a-97a3-4db7-9e41-a7e73aa18b81
 # ╠═07492d7a-a15a-4e12-97b6-1e85aac23e4f
+# ╠═842bda72-9c09-4170-a40c-04d2510b7673
+# ╠═24f05d41-c1a8-4251-a4f5-bab478b7f1f0
 # ╠═14b82fda-229b-4a52-bc49-51201d4706be
 # ╠═78b422d6-c70f-4a29-a433-7173e1b108a0
 # ╠═69f78ddd-2310-4534-997c-6888e2808ea5
