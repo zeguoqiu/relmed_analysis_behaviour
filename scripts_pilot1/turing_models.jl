@@ -60,31 +60,6 @@ begin
 	nothing
 end
 
-# ╔═╡ 453d0e76-f7da-415a-8ebc-a9fe25032557
-md"""
-## Testing Turing.jl
-"""
-
-# ╔═╡ 0c0a8b5f-efe1-4a21-8d9f-64c2de112847
-let
-	# Just simple test model
-	@model function model(data)
-	    μ ~ Normal()
-		σ ~ truncated(Normal(), lower = 0.)
-	    
-		for i in 1:length(data)
-	        data[i] ~ Normal(μ, σ)
-	    end
-
-		return data
-	end
-
-	data = rand(Normal(1, 1), 100)
-
-	chain = sample(model(data), NUTS(), 1000)
-	psis_loo(model(data), chain)
-end
-
 # ╔═╡ 43d7b28a-97a3-4db7-9e41-a7e73aa18b81
 md"""
 ## Single Q learner
@@ -269,8 +244,6 @@ typeof("a") == String
 # ╠═ac7fd352-555d-11ef-0f98-07f8c7c23d25
 # ╠═ae31ab2d-3d59-4c33-b74a-f21dd43ca95e
 # ╠═76412db2-9b4c-4aea-a049-3831321347ab
-# ╟─453d0e76-f7da-415a-8ebc-a9fe25032557
-# ╠═0c0a8b5f-efe1-4a21-8d9f-64c2de112847
 # ╟─43d7b28a-97a3-4db7-9e41-a7e73aa18b81
 # ╠═07492d7a-a15a-4e12-97b6-1e85aac23e4f
 # ╠═14b82fda-229b-4a52-bc49-51201d4706be
