@@ -325,16 +325,22 @@ end
 
 # Summarize prior predictive draws relative to true value
 function sum_prior_predictive_draws(
-	draws::DataFrame;
+	draws;
 	params::Vector{Symbol}, # Parameters to sum
 	true_values::Vector{Float64},
 	prior_var::Vector{Float64} = repeat([1.], length(params)) # Variance of the prior for computing posterior contraction
 	)
 
+	if length(size(draws)) > 2 # For MCMC Chains object
+		tdraws = DataFrame(Array(draws), names(draws, :parameters))
+	else
+		tdraws = draws
+	end
+
 	sums = []
 	for (p, t, pv) in zip(params, true_values, prior_var)
 
-		v = draws[!, p]
+		v = tdraws[!, p]
 		v_s = v .- t
 
 		push!(sums,
