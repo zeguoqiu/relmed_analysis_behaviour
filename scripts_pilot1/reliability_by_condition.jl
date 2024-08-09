@@ -126,11 +126,74 @@ function fit_subset(
 		to_standata(tdata_forfit,
 			aao);
 		print_vars = ["mu_a", "sigma_a", "mu_rho", "sigma_rho"],
-		threads_per_chain = 3,
+		threads_per_chain = 11,
+		parallel_chains = 1,
 		iter_sampling = 500
 	)
 
 	return m_sum, m_draws, m_trime, tdata_pids
+
+end
+
+# ╔═╡ 521f1a26-1720-42e8-b3be-8e96781eb376
+function ppc_suite_fit_models(
+	model_name::String,
+	data::DataFrame,
+	init::Float64
+)
+	# List of models to fit, and the function creating the releavant data subset
+	mods = Dict(
+		"full" => x -> true,
+		"sess1" => x -> x.session == "1",
+		"sess2" => x -> x.session == "2",
+		"sess1_odd" => x -> (x.session == "1") & isodd(x.block),
+		"sess1_even" => x -> (x.session == "1") & iseven(x.block),
+		"sess2_odd" => x -> (x.session == "2") & isodd(x.block),
+		"sess2_even" => x -> (x.session == "2") & iseven(x.block)
+	)
+
+	# Dict to keep fit results
+	fits = Dics()
+
+	for (mod, filter_func) in mods
+		fits[mod] = fit_subset(
+			data,
+			"$(model_name)_$mod",
+			filter_func = filter_func,
+			model = model,
+			aao = init
+		)
+	end
+
+	return fits
+end
+
+# ╔═╡ 63fce3f1-19db-49cf-9cb7-c5695e77f161
+function ppc_suite(
+	model_name::String,
+	data::DataFrame;
+	init::Float64 = aao
+)
+
+	# Fit models -----------------
+	fits = ppc_suite_fit_models(model_name, data, init)
+
+	# PPC by session
+	
+
+	# PPC by participants and session
+
+	# Participant parameter spreads
+
+	# Test re-test reliability
+
+	# Split half reliability
+
+	# Reliability by block and trial
+
+	# Compute ICC reliability
+
+	# Return LOO, ICC
 
 end
 
@@ -274,6 +337,8 @@ reliability_scatter(
 # ╠═1fdd69b2-8b02-428a-a7a5-3e7c76656cf5
 # ╠═b64cabeb-f82b-4ce7-af56-63c8f02c44de
 # ╟─91759c41-a311-4861-9868-6665b31b88da
+# ╠═521f1a26-1720-42e8-b3be-8e96781eb376
+# ╠═63fce3f1-19db-49cf-9cb7-c5695e77f161
 # ╠═ee0d1233-79ee-4c0a-a360-09c9b4b3ed94
 # ╠═d05df98e-2717-4f24-bfc6-4af22885e276
 # ╠═c265528e-cdf7-4dc5-ad29-da302ceeeeb6
