@@ -686,6 +686,38 @@ function plot_posteriors(draws::Vector{DataFrame},
 	return f_sim
 end
 
+# Methods for MCMCChains
+function plot_posteriors(draws::AbstractVector,
+	params::Vector{String};
+	labels::AbstractVector = params,
+	true_values::Union{Vector{Float64}, Nothing} = nothing,
+	colors::AbstractVector = Makie.wong_colors()[1:length(draws)],
+	nrows::Int64=1,
+	scale_col::Union{Symbol, Nothing} = nothing,
+	mean_col::Union{Symbol, Nothing} = nothing,
+	model_labels::AbstractVector = repeat([nothing], length(draws))
+)	
+
+	
+
+	draws_dfs = [
+		DataFrame(Array(chains), names(chains, :parameters)) for chains in draws
+	]
+
+	plot_posteriors(draws_dfs,
+		params;
+		labels = labels,
+		true_values = true_values,
+		colors = colors,
+		nrows = nrows,
+		scale_col = scale_col,
+		mean_col = mean_col,
+		model_labels = model_labels
+	)	
+
+end
+
+
 # Plot prior predictive checks
 function plot_prior_predictive(
 	sum_fits::DataFrame;
