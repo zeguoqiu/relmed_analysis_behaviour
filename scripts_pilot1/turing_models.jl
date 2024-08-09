@@ -111,7 +111,7 @@ end
 
 # ╔═╡ 842bda72-9c09-4170-a40c-04d2510b7673
 function fit_to_df_single_p_QL(
-	data::DataFrame;
+	data::AbstractDataFrame;
 	initV::Float64,
 	random_seed::Union{Int64, Nothing} = nothing,
 	iter_sampling = 1000
@@ -140,6 +140,39 @@ function fit_to_df_single_p_QL(
 
 	return fit
 
+end
+
+# ╔═╡ ef1246c9-6a0c-49e7-aaa4-f5dbac769cc8
+function fit_sum_multiple_single_p_QL(
+	data::DataFrame;
+	initV::Float64,
+	random_seed::Union{Int64, Nothing} = nothing,
+	iter_sampling = 500
+)
+
+	sums = []
+	for p in unique(data.PID)
+		gdf = filter(x -> x.PID == p, data)
+		
+		draws = fit_to_df_single_p_QL(
+			gdf;
+			initV = initV,
+			random_seed = random_seed,
+			iter_sampling = iter_sampling
+		)
+
+		push!(
+			sums,
+			sum_prior_predictive_draws(
+				draws,
+				params = [:a, :ρ],
+				true_values = [α2a(gdf.α[1]), gdf.ρ[1]],
+				prior_var = [1., var(truncated(Normal(0., 2.), lower = 0.))]
+			)
+		)
+	end
+	
+	return sums
 end
 
 # ╔═╡ 69f78ddd-2310-4534-997c-6888e2808ea5
@@ -243,6 +276,27 @@ prior_sample = let
 
 end
 
+# ╔═╡ b0e6dde1-c740-4426-a4a1-b609aa6af536
+sbc = let
+	draws_sum_file = "saved_models/sbc_single_p_QL.jld2"
+	if isfile(draws_sum_file)
+		JLD2.@load draws_sum_file sbc
+	else
+		sbc = fit_sum_multiple_single_p_QL(
+			prior_sample;
+			initV = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])]),
+			random_seed = 0
+		) |> DataFrame
+
+		JLD2.@save draws_sum_file sbc
+	end
+
+	sbc
+end
+
+# ╔═╡ 90e25dd4-12be-410b-9241-83f8a4d417d5
+plot_prior_predictive(sbc, show_n = [1], params = ["a", "ρ"])
+
 # ╔═╡ 24f05d41-c1a8-4251-a4f5-bab478b7f1f0
 begin
 	fit = let
@@ -322,6 +376,9 @@ typeof("a") == String
 # ╠═76412db2-9b4c-4aea-a049-3831321347ab
 # ╟─43d7b28a-97a3-4db7-9e41-a7e73aa18b81
 # ╠═07492d7a-a15a-4e12-97b6-1e85aac23e4f
+# ╠═ef1246c9-6a0c-49e7-aaa4-f5dbac769cc8
+# ╠═90e25dd4-12be-410b-9241-83f8a4d417d5
+# ╠═b0e6dde1-c740-4426-a4a1-b609aa6af536
 # ╠═842bda72-9c09-4170-a40c-04d2510b7673
 # ╠═24f05d41-c1a8-4251-a4f5-bab478b7f1f0
 # ╠═9e03d03e-f58f-4d8a-8a25-b0f1d9d1da0c
