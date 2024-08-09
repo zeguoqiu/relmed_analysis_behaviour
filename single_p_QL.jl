@@ -156,7 +156,7 @@ function SBC_single_p_QL(
 
 		push!(
 			sums,
-			sum_prior_predictive_draws(
+			sum_SBC_draws(
 				draws,
 				params = [:a, :ρ],
 				true_values = [α2a(gdf.α[1]), gdf.ρ[1]],
