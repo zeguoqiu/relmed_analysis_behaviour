@@ -14,7 +14,7 @@ begin
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
 	using CairoMakie, Random, DataFrames, Distributions, Printf, PlutoUI, StatsBase,
-		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO, JuMP, CSV, Dates, JSON, RCall, Turing, ParetoSmooth
+		ForwardDiff, LinearAlgebra, Memoization, LRUCache, GLM, JLD2, FileIO, JuMP, CSV, Dates, JSON, RCall, Turing, ParetoSmooth, MCMCDiagnosticTools
 	using IterTools: product
 	using LogExpFunctions: logsumexp, logistic
 	using Combinatorics: combinations
@@ -113,7 +113,8 @@ end
 function fit_to_df_single_p_QL(
 	data::DataFrame;
 	initV::Float64,
-	random_seed::Union{Int64, Nothing} = nothing
+	random_seed::Union{Int64, Nothing} = nothing,
+	iter_sampling = 1000
 )
 	model = single_p_QL(;
 		N = nrow(data),
@@ -134,7 +135,7 @@ function fit_to_df_single_p_QL(
 		model, 
 		NUTS(), 
 		MCMCThreads(), 
-		1000, 
+		iter_sampling, 
 		4)
 
 	return fit
@@ -243,16 +244,30 @@ prior_sample = let
 end
 
 # ╔═╡ 24f05d41-c1a8-4251-a4f5-bab478b7f1f0
-let
-	# Initial value for Q values
-	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+begin
+	fit = let
+		# Initial value for Q values
+		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+		
+		fit = fit_to_df_single_p_QL(
+			filter(x -> x.PID == 1, prior_sample); 
+			initV = aao,
+			random_seed = 0
+		)
 	
-	fit_to_df_single_p_QL(
-		filter(x -> x.PID == 1, prior_sample); 
-		initV = aao,
-		random_seed = 0
-	)
+		fit
+	
+	end
+
+	describe(fit)
+
 end
+
+# ╔═╡ 9e03d03e-f58f-4d8a-8a25-b0f1d9d1da0c
+plot_posteriors([fit],
+	["a", "ρ"];
+	true_values = [α2a(prior_sample[1, :α]), prior_sample[1, :ρ]]
+)	
 
 # ╔═╡ 78b422d6-c70f-4a29-a433-7173e1b108a0
 let
@@ -309,6 +324,7 @@ typeof("a") == String
 # ╠═07492d7a-a15a-4e12-97b6-1e85aac23e4f
 # ╠═842bda72-9c09-4170-a40c-04d2510b7673
 # ╠═24f05d41-c1a8-4251-a4f5-bab478b7f1f0
+# ╠═9e03d03e-f58f-4d8a-8a25-b0f1d9d1da0c
 # ╠═14b82fda-229b-4a52-bc49-51201d4706be
 # ╠═78b422d6-c70f-4a29-a433-7173e1b108a0
 # ╠═69f78ddd-2310-4534-997c-6888e2808ea5
