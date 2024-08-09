@@ -100,11 +100,12 @@ function plot_group_accuracy!(
     ylabel::Union{String, Makie.RichText}="Prop. optimal choice",
     levels::Union{AbstractVector, Missing} = missing,
 	error_band::Union{Bool, String} = "se",
-	linewidth::Float64 = 3.
+	linewidth::Float64 = 3.,
+	plw::Float64 = 1.
     )
 
 	# Set up axis
-		ax = Axis(f[1,1],
+	ax = Axis(f[1,1],
         xlabel = "Trial #",
         ylabel = ylabel,
         xautolimitmargin = (0., 0.),
@@ -126,7 +127,8 @@ function plot_group_accuracy!(
 		ylabel = ylabel,
 		levels = levels,
 		error_band = error_band,
-		linewidth = linewidth
+		linewidth = linewidth,
+		plw = plw
 		)
 
 	# Legend
@@ -166,7 +168,8 @@ function plot_group_accuracy!(
     ylabel::Union{String, Makie.RichText}="Prop. optimal choice",
     levels::Union{AbstractVector, Missing} = missing,
 	error_band::Union{String, Bool} = "se", # Whether and which type of error band to plot
-	linewidth::Float64 = 3.
+	linewidth::Float64 = 3.,
+	plw::Float64 = 1. # Line width for per participant traces
     )
 
     # Default group value
@@ -185,6 +188,11 @@ function plot_group_accuracy!(
         acc_col => mean => :acc
     )
 
+	# Unstack per participant data for Stim A
+	p_data = unstack(sum_data, [:group, :trial], 
+		pid_col,
+		:acc)
+
     sum_data = combine(
         groupby(sum_data, [:group, :trial]),
         :acc => mean => :acc,
@@ -201,6 +209,7 @@ function plot_group_accuracy!(
     group_levels = ismissing(levels) ? unique(sum_data.group) : levels
     for (i,g) in enumerate(group_levels)
         gdat = filter(:group => (x -> x==g), sum_data)
+		g_p_dat = filter(:group => (x -> x == g), p_data)
 
         # Plot line
 		mc = length(colors)
@@ -214,12 +223,19 @@ function plot_group_accuracy!(
 					color = (colors[rem(i - 1, mc) + 1], 0.1)
 				)
 			end 
-			band!(ax,
-				gdat.trial,
-				error_band == "se" ? gdat.acc - gdat.acc_sem : gdat.acc_lb,
-				error_band == "se" ? gdat.acc + gdat.acc_sem : gdat.acc_ub,
-				color = (colors[rem(i - 1, mc) + 1], 0.3)
-			)
+
+			if error_band in ["se", "PI"]
+				band!(ax,
+					gdat.trial,
+					error_band == "se" ? gdat.acc - gdat.acc_sem : gdat.acc_lb,
+					error_band == "se" ? gdat.acc + gdat.acc_sem : gdat.acc_ub,
+					color = (colors[rem(i - 1, mc) + 1], 0.3)
+				)
+			elseif error_band == "traces"
+				series!(ax, transpose(Matrix(g_p_dat[!, 3:end])), 
+					solid_color = (colors[rem(i - 1, mc) + 1], 0.1),
+					linewidth = plw)
+			end
 		end
         
         lines!(ax, 
