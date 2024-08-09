@@ -73,7 +73,6 @@ function simulate_single_p_QL(
 		initV = initV
 	)
 
-
 	# Draw parameters and simulate choice
 	prior_sample = sample(
 		isnothing(random_seed) ? Random.default_rng() : Xoshiro(random_seed),
@@ -136,8 +135,8 @@ function posterior_sample_single_p_QL(
 	return fit
 end
 
-# Sample from posterior and summarise multiple times
-function posterior_sample_sum_multiple_single_p_QL(
+# Sample from posterior for multiple datasets drawn for prior and summarise for simulation-based calibration
+function SBC_single_p_QL(
 	data::DataFrame;
 	initV::Float64,
 	random_seed::Union{Int64, Nothing} = nothing,
