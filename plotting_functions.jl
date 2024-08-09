@@ -732,10 +732,10 @@ function plot_prior_predictive(
 		tsum_fits[!, :n_blocks] .= 1
 	end
 
-	block_levels = unique(sum_fits.n_blocks)
+	block_levels = unique(tsum_fits.n_blocks)
 	
 	tsum_fits.colors = (x -> Dict(block_levels .=> 
-		Makie.wong_colors()[1:length(block_levels)])[x]).(sum_fits.n_blocks)
+		Makie.wong_colors()[1:length(block_levels)])[x]).(tsum_fits.n_blocks)
 
 	# Plot for each parameter
 	f_sims = Figure(size = (700, 50 + 200 * length(params)))
@@ -754,7 +754,7 @@ function plot_prior_predictive(
 		rangebars!(ax,
 			tsum_fits[!, Symbol("true_$(p)")],
 			tsum_fits[!, Symbol("$(p)_lb")],
-			sum_fits[!, Symbol("$(p)_ub")],
+			tsum_fits[!, Symbol("$(p)_ub")],
 			color = tsum_fits.colors
 		)
 
