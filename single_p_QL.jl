@@ -18,7 +18,7 @@
 	a ~ Normal(0., 1.)
 
 	# Compute learning rate
-	α = logistic(π/sqrt(3) * a) # hBayesDM uses Phi_approx from Stan. Here, logistic with the variance of the logistic multiplying a to equate the scales to that of a probit function.
+	α = a2α(a) # hBayesDM uses Phi_approx from Stan. Here, logistic with the variance of the logistic multiplying a to equate the scales to that of a probit function.
 
 	# Initialize Q values
 	Qs = vcat([repeat(initV .* (ρ * valence[i]), n_trials) for i in 1:n_blocks]...)

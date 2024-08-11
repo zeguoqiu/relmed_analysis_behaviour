@@ -1,4 +1,7 @@
-# Functions for working with draws from models
+# Functions for models and working with draws from models
+
+# Transform unconstrainted a to learning rate α
+a2α(a) = logistic(π/sqrt(3) * a)
 
 # Summarize prior predictive draws relative to true value
 function sum_SBC_draws(
