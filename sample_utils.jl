@@ -3,6 +3,15 @@
 # Transform unconstrainted a to learning rate α
 a2α(a) = logistic(π/sqrt(3) * a)
 
+# Compute posterior quantiles
+begin
+	lb(x) = quantile(x, 0.25)
+	ub(x) = quantile(x, 0.75)
+	llb(x) = quantile(x, 0.025)
+	uub(x) = quantile(x, 0.975)
+end
+
+
 # Summarize prior predictive draws relative to true value
 function sum_SBC_draws(
 	draws;
