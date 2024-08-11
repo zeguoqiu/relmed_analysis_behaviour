@@ -3,6 +3,10 @@
 # Transform unconstrainted a to learning rate α
 a2α(a) = logistic(π/sqrt(3) * a)
 
+α2a(α) = logit(α) / (π/sqrt(3))
+
+@assert α2a(a2α(0.5)) ≈ 0.5
+
 # Compute posterior quantiles
 begin
 	lb(x) = quantile(x, 0.25)
