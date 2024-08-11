@@ -27,7 +27,7 @@
 	for i in 1:N
 		
 		# Define choice distribution
-		choice[i] ~ BernoulliLogit(Qs[i, 1] - Qs[i, 2])
+		choice[i] ~ BernoulliLogit(Qs[i, 2] - Qs[i, 1])
 
 		choice_idx::Int64 = choice[i] + 1
 
