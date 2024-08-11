@@ -428,3 +428,102 @@ function plot_posteriors(draws::AbstractVector,
 	)	
 
 end
+
+# Plot prior predictive checks
+function plot_SBC(
+	sum_fits::DataFrame;
+	params::Vector{String} = ["a", "rho"],
+	labels::AbstractVector = ["a", "ρ"],
+	show_n::AbstractVector = unique(sum_fits.n_blocks), # Levels to show
+	ms::Int64 = 7 # Marker size
+)		
+	tsum_fits = copy(sum_fits)
+	
+	if !("n_blocks" in names(tsum_fits))
+		tsum_fits[!, :n_blocks] .= 1
+	end
+
+	block_levels = unique(tsum_fits.n_blocks)
+	
+	tsum_fits.colors = (x -> Dict(block_levels .=> 
+		Makie.wong_colors()[1:length(block_levels)])[x]).(tsum_fits.n_blocks)
+
+	# Plot for each parameter
+	f_sims = Figure(size = (700, 50 + 200 * length(params)))
+
+	axs = []
+
+	tsum_fits = filter(x -> x.n_blocks in show_n, tsum_fits)
+
+	for (i, p) in enumerate(params)
+		# Plot posterior value against real value
+		ax = Axis(f_sims[i, 1],
+			xlabel = rich("True ", labels[i]),
+			ylabel = rich("Posterior estimate of ", labels[i])
+			)
+
+		rangebars!(ax,
+			tsum_fits[!, Symbol("true_$(p)")],
+			tsum_fits[!, Symbol("$(p)_lb")],
+			tsum_fits[!, Symbol("$(p)_ub")],
+			color = tsum_fits.colors
+		)
+
+		scatter!(ax,
+			tsum_fits[!, Symbol("true_$(p)")],
+			tsum_fits[!, Symbol("$(p)_m")],
+			color = tsum_fits.colors,
+			markersize = ms
+		)
+
+		ablines!(ax,
+			0.,
+			1.,
+			linestyle = :dash,
+			color = :gray,
+			linewidth = 1)
+
+		# Plot residual against real value						
+		ax = Axis(f_sims[i, 2],
+			xlabel = rich("True ", labels[i]),
+			ylabel = rich("Posterior", labels[i], " - true ",  labels[i])
+			)
+
+		scatter!(ax,
+			tsum_fits[!, Symbol("true_$(p)")],
+			tsum_fits[!, Symbol("$(p)_sm")],
+			color = tsum_fits.colors,
+			markersize = ms
+		)
+
+		hlines!(ax, 0., linestyle = :dash, color = :grey)
+
+		# Plot contraction against real value
+		ax = Axis(f_sims[i, 3],
+			xlabel = rich("True ", labels[i]),
+			ylabel = rich("Posterior contraction of ", labels[i])
+			)
+
+		scatter!(ax,
+			tsum_fits[!, Symbol("true_$(p)")],
+			tsum_fits[!, Symbol("$(p)_cntrct")],
+			color = tsum_fits.colors,
+			markersize = ms
+		)
+
+	end
+
+	if length(block_levels) > 1
+		Legend(f_sims[0,1:3], 
+			[MarkerElement(color = Makie.wong_colors()[i], marker = :circle) for i in 1:length(block_levels)],
+			["$n" for n in block_levels],
+			"# of blocks",
+			nbanks = length(block_levels),
+			framevisible = false,
+			titleposition = :left)
+
+		rowsize!(f_sims.layout, 0, Relative(0.05))
+	end
+	
+	return f_sims
+end
