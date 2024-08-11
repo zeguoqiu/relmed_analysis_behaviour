@@ -307,3 +307,124 @@ function plot_sim_q_value_acc!(
 
 	return f
 end
+
+# This function makes density plots for posteriors, plus true value if needed
+function plot_posteriors(draws::Vector{DataFrame},
+	params::Vector{String};
+	labels::AbstractVector = params,
+	true_values::Union{Vector{Float64}, Nothing} = nothing,
+	colors::AbstractVector = Makie.wong_colors()[1:length(draws)],
+	nrows::Int64=1,
+	scale_col::Union{Symbol, Nothing} = nothing,
+	mean_col::Union{Symbol, Nothing} = nothing,
+	model_labels::AbstractVector = repeat([nothing], length(draws))
+)
+
+	# Plot
+	f_sim = Figure(size = (700, 20 + 230 * nrows))
+
+	n_per_row = ceil(Int64, length(params) / nrows)
+
+	for (i, p) in enumerate(params)
+
+		# Set up axis
+		ax = Axis(
+			f_sim[div(i-1, n_per_row) + 1, rem(i - 1, n_per_row) + 1],
+			xlabel = labels[i]
+		)
+
+		hideydecorations!(ax)
+		hidespines!(ax, :l)
+
+		for (j, d) in enumerate(draws)
+
+			# Scale and add mean
+			dp = copy(d[!, Symbol(p)])
+
+			if !isnothing(scale_col)
+				dp .*= d[!, scale_col]
+			end
+
+			if !isnothing(mean_col)
+				dp .+= d[!, mean_col]
+			end
+
+			# Plot posterior density
+			density!(ax,
+				dp,
+				color = (:black, 0.),
+				strokewidth = 2,
+				strokecolor = colors[j]
+			)
+
+			# Plot 95% PI
+			linesegments!(ax,
+				[(quantile(dp, 0.025), 0.),
+				(quantile(dp, 0.975), 0.)],
+				linewidth = 4,
+				color = colors[j]
+			)
+		end
+
+		# Plot true value
+		if !isnothing(true_values)
+			vlines!(ax,
+				true_values[i],
+				color = :gray,
+				linestyle = :dash)
+		end
+
+	end
+
+	draw_legend = length(draws) > 1 & !all(isnothing.(model_labels))
+	if draw_legend
+		Legend(f_sim[0, 1:n_per_row],
+			[LineElement(color = Makie.wong_colors()[i]) for i in 1:length(draws)],
+			model_labels,
+			nbanks = length(draws),
+			framevisible = false,
+			valign = :bottom
+		)
+	end
+
+	Label(f_sim[0, 1:n_per_row],
+		rich(rich("Posterior distributions\n", fontsize = 18),
+			rich("95% PI and true value marked as dashed line", fontsize = 14)),
+		valign = :top
+		)
+
+	rowsize!(f_sim.layout, 0, Relative(draw_legend ? 0.4 / nrows : 0.2 / nrows))
+
+	return f_sim
+end
+
+# Methods for MCMCChains
+function plot_posteriors(draws::AbstractVector,
+	params::Vector{String};
+	labels::AbstractVector = params,
+	true_values::Union{Vector{Float64}, Nothing} = nothing,
+	colors::AbstractVector = Makie.wong_colors()[1:length(draws)],
+	nrows::Int64=1,
+	scale_col::Union{Symbol, Nothing} = nothing,
+	mean_col::Union{Symbol, Nothing} = nothing,
+	model_labels::AbstractVector = repeat([nothing], length(draws))
+)	
+
+	
+
+	draws_dfs = [
+		DataFrame(Array(chains), names(chains, :parameters)) for chains in draws
+	]
+
+	plot_posteriors(draws_dfs,
+		params;
+		labels = labels,
+		true_values = true_values,
+		colors = colors,
+		nrows = nrows,
+		scale_col = scale_col,
+		mean_col = mean_col,
+		model_labels = model_labels
+	)	
+
+end
