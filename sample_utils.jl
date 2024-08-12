@@ -15,6 +15,28 @@ begin
 	uub(x) = quantile(x, 0.975)
 end
 
+# Exctract vector from chains
+function single_layer_chain_to_vector(
+    chain,
+    param::String
+)   
+    # Find columns
+    matching_columns = filter(x -> occursin(Regex("$(param)\\[\\d+\\]"), x), string.(names(chain, :parameters)))
+
+    # Extract values
+    outcome =  [vec(Array(chain[i, matching_columns, :])) for i in 1:size(chain, 1)]
+
+    # Check lengths match
+    @assert allequal(length.(outcome))
+
+    # Reutrn flat if 1 iteration only
+    if length(outcome) == 1
+        return outcome[1]
+    else
+        return outcome
+    end
+end
+
 
 # Summarize prior predictive draws relative to true value
 function sum_SBC_draws(
