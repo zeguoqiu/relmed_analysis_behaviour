@@ -197,9 +197,6 @@ sbc = let
 	sbc
 end
 
-# ╔═╡ 55bd780a-02db-4554-9f47-49843d1708c6
-sbc
-
 # ╔═╡ 50d88c5c-4a3f-4ded-81cf-600eddb3bbf9
 let
 	f_SBC = plot_SBC(sbc, show_n = [1], params = ["a", "ρ"])
@@ -244,5 +241,4 @@ end
 # ╠═d7b60f28-09b1-42c0-8c95-0213590d8c5c
 # ╠═9477b295-ada5-46cf-b2e3-2c1303873081
 # ╠═2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
-# ╠═55bd780a-02db-4554-9f47-49843d1708c6
 # ╠═50d88c5c-4a3f-4ded-81cf-600eddb3bbf9
