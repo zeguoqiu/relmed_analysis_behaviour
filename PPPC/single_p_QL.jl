@@ -154,10 +154,29 @@ begin
 	
 	end
 
-	plot_posteriors([fit],
+	f_one_posterior = plot_posteriors([fit],
 		["a", "ρ"];
 		true_values = [α2a(prior_sample[1, :α]), prior_sample[1, :ρ]]
 	)	
+
+	ax_cor = Axis(
+		f_one_posterior[1,3],
+		xlabel = "a",
+		ylabel = "ρ",
+		aspect = 1,
+		xticks = WilkinsonTicks(4)
+	)
+
+	scatter!(
+		ax_cor,
+		fit[:, :a, :] |> vec,
+		fit[:, :ρ, :] |> vec,
+		markersize = 1.5
+	)
+
+	colsize!(f_one_posterior.layout, 3, Relative(0.2))
+
+	f_one_posterior
 end
 
 # ╔═╡ 2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
