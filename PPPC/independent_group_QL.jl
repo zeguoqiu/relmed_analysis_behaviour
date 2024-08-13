@@ -22,6 +22,9 @@ begin
 	include("$(pwd())/independent_group_QL.jl")
 end
 
+# ╔═╡ a55925d1-39d2-46b2-9f1c-a6a1dce2d29c
+
+
 # ╔═╡ 998eed23-55e1-4bcd-b995-21ca82577454
 begin
 	# Set theme
@@ -168,6 +171,7 @@ Threads.nthreads()
 
 # ╔═╡ Cell order:
 # ╠═fe776a2c-589a-11ef-0331-472f2769c12f
+# ╠═a55925d1-39d2-46b2-9f1c-a6a1dce2d29c
 # ╠═998eed23-55e1-4bcd-b995-21ca82577454
 # ╠═ba3495da-93cc-4002-a2a5-99589a819a94
 # ╠═76bf001d-c20f-4c23-bc35-a483679a96e0
