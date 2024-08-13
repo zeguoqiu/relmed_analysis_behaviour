@@ -101,7 +101,10 @@ function simulate_independent_group_QL(
         ρ = ρ,
         a = a,
         choice = length(choice) == 1 ? choice[1] : choice,
-        Qs = length(Qs) == 1 ? Qs[1] : Qs
+        Qs = length(Qs) == 1 ? Qs[1] : Qs,
+        block = block,
+        valence = valence,
+        outcomes = outcomes
     )
 			
 end
