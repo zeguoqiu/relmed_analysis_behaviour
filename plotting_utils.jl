@@ -1,5 +1,14 @@
 # Functions for plotting data and simulations
 
+# Plot unit line
+unit_line!(ax; color = :grey, linestyle = :dash, linewidth = 2) = ablines!(
+	0., 
+	1.,
+	color = color,
+	linestyle = linestyle,
+	linewidth = linewidth
+	)
+
 # Plot accuracy for a group, divided by condition / group
 function plot_group_accuracy!(
     f::GridPosition,
