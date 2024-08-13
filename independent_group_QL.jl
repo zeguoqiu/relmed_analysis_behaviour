@@ -24,10 +24,9 @@
 
 	# Initialize Q values per participant
 	Qs = [initV .* (ρ[s] .* valence[s][block[s]]) for s in eachindex(valence)]
-
+    
     # Loop over participants
     for s in eachindex(block)
-
         # Loop over trials, updating Q values and incrementing log-density
         for i in eachindex(block[s])
             
@@ -50,6 +49,54 @@
 	return (choice = choice, Qs = Qs)
 
 end
+
+@model function independent_group_QL_threaded(;
+	# All data input is vectorized with an element per participant
+	block::Vector{Vector{Int64}}, # Block number per trial
+	valence::Vector{Vector{Float64}}, # Valence of each block. Vector of lenth maximum(block) per participant
+	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
+	outcomes::Vector{Matrix{Float64}}, # Outcomes for options, second column optimal
+	initV::Matrix{Float64} # Initial Q values
+)   
+
+    # Auxillary variables
+    n_p = length(block) # Number of participants
+
+	# Priors on parameters
+	ρ ~ filldist( truncated(Normal(0., 2.), lower = 0.), n_p)
+	a ~ MvNormal(fill(0., n_p), I)
+
+	# Compute learning rate
+	α = a2α.(a) # hBayesDM uses Phi_approx from Stan. Here, logistic with the variance of the logistic multiplying a to equate the scales to that of a probit function.
+
+	# Initialize Q values per participant
+	Qs = [initV .* (ρ[s] .* valence[s][block[s]]) for s in eachindex(valence)]
+    
+    # Loop over participants
+    Threads.@threads for s in eachindex(block)
+        # Loop over trials, updating Q values and incrementing log-density
+        for i in eachindex(block[s])
+            
+            # Define choice distribution
+            choice[s][i] ~ BernoulliLogit(Qs[s][i, 2] - Qs[s][i, 1])
+
+            choice_idx::Int64 = choice[s][i] + 1
+
+            # Prediction error
+            PE = outcomes[s][i, choice_idx] * ρ[s] - Qs[s][i, choice_idx]
+
+            # Update Q value
+            if (i != length(block[s])) && (block[s][i] == block[s][i+1])
+                Qs[s][i + 1, choice_idx] = Qs[s][i, choice_idx] + α[s] * PE # Chosen updated
+                Qs[s][i + 1, 3 - choice_idx] = Qs[s][i, 3 - choice_idx] # Unchosen carried over as is
+            end
+        end
+    end
+
+	return (choice = choice, Qs = Qs)
+
+end
+
 
 # Simulate data from model prior
 function simulate_independent_group_QL(
@@ -104,9 +151,40 @@ function simulate_independent_group_QL(
         Qs = length(Qs) == 1 ? Qs[1] : Qs,
         block = block,
         valence = valence,
-        outcomes = outcomes
+        outcomes = outcomes,
+        initV = initV
     )
 			
 end
+
+# Sample from posterior conditioned on data
+function posterior_sample_single_p_QL(;
+	block::Vector{Vector{Int64}}, # Block number per trial
+	valence::Vector{Vector{Float64}}, # Valence of each block. Vector of lenth maximum(block) per participant
+	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
+	outcomes::Vector{Matrix{Float64}}, # Outcomes for options, second column optimal
+	initV::Matrix{Float64}, # Initial Q values
+	random_seed::Union{Int64, Nothing} = nothing,
+	iter_sampling = 1000
+)
+	model = independent_group_QL_threaded(;
+        block = block, 
+        valence = valence, 
+        choice = choice, 
+        outcomes = outcomes, 
+        initV = initV 
+	)
+
+	fit = sample(
+		isnothing(random_seed) ? Random.default_rng() : Xoshiro(random_seed),
+		model, 
+		NUTS(), 
+        MCMCThreads(), 
+		iter_sampling,
+        4)
+
+	return fit
+end
+
 
 
