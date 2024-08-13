@@ -73,7 +73,7 @@ begin
 		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 	
 		prior_sample = simulate_single_p_QL(
-			100;
+			200;
 			block = task.block,
 			valence = unique(task[!, [:block, :valence]]).valence,
 			outcomes = outcomes,
@@ -137,8 +137,13 @@ let
 	f
 end
 
+# ╔═╡ f5113e3e-3bcf-4a92-9e76-d5eed8088320
+md"""
+## Sampling from posterior
+"""
+
 # ╔═╡ 9477b295-ada5-46cf-b2e3-2c1303873081
-# Fit and plot single participant
+# Sample from posterior and plot for single participant
 begin
 	fit = let
 		# Initial value for Q values
@@ -186,7 +191,7 @@ sbc = let
 		JLD2.@load draws_sum_file sbc
 	else
 		sbc = SBC_single_p_QL(
-			prior_sample;
+			filter(x -> x.PID <= 100, prior_sample);
 			initV = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])]),
 			random_seed = 0
 		) |> DataFrame
@@ -234,11 +239,137 @@ let
 
 end
 
+# ╔═╡ 47b4f578-98ee-4ae0-8359-f4e8de5a63f1
+md"""
+## Estimation by optimization
+"""
+
+# ╔═╡ bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
+function optimization_calibration(
+	prior_sample;
+	estimate::String = "MLE",
+	ms::Float64 = 4.
+)
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	MLEs = []
+	for p in unique(prior_sample.PID)
+
+		gdf = filter(x -> x.PID == p, prior_sample)
+
+		MLE = optimize_single_p_QL(
+			gdf; 
+			initV = aao,
+			estimate = estimate,
+			initial_params = [mean(truncated(Normal(0., 2.), lower = 0.)),
+				0.5
+			]
+		)
+
+		push!(
+			MLEs,
+			(
+				true_a = α2a(gdf.α[1]),
+				true_ρ = gdf.ρ[1],
+				MLE_a = MLE.values[:a],
+				MLE_ρ = MLE.values[:ρ]
+			)
+		)
+	end
+
+	MLEs = DataFrame(MLEs)
+
+	f = Figure(size = (700, 200))
+
+	# Plot a
+	ax_a = Axis(
+		f[1,1],
+		xlabel = "True a",
+		ylabel = "$estimate a",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_a,
+		MLEs.true_a,
+		MLEs.MLE_a,
+		markersize = ms
+	)
+
+	unit_line!(ax_a)
+
+	# Plot ρ
+	ax_ρ = Axis(
+		f[1,2],
+		xlabel = "True ρ",
+		ylabel = "$estimate ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_ρ,
+		MLEs.true_ρ,
+		MLEs.MLE_ρ,
+		markersize = ms
+	)
+
+	unit_line!(ax_ρ)
+
+	# Plot bivariate
+	ax_aρ = Axis(
+		f[1,3],
+		xlabel = "$estimate a",
+		ylabel = "$estimate ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_aρ,
+		MLEs.MLE_a,
+		MLEs.MLE_ρ,
+		markersize = ms
+	)
+
+	# Plot ground truth
+	ax_taρ = Axis(
+		f[1,4],
+		xlabel = "True a",
+		ylabel = "True ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_taρ,
+		MLEs.true_a,
+		MLEs.true_ρ,
+		markersize = ms
+	)
+
+	f
+end
+
+# ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
+optimization_calibration(
+	prior_sample
+)
+
+# ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
+optimization_calibration(
+	prior_sample;
+	estimate = "MAP"
+)
+
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
 # ╠═261d0d08-10b9-4111-9fc8-bb84e6b4cef5
 # ╠═fa79c576-d4c9-4c42-b5df-66d886e8abe4
 # ╠═d7b60f28-09b1-42c0-8c95-0213590d8c5c
+# ╟─f5113e3e-3bcf-4a92-9e76-d5eed8088320
 # ╠═9477b295-ada5-46cf-b2e3-2c1303873081
 # ╠═2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
 # ╠═50d88c5c-4a3f-4ded-81cf-600eddb3bbf9
+# ╟─47b4f578-98ee-4ae0-8359-f4e8de5a63f1
+# ╠═1d982252-c9ac-4925-9cd5-976456d32bc4
+# ╠═2eb2dd61-abae-4328-9787-7a841d321836
+# ╠═bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
