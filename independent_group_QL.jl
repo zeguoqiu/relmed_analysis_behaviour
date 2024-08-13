@@ -62,10 +62,10 @@ function simulate_independent_group_QL(
 )
 
     # Check lengths
-    @assert length(block) == lenght(valence) "Number of participants not consistent"
-    @assert length(block) == lenght(outcomes) "Number of participants not consistent"
+    @assert length(block) == length(valence) "Number of participants not consistent"
+    @assert length(block) == length(outcomes) "Number of participants not consistent"
     @assert all([length(b) for b in block] .== [size(o, 1) for o in outcomes]) "Number of trials not consistent"
-    @assert all[maximum(block[s]) == length(valence[s] for s in eachindex(block))] "Number of blocks not consistent"
+    @assert all([maximum(block[s]) == length(valence[s]) for s in eachindex(block)]) "Number of blocks not consistent"
 
 	# Prepare model for simulation
 	prior_model = independent_group_QL(
@@ -100,8 +100,8 @@ function simulate_independent_group_QL(
 	return (
         ρ = ρ,
         a = a,
-        choice = choices,
-        Qs = Qs
+        choice = length(choice) == 1 ? choice[1] : choice,
+        Qs = length(Qs) == 1 ? Qs[1] : Qs
     )
 			
 end
