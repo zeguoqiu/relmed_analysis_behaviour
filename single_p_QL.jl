@@ -167,3 +167,33 @@ function SBC_single_p_QL(
 	
 	return sums
 end
+
+# Find MLE / MAP for DataFrame with data for single participant
+function optimize_single_p_QL(
+	data::AbstractDataFrame;
+	initV::Float64,
+	estimate::String = "MLE",
+	initial_params::Union{AbstractVector,Nothing}=nothing
+)
+	model = single_p_QL(;
+		N = nrow(data),
+		n_blocks = maximum(data.block),
+		n_trials = maximum(data.trial),
+		block = data.block,
+		valence = unique(data[!, [:block, :valence]]).valence,
+		choice = data.choice,
+		outcomes = hcat(
+			data.feedback_suboptimal,
+			data.feedback_optimal,
+		),
+		initV = fill(initV, 1, 2)
+	)
+
+	if estimate == "MLE"
+		fit = maximum_likelihood(model; initial_params = initial_params)
+	elseif estimate == "MAP"
+		fit = maximum_a_posteriori(model; initial_params = initial_params)
+	end
+
+	return fit
+end
