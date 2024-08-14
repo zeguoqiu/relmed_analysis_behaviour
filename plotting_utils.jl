@@ -9,6 +9,87 @@ unit_line!(ax; color = :grey, linestyle = :dash, linewidth = 2) = ablines!(
 	linewidth = linewidth
 	)
 
+# Regression line
+function regression_line_func(df::DataFrame, 
+    x::Symbol, 
+    y::Symbol)
+    
+    # Compute the coefficients of the regression line y = mx + c
+    X = hcat(ones(length(df[!, x])), df[!, x])  # Design matrix with a column of ones for the intercept
+    β = X \ df[!, y]                    # Solve for coefficients (m, c)
+    
+    y_line(x_plot) = β[1] .+ β[2] * x_plot
+
+    return y_line
+end
+
+range_regression_line(x::Vector{Float64}; res = 200) = 
+    range(minimum(x), maximum(x), res)
+
+
+# Plot scatter with lm regression line
+function scatter_regression_line!(
+	f::GridPosition,
+	df::DataFrame,
+	x_col::Symbol,
+	y_col::Symbol,
+	xlabel::String,
+	ylabel::String;
+	transform_x::Function = x -> x,
+	transform_y::Function = x -> x,
+	color = Makie.wong_colors()[1],
+	legend::Union{Dict, Missing} = missing,
+	legend_title::String = "",
+	write_cor::Bool = true,
+	cor_correction::Function = x -> x, # Correction to apply for correlation, e.g. Spearman Brown
+	cor_label::String = "r"
+)
+
+	x = df[!, x_col]
+	y = df[!, y_col]
+	
+	ax = Axis(f,
+		xlabel = xlabel,
+		ylabel = ylabel,
+		subtitle = write_cor ? "$cor_label=$(round(
+			cor_correction(cor(x, y)), digits= 2))" : ""
+	)
+
+	# Regression line
+	treg = regression_line_func(df, x_col, y_col)
+	lines!(
+		ax,
+		range_regression_line(x) |> transform_x,
+		treg.(range_regression_line(x)) |> transform_y,
+		color = :grey,
+		linewidth = 4
+	)
+
+	sc = scatter!(
+		ax,
+		transform_x.(x),
+		transform_y.(y),
+		markersize = 6,
+		color = color
+	)
+
+	if !ismissing(legend)
+		Legend(
+			f,
+			[MarkerElement(color = k, marker = :circle) for k in keys(legend)],
+			[legend[k] for k in keys(legend)],
+			legend_title,
+			halign = :right,
+			valign = :top,
+			framevisible = false,
+			tellwidth = false,
+			tellheight = false
+		)
+
+	end
+end
+
+
 # Plot accuracy for a group, divided by condition / group
 function plot_group_accuracy!(
     f::GridPosition,
