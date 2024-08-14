@@ -376,14 +376,14 @@ function prepare_for_fit(data)
 
 	forfit = select(data, [:prolific_pid, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :chosenOutcome, :isOptimal])
 
-	rename(forfit, :isOptimal => :choice)
+	rename!(forfit, :isOptimal => :choice)
 
 	# Arrange feedback by optimal / suboptimal
-	data.feedback_optimal = 
-		ifelse.(data.optimalRight .== 1, data.outcomeRight, data.outcomeLeft)
+	forfit.feedback_optimal = 
+		ifelse.(forfit.optimalRight .== 1, forfit.outcomeRight, forfit.outcomeLeft)
 
-	data.feedback_suboptimal = 
-		ifelse.(data.optimalRight .== 0, data.outcomeRight, data.outcomeLeft)
+	forfit.feedback_suboptimal = 
+		ifelse.(forfit.optimalRight .== 0, forfit.outcomeRight, forfit.outcomeLeft)
 
 	# PID as number
 	pids = DataFrame(
@@ -394,8 +394,50 @@ function prepare_for_fit(data)
 
 	forfit = innerjoin(forfit, pids, on = :prolific_pid)
 
+	# Block as Int64
+	forfit.block = convert(Vector{Int64}, forfit.block)
+
 	return forfit
 end
+
+# ╔═╡ cc82e036-f83c-4f33-847a-49f3a3ec9342
+# Fit session 1
+begin
+
+	sess1_forfit = prepare_for_fit(filter(x -> x.session == "1", PLT_data))
+	
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+	
+	MLEs = []
+	for p in unique(sess1_forfit.PID)
+
+		gdf = filter(x -> x.PID == p, sess1_forfit)
+
+		MLE = optimize_single_p_QL(
+			gdf; 
+			initV = aao,
+			estimate = "MAP",
+			initial_params = [mean(truncated(Normal(0., 2.), lower = 0.)),
+				0.5
+			]
+		)
+
+		push!(
+			MLEs,
+			(
+				a = MLE.values[:a],
+				ρ = MLE.values[:ρ]
+			)
+		)
+	end
+
+	MLEs = DataFrame(MLEs)
+
+end
+
+# ╔═╡ b4823b2b-4ad4-4b8c-ba24-9259393365ce
+sess1_forfit.block
 
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
@@ -412,3 +454,5 @@ end
 # ╠═bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
 # ╠═a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # ╠═e7eac420-5048-4496-a9bb-04eca8271b17
+# ╠═cc82e036-f83c-4f33-847a-49f3a3ec9342
+# ╠═b4823b2b-4ad4-4b8c-ba24-9259393365ce
