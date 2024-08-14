@@ -20,6 +20,7 @@ begin
 	include("$(pwd())/sample_utils.jl")
 	include("$(pwd())/plotting_utils.jl")
 	include("$(pwd())/single_p_QL.jl")
+	include("$(pwd())/fetch_preprocess_data.jl")
 end
 
 # ╔═╡ 261d0d08-10b9-4111-9fc8-bb84e6b4cef5
@@ -360,6 +361,42 @@ optimization_calibration(
 	estimate = "MAP"
 )
 
+# ╔═╡ a3c8a90e-d820-4542-9043-e06a0ec9eaee
+# Load and clean data
+begin
+	PLT_data = load_PLT_data()
+
+	PLT_data = exclude_PLT_sessions(PLT_data)
+
+	nothing
+end
+
+# ╔═╡ e7eac420-5048-4496-a9bb-04eca8271b17
+function prepare_for_fit(data)
+
+	forfit = select(data, [:prolific_pid, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :chosenOutcome, :isOptimal])
+
+	rename(forfit, :isOptimal => :choice)
+
+	# Arrange feedback by optimal / suboptimal
+	data.feedback_optimal = 
+		ifelse.(data.optimalRight .== 1, data.outcomeRight, data.outcomeLeft)
+
+	data.feedback_suboptimal = 
+		ifelse.(data.optimalRight .== 0, data.outcomeRight, data.outcomeLeft)
+
+	# PID as number
+	pids = DataFrame(
+		prolific_pid = unique(forfit.prolific_pid)
+	)
+
+	pids.PID = 1:nrow(pids)
+
+	forfit = innerjoin(forfit, pids, on = :prolific_pid)
+
+	return forfit
+end
+
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
 # ╠═261d0d08-10b9-4111-9fc8-bb84e6b4cef5
@@ -373,3 +410,5 @@ optimization_calibration(
 # ╠═1d982252-c9ac-4925-9cd5-976456d32bc4
 # ╠═2eb2dd61-abae-4328-9787-7a841d321836
 # ╠═bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
+# ╠═a3c8a90e-d820-4542-9043-e06a0ec9eaee
+# ╠═e7eac420-5048-4496-a9bb-04eca8271b17
