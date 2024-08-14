@@ -378,22 +378,62 @@ function prepare_for_fit(data)
 	# Block as Int64
 	forfit.block = convert(Vector{Int64}, forfit.block)
 
-	return forfit
+	return forfit, pids
 end
 
 # ╔═╡ cc82e036-f83c-4f33-847a-49f3a3ec9342
-# Fit session 1
-begin
+# Test-retest
+let
 
-	sess1_forfit = prepare_for_fit(filter(x -> x.session == "1", PLT_data))
+	sess1_forfit, sess1_pids = prepare_for_fit(filter(x -> x.session == "1", PLT_data))
+	sess2_forfit, sess2_pids = prepare_for_fit(filter(x -> x.session == "2", PLT_data))
 	
 	# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-	
-	MAPs = optimize_multiple_single(
+
+	# Fit
+	sess1_maps = optimize_multiple_single(
 		sess1_forfit;
 		initV = aao,
 	)
+
+	sess2_maps = optimize_multiple_single(
+		sess2_forfit;
+		initV = aao,
+	)
+
+	# Join
+	sess1_maps = innerjoin(sess1_maps, sess1_pids, on = :PID)
+	
+	sess2_maps = innerjoin(sess2_maps, sess2_pids, on = :PID)
+	maps = innerjoin(
+		sess1_maps[!, Not(:PID)], 
+		sess2_maps[!, Not(:PID)], 
+		on = [:prolific_pid],
+		renamecols = "_sess1" => "_sess2"
+	)
+
+	f = Figure()
+
+	scatter_regression_line!(
+		f[1,1],
+		maps,
+		:a_sess1,
+		:a_sess2,
+		"Session 1 a",
+		"Session 2 a"
+	)
+
+	scatter_regression_line!(
+		f[1,2],
+		maps,
+		:ρ_sess1,
+		:ρ_sess2,
+		"Session 1 ρ",
+		"Session 2 ρ"
+	)
+
+	f
 
 end
 
