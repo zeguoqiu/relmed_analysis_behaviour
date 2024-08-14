@@ -190,6 +190,7 @@ function optimize_multiple_single(
 		# Return
 		if include_true
 			est = (
+				PID = gdf.PID[1],
 				true_a = α2a(gdf.α[1]),
 				true_ρ = gdf.ρ[1],
 				MLE_a = est.values[:a],
@@ -197,6 +198,7 @@ function optimize_multiple_single(
 				)
 		else
 			est = (
+				PID = gdf.PID[1],
 				a = est.values[:a],
 				ρ = est.values[:ρ]
 			)
