@@ -22,9 +22,6 @@ begin
 	include("$(pwd())/independent_group_QL.jl")
 end
 
-# ╔═╡ a55925d1-39d2-46b2-9f1c-a6a1dce2d29c
-
-
 # ╔═╡ 998eed23-55e1-4bcd-b995-21ca82577454
 begin
 	# Set theme
@@ -50,7 +47,7 @@ end
 
 # ╔═╡ ba3495da-93cc-4002-a2a5-99589a819a94
 # Simulate one dataset
-prior_sample = let n_participants = 100
+prior_sample = let n_participants = 10
 	
 	# Load sequence from file
 	task = DataFrame(CSV.File("data/PLT_task_structure_00.csv"))
@@ -73,15 +70,17 @@ prior_sample = let n_participants = 100
 	)
 
 	# Arrange values for simulation
-	block = fill(task.block, n_participants)
-	valence = fill(unique(task[!, [:block, :valence]]).valence, n_participants)
-	outcomes = fill(outcomes, n_participants)
+	participant = repeat(1:n_participants, inner = length(task.block))
+	block = repeat(task.block, n_participants)
+	valence = repeat(task.valence, n_participants)
+	outcomes = repeat(outcomes, n_participants)
 
 	# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
 	simulate_independent_group_QL(
 		1;
+		participant = participant,
 		block = block,
 		valence = valence,
 		outcomes = outcomes,
@@ -93,85 +92,93 @@ end
 
 # ╔═╡ 76bf001d-c20f-4c23-bc35-a483679a96e0
 # Plot prior preditctive accuracy curve
-# let
-# 	# Unpack prior sample into DataFrame
-# 	df = DataFrame(
-# 		:PID => vcat([
-# 			fill(i, length(b)) for (i, b) in enumerate(prior_sample[:block])]...),
-# 		:block => vcat(prior_sample[:block]...),
-# 		:choice => vcat(prior_sample[:choice]...),
-# 		:EV_A => vcat([q[:, 2] for q in prior_sample[:Qs]]...),
-# 		:EV_B => vcat([q[:, 1] for q in prior_sample[:Qs]]...),
-# 		:ρ => vcat([
-# 			fill(prior_sample[:ρ][i], length(b)) for (i, b) in enumerate(prior_sample[:block])]...)
-# 	)
+let
+	# Unpack prior sample into DataFrame
+	df = DataFrame(
+		:PID => prior_sample[:participant],
+		:block => prior_sample[:block],
+		:valence => prior_sample[:valence],
+		:choice => prior_sample[:choice],
+		:EV_A => prior_sample[:Qs][:, 2],
+		:EV_B => prior_sample[:Qs][:, 1],
+		:ρ => prior_sample[:ρ][prior_sample[:participant]]
+	)
 
-# 	# Add needed variables that are more difficult to arrange
-# 	DataFrames.transform!(
-# 		groupby(df, [:PID, :block]),
-# 		:block => (x -> 1:length(x)) => :trial,
-# 		[:PID, :block] => ByRow((p, b) -> prior_sample[:valence][p][b]) => :valence
-# 	)
+	# Add trial column
+	DataFrames.transform!(
+		groupby(df, [:PID, :block]),
+		:block => (x -> 1:length(x)) => :trial
+	)
 
-# 	df[!, :group] .= 1
+	df[!, :group] .= 1
 
-# 	f = Figure(size = (700, 1000))
+	f = Figure(size = (700, 1000))
 
-# 	g_all = f[1,1] = GridLayout()
+	g_all = f[1,1] = GridLayout()
 	
-# 	plot_sim_q_value_acc!(
-# 		g_all,
-# 		df;
-# 		plw = 1,
-# 		legend = false,
-# 		acc_error_band = "PI"
-# 	)
+	plot_sim_q_value_acc!(
+		g_all,
+		df;
+		plw = 1,
+		legend = false,
+		acc_error_band = "PI"
+	)
 
-# 	g_reward = f[2,1] = GridLayout()
+	g_reward = f[2,1] = GridLayout()
 	
-# 	plot_sim_q_value_acc!(
-# 		g_reward,
-# 		filter(x -> x.valence > 0, df);
-# 		plw = 1,
-# 		legend = false,
-# 		acc_error_band = "PI"
-# 	)
+	plot_sim_q_value_acc!(
+		g_reward,
+		filter(x -> x.valence > 0, df);
+		plw = 1,
+		legend = false,
+		acc_error_band = "PI"
+	)
 
-# 	g_reward = f[3,1] = GridLayout()
+	g_reward = f[3,1] = GridLayout()
 	
-# 	plot_sim_q_value_acc!(
-# 		g_reward,
-# 		filter(x -> x.valence < 0, df);
-# 		plw = 1,
-# 		legend = false,
-# 		acc_error_band = "PI"
-# 	)
+	plot_sim_q_value_acc!(
+		g_reward,
+		filter(x -> x.valence < 0, df);
+		plw = 1,
+		legend = false,
+		acc_error_band = "PI"
+	)
 
-# 	f
+	f
 
-# end
+end
 
 # ╔═╡ 5f3fea09-f7a5-4f2c-89f3-091c83f1abe8
 let
 
-	model = independent_group_QL_threaded(;
+	fit = optimize_independent_group_QL(;
+		participant = prior_sample[:participant],
 		block = prior_sample[:block],
 		valence = prior_sample[:valence],
 		choice = prior_sample[:choice],
 		outcomes = prior_sample[:outcomes],
-		initV = prior_sample[:initV]
+		initV = prior_sample[:initV],
+		estimate = "MAP"
 	)
 
-	logjoint(model, (a = fill(1., 100), ρ = fill(2., 100)))
+	
 
 end
 
 # ╔═╡ 32b338c0-3a04-4759-bff0-8c04a3201f56
-Threads.nthreads()
+loglikelihood(independent_group_QL_flat(;
+	N = length(prior_sample[:block]),
+	n_p = maximum(prior_sample[:participant]),
+	participant = prior_sample[:participant],
+	block = prior_sample[:block],
+	valence = prior_sample[:valence],
+	choice = prior_sample[:choice],
+	outcomes = prior_sample[:outcomes],
+	initV = prior_sample[:initV]
+), (ρ = fill(1., 50), a = fill(1., 50)))
 
 # ╔═╡ Cell order:
 # ╠═fe776a2c-589a-11ef-0331-472f2769c12f
-# ╠═a55925d1-39d2-46b2-9f1c-a6a1dce2d29c
 # ╠═998eed23-55e1-4bcd-b995-21ca82577454
 # ╠═ba3495da-93cc-4002-a2a5-99589a819a94
 # ╠═76bf001d-c20f-4c23-bc35-a483679a96e0
