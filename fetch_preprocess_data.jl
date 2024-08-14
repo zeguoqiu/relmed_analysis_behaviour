@@ -155,7 +155,7 @@ function exclude_PLT_sessions(PLT_data::DataFrame)
 	double_takers.date = DateTime.(double_takers.exp_start_time, 
 		"yyyy-mm-dd_HH:MM:SS")
 
-	transform!(
+	DataFrames.transform!(
 		groupby(double_takers, [:prolific_pid, :session]),
 		:condition => length => :n,
 		:date => minimum => :first_date
