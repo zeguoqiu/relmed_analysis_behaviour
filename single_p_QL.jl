@@ -139,7 +139,7 @@ end
 function optimize_single_p_QL(
 	data::AbstractDataFrame;
 	initV::Float64,
-	estimate::String = "MLE",
+	estimate::String = "MAP",
 	initial_params::Union{AbstractVector,Nothing}=nothing
 )
 	model = single_p_QL(;
@@ -163,6 +163,54 @@ function optimize_single_p_QL(
 	end
 
 	return fit
+end
+
+# Find MLE / MAP multiple times
+function optimize_multiple_single(
+	data::DataFrame;
+	initV::Float64,
+	estimate::String = "MAP",
+	initial_params::Union{AbstractVector,Nothing}=[mean(truncated(Normal(0., 2.), lower = 0.)), 0.5],
+	include_true::Bool = false # Whether to return true value if this is simulation
+)
+	ests = []
+	for p in unique(data.PID)
+
+		# Select data
+		gdf = filter(x -> x.PID == p, data)
+
+		# Optimize
+		est = optimize_single_p_QL(
+			gdf; 
+			initV = initV,
+			estimate = estimate,
+			initial_params = initial_params
+		)
+
+		# Return
+		if include_true
+			est = (
+				true_a = α2a(gdf.α[1]),
+				true_ρ = gdf.ρ[1],
+				MLE_a = est.values[:a],
+				MLE_ρ = est.values[:ρ]
+				)
+		else
+			est = (
+				a = est.values[:a],
+				ρ = est.values[:ρ]
+			)
+		end
+
+		push!(
+			ests,
+			est
+		)
+	end
+
+	ests = DataFrame(ests)
+
+	return ests
 end
 
 

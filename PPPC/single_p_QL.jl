@@ -254,32 +254,12 @@ function optimization_calibration(
 	# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
-	MLEs = []
-	for p in unique(prior_sample.PID)
-
-		gdf = filter(x -> x.PID == p, prior_sample)
-
-		MLE = optimize_single_p_QL(
-			gdf; 
-			initV = aao,
-			estimate = estimate,
-			initial_params = [mean(truncated(Normal(0., 2.), lower = 0.)),
-				0.5
-			]
-		)
-
-		push!(
-			MLEs,
-			(
-				true_a = α2a(gdf.α[1]),
-				true_ρ = gdf.ρ[1],
-				MLE_a = MLE.values[:a],
-				MLE_ρ = MLE.values[:ρ]
-			)
-		)
-	end
-
-	MLEs = DataFrame(MLEs)
+	MLEs = optimize_multiple_single(
+		prior_sample;
+		initV = aao,
+		estimate = estimate,
+		include_true = true
+	)
 
 	f = Figure(size = (700, 200))
 
@@ -352,7 +332,8 @@ end
 
 # ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
 optimization_calibration(
-	prior_sample
+	prior_sample,
+	estimate = "MLE"
 )
 
 # ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
@@ -409,35 +390,12 @@ begin
 	# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 	
-	MLEs = []
-	for p in unique(sess1_forfit.PID)
-
-		gdf = filter(x -> x.PID == p, sess1_forfit)
-
-		MLE = optimize_single_p_QL(
-			gdf; 
-			initV = aao,
-			estimate = "MAP",
-			initial_params = [mean(truncated(Normal(0., 2.), lower = 0.)),
-				0.5
-			]
-		)
-
-		push!(
-			MLEs,
-			(
-				a = MLE.values[:a],
-				ρ = MLE.values[:ρ]
-			)
-		)
-	end
-
-	MLEs = DataFrame(MLEs)
+	MAPs = optimize_multiple_single(
+		sess1_forfit;
+		initV = aao,
+	)
 
 end
-
-# ╔═╡ b4823b2b-4ad4-4b8c-ba24-9259393365ce
-sess1_forfit.block
 
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
@@ -455,4 +413,3 @@ sess1_forfit.block
 # ╠═a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # ╠═e7eac420-5048-4496-a9bb-04eca8271b17
 # ╠═cc82e036-f83c-4f33-847a-49f3a3ec9342
-# ╠═b4823b2b-4ad4-4b8c-ba24-9259393365ce
