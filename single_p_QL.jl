@@ -190,7 +190,7 @@ function optimize_multiple_single(
 	σ_a::Float64 = 1.
 )
 	ests = []
-	for p in unique(data.PID)
+	Threads.@threads for p in unique(data.PID)
 
 		# Select data
 		gdf = filter(x -> x.PID == p, data)
