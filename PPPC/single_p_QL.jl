@@ -342,6 +342,28 @@ optimization_calibration(
 	estimate = "MAP"
 )
 
+# ╔═╡ b1b3709a-acb2-4bd4-a11b-48a21228058a
+function count_consecutive_ones(v)
+	# Initialize the result vector with the same length as v
+	result = zeros(Int, length(v))
+	# Initialize the counter
+	counter = 0
+
+	for i in 1:length(v)
+		if v[i] == 1
+			# Increment the counter if the current element is 1
+			counter += 1
+		else
+			# Reset the counter to 0 if the current element is 0
+			counter = 0
+		end
+		# Store the counter value in the result vector
+		result[i] = counter
+	end
+
+	return result
+end
+
 # ╔═╡ a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # Load and clean data
 begin
@@ -349,13 +371,14 @@ begin
 
 	PLT_data = exclude_PLT_sessions(PLT_data)
 
+	DataFrames.transform!(groupby(PLT_data, [:prolific_pid, :session, :block]),
+		:isOptimal => count_consecutive_ones => :consecutiveOptimal
+	)
+
 	PLT_data = exclude_PLT_trials(PLT_data)
 
 	nothing
 end
-
-# ╔═╡ 2ec2bd1a-82da-49ef-ae7f-9610c0f310fa
-filter(x -> x.choice == "noresp", PLT_data)[!, :isOptimal]
 
 # ╔═╡ e7eac420-5048-4496-a9bb-04eca8271b17
 function prepare_for_fit(data)
@@ -735,6 +758,48 @@ reliability_by_condition(
 	"Odd block"
 )
 
+# ╔═╡ 525522d1-5ced-46f2-8c9b-3299d3cb244d
+begin
+	find_excess = x -> (x.consecutiveOptimal <= 5) | 
+		((x.consecutiveOptimal == 6) && (x.trial == 13))
+	
+	test = filter(x -> !find_excess(x), PLT_data)
+
+	@assert all([s[1] == '0' for s in unique(test.condition)])
+
+	shortened_PLT = filter(find_excess, PLT_data)
+end
+
+# ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
+reliability_by_condition(
+	shortened_PLT,
+	x -> x.session == "1",
+	x -> x.session == "2",
+	"Test-retest",
+	"Session 1",
+	"Session 2"
+)
+
+# ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
+reliability_by_condition(
+	shortened_PLT,
+	x -> (x.session == "1") & iseven(x.block),
+	x -> (x.session == "1") & isodd(x.block),
+	"Split-half",
+	"Even blocks",
+	"Odd block"
+)
+
+# ╔═╡ 10565355-90ae-419c-9b92-8ff18fcd48b3
+reliability_by_condition(
+	shortened_PLT,
+	x -> (x.session == "2") & iseven(x.block),
+	x -> (x.session == "2") & isodd(x.block),
+	"Split-half",
+	"Even blocks",
+	"Odd block"
+)
+
 # ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
 # Different priors
 penlaties_fits = let
@@ -875,8 +940,8 @@ end
 # ╟─47b4f578-98ee-4ae0-8359-f4e8de5a63f1
 # ╠═1d982252-c9ac-4925-9cd5-976456d32bc4
 # ╠═2eb2dd61-abae-4328-9787-7a841d321836
-# ╠═2ec2bd1a-82da-49ef-ae7f-9610c0f310fa
 # ╠═bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
+# ╠═b1b3709a-acb2-4bd4-a11b-48a21228058a
 # ╠═a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # ╠═e7eac420-5048-4496-a9bb-04eca8271b17
 # ╠═1e91ee5c-7a36-4bfe-8987-2216799a8029
@@ -887,6 +952,10 @@ end
 # ╠═fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
 # ╠═8c9a0662-25af-4280-ad48-270458edb018
 # ╠═cc82e036-f83c-4f33-847a-49f3a3ec9342
+# ╠═525522d1-5ced-46f2-8c9b-3299d3cb244d
+# ╠═479726b5-605b-494e-8ff2-4d569d0c0ddd
+# ╠═3a8f569d-0d8e-4020-9023-a123cad9d5de
+# ╠═10565355-90ae-419c-9b92-8ff18fcd48b3
 # ╠═a53db393-c9e7-4db3-a11d-3b244823d951
 # ╠═a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
 # ╠═a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
