@@ -172,3 +172,11 @@ function exclude_PLT_sessions(PLT_data::DataFrame)
 	return PLT_data_clean
 
 end
+
+function exclude_PLT_trials(PLT_data::DataFrame)
+
+	# Exclude missed responses
+	PLT_data_clean = filter(x -> x.choice != "noresp", PLT_data)
+
+	return PLT_data_clean
+end
