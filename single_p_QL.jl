@@ -10,7 +10,7 @@
 	valence::AbstractVector, # Valence of each block
 	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
 	outcomes::Matrix{Float64}, # Outcomes for options, second column optimal
-	initV::Matrix{Float64} # Initial Q values,
+	initV::Matrix{Float64}, # Initial Q values,
 	σ_ρ::Float64 = 2.,
 	σ_a::Float64 = 1.
 )
@@ -54,7 +54,9 @@ function simulate_single_p_QL(
 	valence::AbstractVector, # Valence of each block
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
 	initV::Matrix{Float64}, # Initial Q values
-	random_seed::Union{Int64, Nothing} = nothing
+	random_seed::Union{Int64, Nothing} = nothing,
+	σ_ρ::Float64 = 2.,
+	σ_a::Float64 = 1.
 )
 
 	# Total trial number
@@ -72,7 +74,9 @@ function simulate_single_p_QL(
 		valence = valence,
 		choice = fill(missing, length(block)),
 		outcomes = outcomes,
-		initV = initV
+		initV = initV,
+		σ_ρ = σ_ρ,
+		σ_a = σ_a
 	)
 
 	# Draw parameters and simulate choice
@@ -110,7 +114,9 @@ function posterior_sample_single_p_QL(
 	data::AbstractDataFrame;
 	initV::Float64,
 	random_seed::Union{Int64, Nothing} = nothing,
-	iter_sampling = 1000
+	iter_sampling = 1000,
+	σ_ρ::Float64 = 2.,
+	σ_a::Float64 = 1.
 )
 	model = single_p_QL(;
 		N = nrow(data),
@@ -123,7 +129,9 @@ function posterior_sample_single_p_QL(
 			data.feedback_suboptimal,
 			data.feedback_optimal,
 		),
-		initV = fill(initV, 1, 2)
+		initV = fill(initV, 1, 2),
+		σ_ρ = σ_ρ,
+		σ_a = σ_a
 	)
 
 	fit = sample(
@@ -142,7 +150,9 @@ function optimize_single_p_QL(
 	data::AbstractDataFrame;
 	initV::Float64,
 	estimate::String = "MAP",
-	initial_params::Union{AbstractVector,Nothing}=nothing
+	initial_params::Union{AbstractVector,Nothing}=nothing,
+	σ_ρ::Float64 = 2.,
+	σ_a::Float64 = 1.
 )
 	model = single_p_QL(;
 		N = nrow(data),
@@ -155,7 +165,9 @@ function optimize_single_p_QL(
 			data.feedback_suboptimal,
 			data.feedback_optimal,
 		),
-		initV = fill(initV, 1, 2)
+		initV = fill(initV, 1, 2),
+		σ_ρ = σ_ρ,
+		σ_a = σ_a
 	)
 
 	if estimate == "MLE"
@@ -173,7 +185,9 @@ function optimize_multiple_single(
 	initV::Float64,
 	estimate::String = "MAP",
 	initial_params::Union{AbstractVector,Nothing}=[mean(truncated(Normal(0., 2.), lower = 0.)), 0.5],
-	include_true::Bool = false # Whether to return true value if this is simulation
+	include_true::Bool = false, # Whether to return true value if this is simulation
+	σ_ρ::Float64 = 2.,
+	σ_a::Float64 = 1.
 )
 	ests = []
 	for p in unique(data.PID)
@@ -186,7 +200,9 @@ function optimize_multiple_single(
 			gdf; 
 			initV = initV,
 			estimate = estimate,
-			initial_params = initial_params
+			initial_params = initial_params,
+			σ_ρ = σ_ρ,
+			σ_a = σ_a
 		)
 
 		# Return
@@ -223,7 +239,9 @@ function SBC_single_p_QL(
 	data::DataFrame;
 	initV::Float64,
 	random_seed::Union{Int64, Nothing} = nothing,
-	iter_sampling = 500
+	iter_sampling = 500,
+	σ_ρ::Float64 = 2.,
+	σ_a::Float64 = 1.
 )
 
 	sums = []
@@ -234,7 +252,9 @@ function SBC_single_p_QL(
 			gdf;
 			initV = initV,
 			random_seed = random_seed,
-			iter_sampling = iter_sampling
+			iter_sampling = iter_sampling,
+			σ_ρ = σ_ρ,
+			σ_a = σ_a
 		)
 
 		push!(
