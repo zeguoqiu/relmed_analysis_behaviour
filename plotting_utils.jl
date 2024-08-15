@@ -57,13 +57,56 @@ function scatter_regression_line!(
 		aspect = aspect
 	)
 
+	scatter_regression_line!(
+		ax = ax,
+		df = df,
+		x_col = x_col,
+		y_col = y_col,
+		xlabel = xlabel,
+		ylabel = ylabel;
+		transform_x = transform_x,
+		transform_y = transform_y,
+		color = color,
+		legend = legend,
+		legend_title = legend_title,
+		write_cor = write_cor,
+		cor_correction = cor_correction,
+		cor_label = cor_label,
+		aspect = aspect
+	)
+
+	return ax
+	
+end
+
+function scatter_regression_line!(
+	ax::Axis,
+	df::DataFrame,
+	x_col::Symbol,
+	y_col::Symbol,
+	xlabel::String,
+	ylabel::String;
+	transform_x::Function = x -> x,
+	transform_y::Function = x -> x,
+	color = Makie.wong_colors()[1],
+	legend::Union{Dict, Missing} = missing,
+	legend_title::String = "",
+	write_cor::Bool = true,
+	cor_correction::Function = x -> x, # Correction to apply for correlation, e.g. Spearman Brown
+	cor_label::String = "r",
+	aspect::Float64 = 1.
+)
+
+	x = df[!, x_col]
+	y = df[!, y_col]
+	
 	# Regression line
 	treg = regression_line_func(df, x_col, y_col)
 	lines!(
 		ax,
 		range_regression_line(x) |> transform_x,
 		treg.(range_regression_line(x)) |> transform_y,
-		color = :grey,
+		color = color,
 		linewidth = 4
 	)
 
@@ -90,6 +133,7 @@ function scatter_regression_line!(
 
 	end
 end
+
 
 
 # Plot accuracy for a group, divided by condition / group
