@@ -409,27 +409,13 @@ function join_split_fits(
 	return fits
 end
 
-# ╔═╡ e6639a00-8135-482b-88bc-de2a8a8a4a94
-function reliability_scatter(
-	fit1::DataFrame,
-	fit2::DataFrame,
-	pids1::DataFrame,
-	pids2::DataFrame,
+# ╔═╡ 76b2ec0c-7b91-4e4a-826f-f138fd0a7e43
+function reliability_scatter!(
+	f::GridLayout,
+	fits::DataFrame,
 	label1::String,
 	label2::String
 )
-
-	# Join
-	fits = join_split_fits(
-		fit1,
-		fit2,
-		pids1,
-		pids2
-	)
-
-	# Plot -----------------------------------
-	f = Figure()
-
 	scatter_regression_line!(
 		f[1,1],
 		fits,
@@ -448,6 +434,26 @@ function reliability_scatter(
 		"$label2 ρ"
 	)
 
+end
+
+# ╔═╡ e6639a00-8135-482b-88bc-de2a8a8a4a94
+function reliability_scatter(
+	fits::DataFrame,
+	label1::String,
+	label2::String
+)
+
+	# Plot -----------------------------------
+	f = Figure()
+
+	gl = f[1,1] = GridLayout()
+
+	reliability_scatter!(
+		gl,
+		fits,
+		label1::String,
+		label2::String
+	)
 
 	return f
 end
@@ -468,21 +474,176 @@ let
 	sess1_maps = optimize_multiple_single(
 		sess1_forfit;
 		initV = aao,
+		σ_ρ = 1.,
+		σ_a = 0.5
 	)
 
 	sess2_maps = optimize_multiple_single(
 		sess2_forfit;
 		initV = aao,
+		σ_ρ = 1.,
+		σ_a = 0.5
 	)
 
-	reliability_scatter(
+	# Join
+	maps = join_split_fits(
 		sess1_maps,
 		sess2_maps,
 		sess1_pids,
-		sess2_pids,
-		"Session 1",
-		"Session 2"
+		sess2_pids
 	)
+
+	# Add condition data
+	maps = innerjoin(
+		maps, 
+		unique(
+			PLT_data[!, [:prolific_pid, :early_stop, :valence_grouped, :reward_first]]
+		),
+		on = :prolific_pid
+	)
+
+	maps.reward_first = ifelse.(maps.valence_grouped, maps.reward_first, missing)
+
+	function bootstrap_correlation(x, y, n_bootstrap=1000)
+	    n = length(x)
+	    corrs = Float64[]  # To store the bootstrap correlations
+	
+	    for i in 1:n_bootstrap
+	        # Resample the data with replacement
+	        idxs = sample(1:n, n, replace=true)
+	        x_resample = x[idxs]
+	        y_resample = y[idxs]
+	        
+	        # Compute the correlation for the resampled data
+	        push!(corrs, cor(x_resample, y_resample))
+	    end
+	
+	    return corrs
+	end
+
+	bootstrap_correlation(maps.a_1, maps.a_2)
+
+	# Compute correlations
+	function groupby_cor(
+		maps::DataFrame,
+		col::Symbol,
+		label::String
+	)
+		cors = combine(
+			groupby(maps, col),
+			[:a_1, :a_2] => bootstrap_correlation => :cor_a,
+			[:ρ_1, :ρ_2] => bootstrap_correlation => :cor_ρ,
+			:prolific_pid => length => :n
+		)
+
+		cors[!, :variable] .= label
+
+		rename!(cors, col => :level)
+
+		return cors
+	end
+
+	cat_cors = vcat(
+		groupby_cor(maps, :early_stop, "Early stopping"),
+		groupby_cor(maps, :reward_first, "Reward first")
+	)
+
+	cat_cors = innerjoin(
+		cat_cors,
+		DataFrame(
+			variable = unique(cat_cors.variable),
+			cat = 1:length(unique(cat_cors.variable)),
+		),
+		on = :variable
+	)
+
+	cat_cors = innerjoin(
+		cat_cors,
+		DataFrame(
+			level = unique(cat_cors.level),
+			level_id = 1:length(unique(cat_cors.level)),
+		),
+		on = :level,
+		matchmissing = :equal
+	)
+
+	f = Figure(size = (1000,500))
+
+	f_top = f[1,1] = GridLayout()
+
+	function plot_cor_dist(
+		f::GridPosition, 
+		cat_cors::DataFrame, 
+		col::Symbol)
+		
+		ax = Axis(
+			f,
+			xticks = (1:2, unique(cat_cors.variable))
+		)
+	
+		rainclouds!(
+			ax,
+			cat_cors.variable,
+			cat_cors[!, col],
+			dodge = cat_cors.level_id,
+			color = Makie.wong_colors()[cat_cors.level_id],
+			plot_boxplots = false
+		)
+	
+	end
+
+	plot_cor_dist(f[2,1], cat_cors, :cor_a)
+	plot_cor_dist(f[2,2], cat_cors, :cor_ρ)
+	
+	Legend(
+		f_top[1, :],
+		[PolyElement(color = c) for c in Makie.wong_colors()[1:3]],
+		["No", "Yes", "N/A"],
+		orientation = :horizontal,
+		framevisible = false,
+		tellwidth = false,
+		halign = :center
+	)
+
+
+	f
+
+
+
+	# # Plot scatter
+	# f = Figure()
+
+	# ax = Axis(f[1,1])
+
+	# ax, _ = barplot(f[1,1],
+	# 	cat_cors.cat, cat_cors.cor_a,
+ #        dodge = cat_cors.level_id,
+ #        color = cat_cors.level_id,
+ #        axis = (xticks = (1:2, unique(cat_cors.variable)),
+ #                title = "Dodged bars"),
+ #    )
+
+	# crossbar!(ax, cat_cors.cat, 
+	# 	cat_cors.cor_a, 
+	# 	cat_cors.cor_a_lb, 
+	# 	cat_cors.cor_a_ub; 
+ #        dodge = cat_cors.level_id
+	# )
+
+
+
+	# gl1 = f[1,1] = GridLayout()
+	
+	# reliability_scatter!(
+	# 	gl1,
+	# 	maps,
+	# 	"Session 1",
+	# 	"Session 2"
+	# )
+
+
+
+	# f
 
 end
 
@@ -632,6 +793,7 @@ end
 # ╠═e7eac420-5048-4496-a9bb-04eca8271b17
 # ╠═1e91ee5c-7a36-4bfe-8987-2216799a8029
 # ╠═e6639a00-8135-482b-88bc-de2a8a8a4a94
+# ╠═76b2ec0c-7b91-4e4a-826f-f138fd0a7e43
 # ╠═cc82e036-f83c-4f33-847a-49f3a3ec9342
 # ╠═a53db393-c9e7-4db3-a11d-3b244823d951
 # ╠═a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
