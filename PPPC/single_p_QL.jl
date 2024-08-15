@@ -364,6 +364,9 @@ function prepare_for_fit(data)
 
 	rename!(forfit, :isOptimal => :choice)
 
+	# Make sure block is numbered correctly
+	forfit.block = indexin(forfit.block, sort(unique(forfit.block)))
+
 	# Arrange feedback by optimal / suboptimal
 	forfit.feedback_optimal = 
 		ifelse.(forfit.optimalRight .== 1, forfit.outcomeRight, forfit.outcomeLeft)
@@ -416,7 +419,7 @@ function reliability_scatter!(
 	label1::String,
 	label2::String
 )
-	scatter_regression_line!(
+	ax_a = scatter_regression_line!(
 		f[1,1],
 		fits,
 		:a_1,
@@ -425,13 +428,46 @@ function reliability_scatter!(
 		"$label2 a"
 	)
 
-	scatter_regression_line!(
+	ax_ρ = scatter_regression_line!(
 		f[1,2],
 		fits,
 		:ρ_1,
 		:ρ_2,
 		"$label1 ρ",
 		"$label2 ρ"
+	)
+
+	return ax_a, ax_ρ
+
+end
+
+# ╔═╡ 488744fa-51bb-4e3c-bad3-2b193313e132
+function reliability_scatter!(
+	ax_a::Axis,
+	ax_ρ::Axis,
+	fits::DataFrame,
+	label1::String,
+	label2::String;
+	color = Makie.wong_colors()[1]
+)
+	scatter_regression_line!(
+		ax_a,
+		fits,
+		:a_1,
+		:a_2,
+		"$label1 a",
+		"$label2 a";
+		color = color
+	)
+
+	scatter_regression_line!(
+		ax_ρ,
+		fits,
+		:ρ_1,
+		:ρ_2,
+		"$label1 ρ",
+		"$label2 ρ";
+		color = color
 	)
 
 end
@@ -461,25 +497,32 @@ end
 
 # ╔═╡ cc82e036-f83c-4f33-847a-49f3a3ec9342
 # Test-retest
-let
-	sess1_forfit, sess1_pids = 
-		prepare_for_fit(filter(x -> x.session == "1", PLT_data))
-	sess2_forfit, sess2_pids = 
-		prepare_for_fit(filter(x -> x.session == "2", PLT_data))
+function reliability_by_condition(
+	PLT_data::DataFrame,
+	filter1::Function,
+	filter2::Function,
+	label_top::String,
+	label_bottom1::String,
+	label_bottom2::String
+)
+	forfit1, pids1 = 
+		prepare_for_fit(filter(filter1, PLT_data))
+	forfit2, pids2 = 
+		prepare_for_fit(filter(filter2, PLT_data))
 	
 	# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
 	# Fit
-	sess1_maps = optimize_multiple_single(
-		sess1_forfit;
+	maps1 = optimize_multiple_single(
+		forfit1;
 		initV = aao,
 		σ_ρ = 1.,
 		σ_a = 0.5
 	)
 
-	sess2_maps = optimize_multiple_single(
-		sess2_forfit;
+	maps2 = optimize_multiple_single(
+		forfit2;
 		initV = aao,
 		σ_ρ = 1.,
 		σ_a = 0.5
@@ -487,10 +530,10 @@ let
 
 	# Join
 	maps = join_split_fits(
-		sess1_maps,
-		sess2_maps,
-		sess1_pids,
-		sess2_pids
+		maps1,
+		maps2,
+		pids1,
+		pids2
 	)
 
 	# Add condition data
@@ -510,7 +553,7 @@ let
 	
 	    for i in 1:n_bootstrap
 	        # Resample the data with replacement
-	        idxs = sample(1:n, n, replace=true)
+	        idxs = sample(Xoshiro(i), 1:n, n, replace=true)
 	        x_resample = x[idxs]
 	        y_resample = y[idxs]
 	        
@@ -574,11 +617,14 @@ let
 	function plot_cor_dist(
 		f::GridPosition, 
 		cat_cors::DataFrame, 
-		col::Symbol)
+		col::Symbol;
+		ylabel::String = ""
+	)
 		
 		ax = Axis(
 			f,
-			xticks = (1:2, unique(cat_cors.variable))
+			xticks = (1:2, unique(cat_cors.variable)),
+			ylabel = ylabel
 		)
 	
 		rainclouds!(
@@ -592,8 +638,8 @@ let
 	
 	end
 
-	plot_cor_dist(f[2,1], cat_cors, :cor_a)
-	plot_cor_dist(f[2,2], cat_cors, :cor_ρ)
+	plot_cor_dist(f[2,1], cat_cors, :cor_a; ylabel = label_top)
+	plot_cor_dist(f[2,2], cat_cors, :cor_ρ; ylabel = label_top)
 	
 	Legend(
 		f_top[1, :],
@@ -606,46 +652,88 @@ let
 	)
 
 
+	# Plot scatter
+
+	gl1 = f[3,1:2] = GridLayout()
+
+	ax_a1 = Axis(
+		gl1[1,1],
+		xlabel = "$label_bottom1 a",
+		ylabel = "$label_bottom2 a",
+	)
+
+	ax_a2 = Axis(
+		gl1[1,2],
+		xlabel = "$label_bottom1 a",
+		ylabel = "$label_bottom2 a",
+	)
+
+	ax_ρ1 = Axis(gl1[1,3],
+		xlabel = "$label_bottom1 ρ",
+		ylabel = "$label_bottom2 ρ",
+	)
+
+	ax_ρ2 = Axis(gl1[1,4],
+		xlabel = "$label_bottom1 ρ",
+		ylabel = "$label_bottom2 ρ",
+	)
+
+	for (i, es) in enumerate(unique(maps.early_stop))	
+		reliability_scatter!(
+			ax_a1,
+			ax_ρ1,
+			filter(x -> x.early_stop == es, maps),
+			"Session 1",
+			"Session 2",
+			color = Makie.wong_colors()[i]
+		)
+	end
+
+	for (i, rf) in enumerate(unique(maps.reward_first))	
+		reliability_scatter!(
+			ax_a2,
+			ax_ρ2,
+			filter(x -> isequal(x.reward_first, rf), maps),
+			"Session 1",
+			"Session 2",
+			color = Makie.wong_colors()[i]
+		)
+	end
+
+
 	f
 
-
-
-	# # Plot scatter
-	# f = Figure()
-
-	# ax = Axis(f[1,1])
-
-	# ax, _ = barplot(f[1,1],
-	# 	cat_cors.cat, cat_cors.cor_a,
- #        dodge = cat_cors.level_id,
- #        color = cat_cors.level_id,
- #        axis = (xticks = (1:2, unique(cat_cors.variable)),
- #                title = "Dodged bars"),
- #    )
-
-	# crossbar!(ax, cat_cors.cat, 
-	# 	cat_cors.cor_a, 
-	# 	cat_cors.cor_a_lb, 
-	# 	cat_cors.cor_a_ub; 
- #        dodge = cat_cors.level_id
-	# )
-
-
-
-	# gl1 = f[1,1] = GridLayout()
-	
-	# reliability_scatter!(
-	# 	gl1,
-	# 	maps,
-	# 	"Session 1",
-	# 	"Session 2"
-	# )
-
-
-
-	# f
-
 end
+
+# ╔═╡ 0a151f69-f59e-48ae-8fc2-46a455e4f049
+reliability_by_condition(
+	PLT_data,
+	x -> x.session == "1",
+	x -> x.session == "2",
+	"Test-retest",
+	"Session 1",
+	"Session 2"
+)
+
+# ╔═╡ fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
+reliability_by_condition(
+	PLT_data,
+	x -> (x.session == "1") & iseven(x.block),
+	x -> (x.session == "1") & isodd(x.block),
+	"Split-half",
+	"Even blocks",
+	"Odd block"
+)
+
+# ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
+reliability_by_condition(
+	PLT_data,
+	x -> (x.session == "2") & iseven(x.block),
+	x -> (x.session == "2") & isodd(x.block),
+	"Split-half",
+	"Even blocks",
+	"Odd block"
+)
 
 # ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
 # Different priors
@@ -794,6 +882,10 @@ end
 # ╠═1e91ee5c-7a36-4bfe-8987-2216799a8029
 # ╠═e6639a00-8135-482b-88bc-de2a8a8a4a94
 # ╠═76b2ec0c-7b91-4e4a-826f-f138fd0a7e43
+# ╠═488744fa-51bb-4e3c-bad3-2b193313e132
+# ╠═0a151f69-f59e-48ae-8fc2-46a455e4f049
+# ╠═fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
+# ╠═8c9a0662-25af-4280-ad48-270458edb018
 # ╠═cc82e036-f83c-4f33-847a-49f3a3ec9342
 # ╠═a53db393-c9e7-4db3-a11d-3b244823d951
 # ╠═a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
