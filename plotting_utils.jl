@@ -42,7 +42,8 @@ function scatter_regression_line!(
 	legend_title::String = "",
 	write_cor::Bool = true,
 	cor_correction::Function = x -> x, # Correction to apply for correlation, e.g. Spearman Brown
-	cor_label::String = "r"
+	cor_label::String = "r",
+	aspect::Float64 = 1.
 )
 
 	x = df[!, x_col]
@@ -52,7 +53,8 @@ function scatter_regression_line!(
 		xlabel = xlabel,
 		ylabel = ylabel,
 		subtitle = write_cor ? "$cor_label=$(round(
-			cor_correction(cor(x, y)), digits= 2))" : ""
+			cor_correction(cor(x, y)), digits= 2))" : "",
+		aspect = aspect
 	)
 
 	# Regression line
