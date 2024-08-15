@@ -381,6 +381,54 @@ function prepare_for_fit(data)
 	return forfit, pids
 end
 
+# ╔═╡ e6639a00-8135-482b-88bc-de2a8a8a4a94
+function reliability_scatter(
+	fit1::DataFrame,
+	fit2::DataFrame,
+	pids1::DataFrame,
+	pids2::DataFrame,
+	label1::String,
+	label2::String
+)
+
+	# Join
+	fit1 = innerjoin(fit1, pids1, on = :PID)
+	
+	fit2 = innerjoin(fit2, pids2, on = :PID)
+	
+	fits = innerjoin(
+		fit1[!, Not(:PID)], 
+		fit2[!, Not(:PID)], 
+		on = [:prolific_pid],
+		renamecols = "_1" => "_2"
+	)
+
+	# Plot -----------------------------------
+	f = Figure()
+
+	scatter_regression_line!(
+		f[1,1],
+		fits,
+		:a_1,
+		:a_2,
+		"$label1 a",
+		"$label2 a"
+	)
+
+	scatter_regression_line!(
+		f[1,2],
+		fits,
+		:ρ_1,
+		:ρ_2,
+		"$label1 ρ",
+		"$label2 ρ"
+	)
+
+
+	return f
+end
+
+
 # ╔═╡ cc82e036-f83c-4f33-847a-49f3a3ec9342
 # Test-retest
 let
@@ -402,38 +450,14 @@ let
 		initV = aao,
 	)
 
-	# Join
-	sess1_maps = innerjoin(sess1_maps, sess1_pids, on = :PID)
-	
-	sess2_maps = innerjoin(sess2_maps, sess2_pids, on = :PID)
-	maps = innerjoin(
-		sess1_maps[!, Not(:PID)], 
-		sess2_maps[!, Not(:PID)], 
-		on = [:prolific_pid],
-		renamecols = "_sess1" => "_sess2"
+	reliability_scatter(
+		sess1_maps,
+		sess2_maps,
+		sess1_pids,
+		sess2_pids,
+		"Session 1",
+		"Session 2"
 	)
-
-	f = Figure()
-
-	scatter_regression_line!(
-		f[1,1],
-		maps,
-		:a_sess1,
-		:a_sess2,
-		"Session 1 a",
-		"Session 2 a"
-	)
-
-	scatter_regression_line!(
-		f[1,2],
-		maps,
-		:ρ_sess1,
-		:ρ_sess2,
-		"Session 1 ρ",
-		"Session 2 ρ"
-	)
-
-	f
 
 end
 
@@ -452,4 +476,5 @@ end
 # ╠═bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
 # ╠═a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # ╠═e7eac420-5048-4496-a9bb-04eca8271b17
+# ╠═e6639a00-8135-482b-88bc-de2a8a8a4a94
 # ╠═cc82e036-f83c-4f33-847a-49f3a3ec9342
