@@ -61,6 +61,9 @@ function simulate_single_p_QL(
 	# Total trial number
 	N = length(block)
 
+	# Trials per block
+    n_trials = div(length(block), maximum(block))
+
 	# Prepare model for simulation
 	prior_model = single_p_QL(
 		N = N,
