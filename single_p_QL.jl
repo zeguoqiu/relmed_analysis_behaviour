@@ -10,12 +10,14 @@
 	valence::AbstractVector, # Valence of each block
 	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
 	outcomes::Matrix{Float64}, # Outcomes for options, second column optimal
-	initV::Matrix{Float64} # Initial Q values
+	initV::Matrix{Float64} # Initial Q values,
+	σ_ρ::Float64 = 2.,
+	σ_a::Float64 = 1.
 )
 
 	# Priors on parameters
-	ρ ~ truncated(Normal(0., 2.), lower = 0.)
-	a ~ Normal(0., 1.)
+	ρ ~ truncated(Normal(0., σ_ρ), lower = 0.)
+	a ~ Normal(0., σ_a)
 
 	# Compute learning rate
 	α = a2α(a) # hBayesDM uses Phi_approx from Stan. Here, logistic with the variance of the logistic multiplying a to equate the scales to that of a probit function.
