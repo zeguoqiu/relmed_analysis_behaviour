@@ -5,7 +5,6 @@
 @model function single_p_QL(;
 	N::Int64, # Total number of trials
 	n_blocks::Int64, # Number of blocks
-	n_trials::Int64, # Number of trials in block
 	block::Vector{Int64}, # Block number
 	valence::AbstractVector, # Valence of each block
 	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
@@ -23,7 +22,7 @@
 	α = a2α(a) # hBayesDM uses Phi_approx from Stan. Here, logistic with the variance of the logistic multiplying a to equate the scales to that of a probit function.
 
 	# Initialize Q values
-	Qs = vcat([repeat(initV .* (ρ * valence[i]), n_trials) for i in 1:n_blocks]...)
+	Qs = repeat(initV .* ρ, length(block)) .* valence[block]
 
 	# Loop over trials, updating Q values and incrementing log-density
 	for i in 1:N
@@ -62,13 +61,9 @@ function simulate_single_p_QL(
 	# Total trial number
 	N = length(block)
 
-	# Trials per block
-	n_trials = div(length(block), maximum(block))
-
 	# Prepare model for simulation
 	prior_model = single_p_QL(
 		N = N,
-		n_trials = n_trials,
 		n_blocks = maximum(block),
 		block = block,
 		valence = valence,
@@ -121,7 +116,6 @@ function posterior_sample_single_p_QL(
 	model = single_p_QL(;
 		N = nrow(data),
 		n_blocks = maximum(data.block),
-		n_trials = maximum(data.trial),
 		block = data.block,
 		valence = unique(data[!, [:block, :valence]]).valence,
 		choice = data.choice,
@@ -157,7 +151,6 @@ function optimize_single_p_QL(
 	model = single_p_QL(;
 		N = nrow(data),
 		n_blocks = maximum(data.block),
-		n_trials = maximum(data.trial),
 		block = data.block,
 		valence = unique(data[!, [:block, :valence]]).valence,
 		choice = data.choice,
