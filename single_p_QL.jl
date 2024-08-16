@@ -46,6 +46,7 @@
 
 end
 
+
 # Simulate data from model prior
 function simulate_single_p_QL(
 	n::Int64; # How many datasets to simulate
@@ -280,7 +281,11 @@ function prepare_for_fit(data)
 	rename!(forfit, :isOptimal => :choice)
 
 	# Make sure block is numbered correctly
-	forfit.block = indexin(forfit.block, sort(unique(forfit.block)))
+	renumber_block(x) = indexin(x, sort(unique(x)))
+	DataFrames.transform!(
+		groupby(forfit, [:prolific_pid, :session]),
+		:block => renumber_block => :block
+	)
 
 	# Arrange feedback by optimal / suboptimal
 	forfit.feedback_optimal = 
