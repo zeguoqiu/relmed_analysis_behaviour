@@ -224,9 +224,14 @@ function optimize_multiple_single(
 		)
 	end
 
-	ests = DataFrame(ests)
+	dests = try
+		DataFrame(ests)
+	catch e
+		println(ests)
+		throw(e)
+	end
 
-	return ests
+	return dests
 end
 
 
