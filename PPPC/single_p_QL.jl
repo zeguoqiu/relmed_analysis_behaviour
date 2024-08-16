@@ -526,7 +526,8 @@ function reliability_by_condition(
 	filter2::Function,
 	label_top::String,
 	label_bottom1::String,
-	label_bottom2::String
+	label_bottom2::String;
+	supertitle::String = ""
 )
 	forfit1, pids1 = 
 		prepare_for_fit(filter(filter1, PLT_data))
@@ -641,13 +642,15 @@ function reliability_by_condition(
 		f::GridPosition, 
 		cat_cors::DataFrame, 
 		col::Symbol;
-		ylabel::String = ""
+		ylabel::String = "",
+		title::String
 	)
 		
 		ax = Axis(
 			f,
 			xticks = (1:2, unique(cat_cors.variable)),
-			ylabel = ylabel
+			ylabel = ylabel,
+			title = title
 		)
 	
 		rainclouds!(
@@ -661,23 +664,28 @@ function reliability_by_condition(
 	
 	end
 
-	plot_cor_dist(f[2,1], cat_cors, :cor_a; ylabel = label_top)
-	plot_cor_dist(f[2,2], cat_cors, :cor_ρ; ylabel = label_top)
+	plot_cor_dist(f[1,1], cat_cors, :cor_a; ylabel = label_top, title = "a")
+	plot_cor_dist(f[1,2], cat_cors, :cor_ρ; ylabel = label_top, title = "ρ")
 	
 	Legend(
-		f_top[1, :],
+		f[1,1],
 		[PolyElement(color = c) for c in Makie.wong_colors()[1:3]],
 		["No", "Yes", "N/A"],
 		orientation = :horizontal,
 		framevisible = false,
 		tellwidth = false,
-		halign = :center
+		tellheight = false,
+		halign = :right,
+		valign = :bottom
 	)
 
+	if supertitle != ""
+		Label(f[0, :], supertitle, fontsize = 18, font = :bold)
+	end
 
 	# Plot scatter
 
-	gl1 = f[3,1:2] = GridLayout()
+	gl1 = f[2,1:2] = GridLayout()
 
 	ax_a1 = Axis(
 		gl1[1,1],
@@ -745,7 +753,8 @@ reliability_by_condition(
 	x -> (x.session == "1") & isodd(x.block),
 	"Split-half",
 	"Even blocks",
-	"Odd block"
+	"Odd block";
+	supertitle = "Session 1 split-half reliability"
 )
 
 # ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
@@ -755,7 +764,8 @@ reliability_by_condition(
 	x -> (x.session == "2") & isodd(x.block),
 	"Split-half",
 	"Even blocks",
-	"Odd block"
+	"Odd block";
+	supertitle = "Session 2 split-half reliability"
 )
 
 # ╔═╡ 525522d1-5ced-46f2-8c9b-3299d3cb244d
@@ -777,7 +787,8 @@ reliability_by_condition(
 	x -> x.session == "2",
 	"Test-retest",
 	"Session 1",
-	"Session 2"
+	"Session 2";
+	supertitle = "Early stopping simulated for all"
 )
 
 # ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
@@ -787,7 +798,8 @@ reliability_by_condition(
 	x -> (x.session == "1") & isodd(x.block),
 	"Split-half",
 	"Even blocks",
-	"Odd block"
+	"Odd block";
+	supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
 )
 
 # ╔═╡ 10565355-90ae-419c-9b92-8ff18fcd48b3
@@ -797,7 +809,8 @@ reliability_by_condition(
 	x -> (x.session == "2") & isodd(x.block),
 	"Split-half",
 	"Even blocks",
-	"Odd block"
+	"Odd block";
+	supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
 )
 
 # ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
