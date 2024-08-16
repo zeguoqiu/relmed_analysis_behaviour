@@ -58,12 +58,12 @@ function scatter_regression_line!(
 	)
 
 	scatter_regression_line!(
-		ax = ax,
-		df = df,
-		x_col = x_col,
-		y_col = y_col,
-		xlabel = xlabel,
-		ylabel = ylabel;
+		ax,
+		df,
+		x_col,
+		y_col,
+		xlabel,
+		ylabel;
 		transform_x = transform_x,
 		transform_y = transform_y,
 		color = color,
@@ -743,4 +743,90 @@ function plot_SBC(
 	end
 	
 	return f_sims
+end
+
+# Plot calibration for optimization methods
+function optimization_calibration(
+	prior_sample::DataFrame,
+	optimize_func::Function;
+	estimate::String = "MLE",
+	ms::Float64 = 4.
+)
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	MLEs = optimize_func(
+		prior_sample;
+		initV = aao,
+		estimate = estimate,
+		include_true = true
+	)
+
+	f = Figure(size = (700, 200))
+
+	# Plot a
+	ax_a = Axis(
+		f[1,1],
+		xlabel = "True a",
+		ylabel = "$estimate a",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_a,
+		MLEs.true_a,
+		MLEs.MLE_a,
+		markersize = ms
+	)
+
+	unit_line!(ax_a)
+
+	# Plot ρ
+	ax_ρ = Axis(
+		f[1,2],
+		xlabel = "True ρ",
+		ylabel = "$estimate ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_ρ,
+		MLEs.true_ρ,
+		MLEs.MLE_ρ,
+		markersize = ms
+	)
+
+	unit_line!(ax_ρ)
+
+	# Plot bivariate
+	ax_aρ = Axis(
+		f[1,3],
+		xlabel = "$estimate a",
+		ylabel = "$estimate ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_aρ,
+		MLEs.MLE_a,
+		MLEs.MLE_ρ,
+		markersize = ms
+	)
+
+	# Plot ground truth
+	ax_taρ = Axis(
+		f[1,4],
+		xlabel = "True a",
+		ylabel = "True ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_taρ,
+		MLEs.true_a,
+		MLEs.true_ρ,
+		markersize = ms
+	)
+
+	f
 end
