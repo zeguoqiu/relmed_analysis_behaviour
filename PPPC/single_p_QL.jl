@@ -245,102 +245,22 @@ md"""
 ## Estimation by optimization
 """
 
-# ╔═╡ bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
-function optimization_calibration(
-	prior_sample;
-	estimate::String = "MLE",
-	ms::Float64 = 4.
-)
-	# Initial value for Q values
-	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-
-	MLEs = optimize_multiple_single_p_QL(
-		prior_sample;
-		initV = aao,
-		estimate = estimate,
-		include_true = true
-	)
-
-	f = Figure(size = (700, 200))
-
-	# Plot a
-	ax_a = Axis(
-		f[1,1],
-		xlabel = "True a",
-		ylabel = "$estimate a",
-		aspect = 1.
-	)
-
-	scatter!(
-		ax_a,
-		MLEs.true_a,
-		MLEs.MLE_a,
-		markersize = ms
-	)
-
-	unit_line!(ax_a)
-
-	# Plot ρ
-	ax_ρ = Axis(
-		f[1,2],
-		xlabel = "True ρ",
-		ylabel = "$estimate ρ",
-		aspect = 1.
-	)
-
-	scatter!(
-		ax_ρ,
-		MLEs.true_ρ,
-		MLEs.MLE_ρ,
-		markersize = ms
-	)
-
-	unit_line!(ax_ρ)
-
-	# Plot bivariate
-	ax_aρ = Axis(
-		f[1,3],
-		xlabel = "$estimate a",
-		ylabel = "$estimate ρ",
-		aspect = 1.
-	)
-
-	scatter!(
-		ax_aρ,
-		MLEs.MLE_a,
-		MLEs.MLE_ρ,
-		markersize = ms
-	)
-
-	# Plot ground truth
-	ax_taρ = Axis(
-		f[1,4],
-		xlabel = "True a",
-		ylabel = "True ρ",
-		aspect = 1.
-	)
-
-	scatter!(
-		ax_taρ,
-		MLEs.true_a,
-		MLEs.true_ρ,
-		markersize = ms
-	)
-
-	f
-end
-
 # ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
 optimization_calibration(
 	prior_sample,
+	optimize_multiple_single_p_QL,
 	estimate = "MLE"
 )
 
 # ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
 optimization_calibration(
-	prior_sample;
+	prior_sample,
+	optimize_multiple_single_p_QL;
 	estimate = "MAP"
 )
+
+# ╔═╡ bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
+
 
 # ╔═╡ a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # Load and clean data
@@ -358,16 +278,11 @@ begin
 	nothing
 end
 
-# ╔═╡ cc82e036-f83c-4f33-847a-49f3a3ec9342
-# Test-retest
-function reliability_by_condition(
+# ╔═╡ 51e17b01-60c2-438e-b6a9-e5183c28adf4
+function fit_split(
 	PLT_data::DataFrame,
 	filter1::Function,
-	filter2::Function,
-	label_top::String,
-	label_bottom1::String,
-	label_bottom2::String;
-	supertitle::String = ""
+	filter2::Function
 )
 	forfit1, pids1 = 
 		prepare_for_fit(filter(filter1, PLT_data))
@@ -378,14 +293,14 @@ function reliability_by_condition(
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
 	# Fit
-	maps1 = optimize_multiple_single(
+	maps1 = optimize_multiple_single_p_QL(
 		forfit1;
 		initV = aao,
 		σ_ρ = 1.,
 		σ_a = 0.5
 	)
 
-	maps2 = optimize_multiple_single(
+	maps2 = optimize_multiple_single_p_QL(
 		forfit2;
 		initV = aao,
 		σ_ρ = 1.,
@@ -408,6 +323,67 @@ function reliability_by_condition(
 		),
 		on = :prolific_pid
 	)
+
+end
+
+# ╔═╡ 2f4fc0bb-0914-4064-8686-9213461b4dfb
+function reliability_by_valence(
+	PLT_data::DataFrame,
+	filter1::Function,
+	filter2::Function,
+	label1::String,
+	label2::String
+)
+
+	# Fit two subsets
+	maps_reward = fit_split(filter(x -> x.valence > 0, PLT_data), filter1, filter2)
+
+	maps_punishment = 
+		fit_split(filter(x -> x.valence < 0, PLT_data), filter1, filter2)
+
+	f = Figure()
+
+	glr = f[1,1] = GridLayout()
+	reliability_scatter!(
+		glr,
+		maps_reward,
+		label1,
+		label2#,
+		#color = :green
+	)
+
+	glp = f[1,2] = GridLayout()
+	reliability_scatter!(
+		glp,
+		maps_punishment,
+		label1,
+		label2#,
+		#color = :red
+	)
+
+	return f
+end
+
+# ╔═╡ 39adc8c6-4964-4484-a4c6-18ba791064b7
+reliability_by_valence(
+	PLT_data,
+	x -> (x.session == "1"),
+	x -> (x.session == "2"),
+	"Session 1",
+	"Session 2"
+)
+
+# ╔═╡ cc82e036-f83c-4f33-847a-49f3a3ec9342
+function reliability_by_condition(
+	PLT_data::DataFrame,
+	filter1::Function,
+	filter2::Function,
+	label_top::String,
+	label_bottom1::String,
+	label_bottom2::String;
+	supertitle::String = ""
+)
+	maps = fit_split(PLT_data, filter1, filter2)
 
 	maps.reward_first = ifelse.(maps.valence_grouped, maps.reward_first, missing)
 
@@ -464,11 +440,12 @@ function reliability_by_condition(
 		on = :variable
 	)
 
+	reward_first_levels = unique(cat_cors.level)
 	cat_cors = innerjoin(
 		cat_cors,
 		DataFrame(
 			level = unique(cat_cors.level),
-			level_id = 1:length(unique(cat_cors.level)),
+			level_id = 1:length(reward_first_levels),
 		),
 		on = :level,
 		matchmissing = :equal
@@ -560,7 +537,7 @@ function reliability_by_condition(
 		)
 	end
 
-	for (i, rf) in enumerate(unique(maps.reward_first))	
+	for (i, rf) in enumerate(reward_first_levels)	
 		reliability_scatter!(
 			ax_a2,
 			ax_ρ2,
@@ -674,13 +651,13 @@ penlaties_fits = let
 		ids::NamedTuple = (σ_ρ = σ_ρ, σ_a = σ_a)
 	)
 		# Fit
-		fit1 = optimize_multiple_single(
+		fit1 = optimize_multiple_single_p_QL(
 			data1;
 			initV = aao,
 			σ_ρ = σ_ρ
 		)
 	
-		fit2 = optimize_multiple_single(
+		fit2 = optimize_multiple_single_p_QL(
 			data2;
 			initV = aao,
 			σ_ρ = σ_a
@@ -798,6 +775,9 @@ end
 # ╠═0a151f69-f59e-48ae-8fc2-46a455e4f049
 # ╠═fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
 # ╠═8c9a0662-25af-4280-ad48-270458edb018
+# ╠═39adc8c6-4964-4484-a4c6-18ba791064b7
+# ╠═2f4fc0bb-0914-4064-8686-9213461b4dfb
+# ╠═51e17b01-60c2-438e-b6a9-e5183c28adf4
 # ╠═cc82e036-f83c-4f33-847a-49f3a3ec9342
 # ╠═525522d1-5ced-46f2-8c9b-3299d3cb244d
 # ╠═479726b5-605b-494e-8ff2-4d569d0c0ddd
