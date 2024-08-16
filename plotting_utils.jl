@@ -134,6 +134,87 @@ function scatter_regression_line!(
 	end
 end
 
+# Scatters for reliability
+function reliability_scatter(
+	fits::DataFrame,
+	label1::String,
+	label2::String
+)
+
+	# Plot -----------------------------------
+	f = Figure()
+
+	gl = f[1,1] = GridLayout()
+
+	reliability_scatter!(
+		gl,
+		fits,
+		label1::String,
+		label2::String
+	)
+
+	return f
+end
+
+# Existing figure version
+function reliability_scatter!(
+	f::GridLayout,
+	fits::DataFrame,
+	label1::String,
+	label2::String
+)
+	ax_a = scatter_regression_line!(
+		f[1,1],
+		fits,
+		:a_1,
+		:a_2,
+		"$label1 a",
+		"$label2 a"
+	)
+
+	ax_ρ = scatter_regression_line!(
+		f[1,2],
+		fits,
+		:ρ_1,
+		:ρ_2,
+		"$label1 ρ",
+		"$label2 ρ"
+	)
+
+	return ax_a, ax_ρ
+
+end
+
+# Existing axes version
+function reliability_scatter!(
+	ax_a::Axis,
+	ax_ρ::Axis,
+	fits::DataFrame,
+	label1::String,
+	label2::String;
+	color = Makie.wong_colors()[1]
+)
+	scatter_regression_line!(
+		ax_a,
+		fits,
+		:a_1,
+		:a_2,
+		"$label1 a",
+		"$label2 a";
+		color = color
+	)
+
+	scatter_regression_line!(
+		ax_ρ,
+		fits,
+		:ρ_1,
+		:ρ_2,
+		"$label1 ρ",
+		"$label2 ρ";
+		color = color
+	)
+
+end
 
 
 # Plot accuracy for a group, divided by condition / group

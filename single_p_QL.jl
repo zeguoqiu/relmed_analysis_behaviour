@@ -176,7 +176,7 @@ function optimize_single_p_QL(
 end
 
 # Find MLE / MAP multiple times
-function optimize_multiple_single(
+function optimize_multiple_single_p_QL(
 	data::DataFrame;
 	initV::Float64,
 	estimate::String = "MAP",
@@ -270,4 +270,36 @@ function SBC_single_p_QL(
 	end
 	
 	return sums
+end
+
+# Prepare pilot data for fititng with model
+function prepare_for_fit(data)
+
+	forfit = select(data, [:prolific_pid, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :chosenOutcome, :isOptimal])
+
+	rename!(forfit, :isOptimal => :choice)
+
+	# Make sure block is numbered correctly
+	forfit.block = indexin(forfit.block, sort(unique(forfit.block)))
+
+	# Arrange feedback by optimal / suboptimal
+	forfit.feedback_optimal = 
+		ifelse.(forfit.optimalRight .== 1, forfit.outcomeRight, forfit.outcomeLeft)
+
+	forfit.feedback_suboptimal = 
+		ifelse.(forfit.optimalRight .== 0, forfit.outcomeRight, forfit.outcomeLeft)
+
+	# PID as number
+	pids = DataFrame(
+		prolific_pid = unique(forfit.prolific_pid)
+	)
+
+	pids.PID = 1:nrow(pids)
+
+	forfit = innerjoin(forfit, pids, on = :prolific_pid)
+
+	# Block as Int64
+	forfit.block = convert(Vector{Int64}, forfit.block)
+
+	return forfit, pids
 end

@@ -78,3 +78,26 @@ function sum_SBC_draws(
 	return reduce((x, y) -> merge(x, y), sums)
 
 end
+
+# Join two fit objects that used potentially different PID indices
+function join_split_fits(
+	fit1::DataFrame,
+	fit2::DataFrame,
+	pids1::DataFrame,
+	pids2::DataFrame
+)
+
+	# Join
+	fit1 = innerjoin(fit1, pids1, on = :PID)
+	
+	fit2 = innerjoin(fit2, pids2, on = :PID)
+	
+	fits = innerjoin(
+		fit1[!, Not(:PID)], 
+		fit2[!, Not(:PID)], 
+		on = [:prolific_pid],
+		renamecols = "_1" => "_2"
+	)
+
+	return fits
+end

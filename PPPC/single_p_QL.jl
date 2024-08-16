@@ -254,7 +254,7 @@ function optimization_calibration(
 	# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
-	MLEs = optimize_multiple_single(
+	MLEs = optimize_multiple_single_p_QL(
 		prior_sample;
 		initV = aao,
 		estimate = estimate,
@@ -342,28 +342,6 @@ optimization_calibration(
 	estimate = "MAP"
 )
 
-# ╔═╡ b1b3709a-acb2-4bd4-a11b-48a21228058a
-function count_consecutive_ones(v)
-	# Initialize the result vector with the same length as v
-	result = zeros(Int, length(v))
-	# Initialize the counter
-	counter = 0
-
-	for i in 1:length(v)
-		if v[i] == 1
-			# Increment the counter if the current element is 1
-			counter += 1
-		else
-			# Reset the counter to 0 if the current element is 0
-			counter = 0
-		end
-		# Store the counter value in the result vector
-		result[i] = counter
-	end
-
-	return result
-end
-
 # ╔═╡ a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # Load and clean data
 begin
@@ -379,144 +357,6 @@ begin
 
 	nothing
 end
-
-# ╔═╡ e7eac420-5048-4496-a9bb-04eca8271b17
-function prepare_for_fit(data)
-
-	forfit = select(data, [:prolific_pid, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :chosenOutcome, :isOptimal])
-
-	rename!(forfit, :isOptimal => :choice)
-
-	# Make sure block is numbered correctly
-	forfit.block = indexin(forfit.block, sort(unique(forfit.block)))
-
-	# Arrange feedback by optimal / suboptimal
-	forfit.feedback_optimal = 
-		ifelse.(forfit.optimalRight .== 1, forfit.outcomeRight, forfit.outcomeLeft)
-
-	forfit.feedback_suboptimal = 
-		ifelse.(forfit.optimalRight .== 0, forfit.outcomeRight, forfit.outcomeLeft)
-
-	# PID as number
-	pids = DataFrame(
-		prolific_pid = unique(forfit.prolific_pid)
-	)
-
-	pids.PID = 1:nrow(pids)
-
-	forfit = innerjoin(forfit, pids, on = :prolific_pid)
-
-	# Block as Int64
-	forfit.block = convert(Vector{Int64}, forfit.block)
-
-	return forfit, pids
-end
-
-# ╔═╡ 1e91ee5c-7a36-4bfe-8987-2216799a8029
-function join_split_fits(
-	fit1::DataFrame,
-	fit2::DataFrame,
-	pids1::DataFrame,
-	pids2::DataFrame
-)
-
-	# Join
-	fit1 = innerjoin(fit1, pids1, on = :PID)
-	
-	fit2 = innerjoin(fit2, pids2, on = :PID)
-	
-	fits = innerjoin(
-		fit1[!, Not(:PID)], 
-		fit2[!, Not(:PID)], 
-		on = [:prolific_pid],
-		renamecols = "_1" => "_2"
-	)
-
-	return fits
-end
-
-# ╔═╡ 76b2ec0c-7b91-4e4a-826f-f138fd0a7e43
-function reliability_scatter!(
-	f::GridLayout,
-	fits::DataFrame,
-	label1::String,
-	label2::String
-)
-	ax_a = scatter_regression_line!(
-		f[1,1],
-		fits,
-		:a_1,
-		:a_2,
-		"$label1 a",
-		"$label2 a"
-	)
-
-	ax_ρ = scatter_regression_line!(
-		f[1,2],
-		fits,
-		:ρ_1,
-		:ρ_2,
-		"$label1 ρ",
-		"$label2 ρ"
-	)
-
-	return ax_a, ax_ρ
-
-end
-
-# ╔═╡ 488744fa-51bb-4e3c-bad3-2b193313e132
-function reliability_scatter!(
-	ax_a::Axis,
-	ax_ρ::Axis,
-	fits::DataFrame,
-	label1::String,
-	label2::String;
-	color = Makie.wong_colors()[1]
-)
-	scatter_regression_line!(
-		ax_a,
-		fits,
-		:a_1,
-		:a_2,
-		"$label1 a",
-		"$label2 a";
-		color = color
-	)
-
-	scatter_regression_line!(
-		ax_ρ,
-		fits,
-		:ρ_1,
-		:ρ_2,
-		"$label1 ρ",
-		"$label2 ρ";
-		color = color
-	)
-
-end
-
-# ╔═╡ e6639a00-8135-482b-88bc-de2a8a8a4a94
-function reliability_scatter(
-	fits::DataFrame,
-	label1::String,
-	label2::String
-)
-
-	# Plot -----------------------------------
-	f = Figure()
-
-	gl = f[1,1] = GridLayout()
-
-	reliability_scatter!(
-		gl,
-		fits,
-		label1::String,
-		label2::String
-	)
-
-	return f
-end
-
 
 # ╔═╡ cc82e036-f83c-4f33-847a-49f3a3ec9342
 # Test-retest
@@ -954,13 +794,7 @@ end
 # ╠═1d982252-c9ac-4925-9cd5-976456d32bc4
 # ╠═2eb2dd61-abae-4328-9787-7a841d321836
 # ╠═bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
-# ╠═b1b3709a-acb2-4bd4-a11b-48a21228058a
 # ╠═a3c8a90e-d820-4542-9043-e06a0ec9eaee
-# ╠═e7eac420-5048-4496-a9bb-04eca8271b17
-# ╠═1e91ee5c-7a36-4bfe-8987-2216799a8029
-# ╠═e6639a00-8135-482b-88bc-de2a8a8a4a94
-# ╠═76b2ec0c-7b91-4e4a-826f-f138fd0a7e43
-# ╠═488744fa-51bb-4e3c-bad3-2b193313e132
 # ╠═0a151f69-f59e-48ae-8fc2-46a455e4f049
 # ╠═fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
 # ╠═8c9a0662-25af-4280-ad48-270458edb018
