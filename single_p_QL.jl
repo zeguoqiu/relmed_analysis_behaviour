@@ -202,6 +202,8 @@ function optimize_multiple_single_p_QL(
 			σ_a = σ_a
 		)
 
+		@assert typeof(est.values[:a]) == Float64
+
 		# Return
 		if include_true
 			est = (
@@ -225,14 +227,25 @@ function optimize_multiple_single_p_QL(
 		)
 	end
 
-	dests = try
-		DataFrame(ests)
-	catch e
-		println(ests)
-		throw(e)
+	function validate_namedtuples(e)
+		for nt in e
+			if any(isnothing, values(nt))
+				error("Found undefined or missing value in NamedTuple: $nt")
+			end
+
+			if any(isempty, values(nt))
+				error("Found empty value in NamedTuple: $nt")
+			end
+
+			if any(x -> !(typeof(x) in [Float64, Int64]), values(nt))
+				error("Found misstyped in NamedTuple: $nt")
+			end
+		end
 	end
 
-	return dests
+	validate_namedtuples(ests)
+
+	return DataFrame(ests)
 end
 
 
