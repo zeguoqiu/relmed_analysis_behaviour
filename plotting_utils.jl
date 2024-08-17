@@ -1,9 +1,13 @@
-# Functions to assist plotting
+# Functions for plotting data and simulations
 
-# General helper functions ---------------------------------
-
-# Convert a to α and back
-	a2α(x) = cdf(Normal(), x)
+# Plot unit line
+unit_line!(ax; color = :grey, linestyle = :dash, linewidth = 2) = ablines!(
+	0., 
+	1.,
+	color = color,
+	linestyle = linestyle,
+	linewidth = linewidth
+	)
 
 # Regression line
 function regression_line_func(df::DataFrame, 
@@ -22,6 +26,7 @@ end
 range_regression_line(x::Vector{Float64}; res = 200) = 
     range(minimum(x), maximum(x), res)
 
+
 # Plot scatter with lm regression line
 function scatter_regression_line!(
 	f::GridPosition,
@@ -37,7 +42,8 @@ function scatter_regression_line!(
 	legend_title::String = "",
 	write_cor::Bool = true,
 	cor_correction::Function = x -> x, # Correction to apply for correlation, e.g. Spearman Brown
-	cor_label::String = "r"
+	cor_label::String = "r",
+	aspect::Float64 = 1.
 )
 
 	x = df[!, x_col]
@@ -47,16 +53,60 @@ function scatter_regression_line!(
 		xlabel = xlabel,
 		ylabel = ylabel,
 		subtitle = write_cor ? "$cor_label=$(round(
-			cor_correction(cor(x, y)), digits= 2))" : ""
+			cor_correction(cor(x, y)), digits= 2))" : "",
+		aspect = aspect
 	)
 
+	scatter_regression_line!(
+		ax,
+		df,
+		x_col,
+		y_col,
+		xlabel,
+		ylabel;
+		transform_x = transform_x,
+		transform_y = transform_y,
+		color = color,
+		legend = legend,
+		legend_title = legend_title,
+		write_cor = write_cor,
+		cor_correction = cor_correction,
+		cor_label = cor_label,
+		aspect = aspect
+	)
+
+	return ax
+	
+end
+
+function scatter_regression_line!(
+	ax::Axis,
+	df::DataFrame,
+	x_col::Symbol,
+	y_col::Symbol,
+	xlabel::String,
+	ylabel::String;
+	transform_x::Function = x -> x,
+	transform_y::Function = x -> x,
+	color = Makie.wong_colors()[1],
+	legend::Union{Dict, Missing} = missing,
+	legend_title::String = "",
+	write_cor::Bool = true,
+	cor_correction::Function = x -> x, # Correction to apply for correlation, e.g. Spearman Brown
+	cor_label::String = "r",
+	aspect::Float64 = 1.
+)
+
+	x = df[!, x_col]
+	y = df[!, y_col]
+	
 	# Regression line
 	treg = regression_line_func(df, x_col, y_col)
 	lines!(
 		ax,
 		range_regression_line(x) |> transform_x,
 		treg.(range_regression_line(x)) |> transform_y,
-		color = :grey,
+		color = color,
 		linewidth = 4
 	)
 
@@ -84,7 +134,89 @@ function scatter_regression_line!(
 	end
 end
 
-# Raw behaviour ----------------------------------------------------
+# Scatters for reliability
+function reliability_scatter(
+	fits::DataFrame,
+	label1::String,
+	label2::String
+)
+
+	# Plot -----------------------------------
+	f = Figure()
+
+	gl = f[1,1] = GridLayout()
+
+	reliability_scatter!(
+		gl,
+		fits,
+		label1::String,
+		label2::String
+	)
+
+	return f
+end
+
+# Existing figure version
+function reliability_scatter!(
+	f::GridLayout,
+	fits::DataFrame,
+	label1::String,
+	label2::String
+)
+	ax_a = scatter_regression_line!(
+		f[1,1],
+		fits,
+		:a_1,
+		:a_2,
+		"$label1 a",
+		"$label2 a"
+	)
+
+	ax_ρ = scatter_regression_line!(
+		f[1,2],
+		fits,
+		:ρ_1,
+		:ρ_2,
+		"$label1 ρ",
+		"$label2 ρ"
+	)
+
+	return ax_a, ax_ρ
+
+end
+
+# Existing axes version
+function reliability_scatter!(
+	ax_a::Axis,
+	ax_ρ::Axis,
+	fits::DataFrame,
+	label1::String,
+	label2::String;
+	color = Makie.wong_colors()[1]
+)
+	scatter_regression_line!(
+		ax_a,
+		fits,
+		:a_1,
+		:a_2,
+		"$label1 a",
+		"$label2 a";
+		color = color
+	)
+
+	scatter_regression_line!(
+		ax_ρ,
+		fits,
+		:ρ_1,
+		:ρ_2,
+		"$label1 ρ",
+		"$label2 ρ";
+		color = color
+	)
+
+end
+
+
 # Plot accuracy for a group, divided by condition / group
 function plot_group_accuracy!(
     f::GridPosition,
@@ -393,209 +525,6 @@ function plot_sim_q_value_acc!(
 	return f
 end
 
-## Fisher Information --------------------------------------------------|
-# Plot Fisher Information as a function of block and trial #
-function plot_blocks_trials!(f::GridPosition,
-	FI::Matrix{Matrix{Float64}}, # Will be transposed for plotting 
-	x::AbstractVector, 
-	y::AbstractVector;
-	xlabel::Vector{String},
-	ylabel::String)
-
-		min_FI = minimum(map(mat -> minimum(mat), FI))
-		max_FI = maximum(map(mat -> maximum(mat), FI))
-
-
-		axs = []
-		for j in 1:size(FI,1)
-			for i in 1:size(FI,2)
-				ax = Axis(f[i,j],
-					xlabel = i == 2 ? xlabel[j] : "",
-					ylabel = j == 1 ? "$(["Blocks", "Trials"][i])\n$ylabel" : ""
-				)
-
-				push!(axs, ax)
-	
-				contour!(ax,
-					x,
-					y,
-					FI[j,i],
-					colorrange = (min_FI, max_FI)
-				)
-			end
-		end
-
-		linkaxes!(axs...)
-end
-
-# Average over dimension and squeeze the matrix
-avg_over(m::AbstractArray; dims::Tuple{Vararg{Int64}}) = dropdims(mean(m, dims = dims); dims = dims)
-
-# Convert a to α and back
-a2α(x) = cdf(Normal(), x)
-α2a(x) = quantile(Normal(), x)
-
-# Average squares across the diagonal of a matrix
-function average_diagonal_squares(matrix::Matrix{T}, n::Int) where T
-    # Get the size of the matrix
-    rows, cols = size(matrix)
-    
-    # Ensure the matrix is square and the block size fits
-    if rows != cols
-        throw(ArgumentError("The matrix must be square"))
-    end
-    
-    if rows % n != 0
-        throw(ArgumentError("The block size must evenly divide the dimensions of the matrix"))
-    end
-
-    # Number of blocks along the diagonal
-    num_blocks = div(rows, n)
-    
-    # Array to store the stats
-    med = Vector{Float64}(undef, num_blocks)
-	lb = Vector{Float64}(undef, num_blocks)
-	ub = Vector{Float64}(undef, num_blocks)
-    
-    # Loop through each block
-    for i in 1:num_blocks
-        # Define the indices for the current n x n block
-        row_start = (i - 1) * n + 1
-        row_end = i * n
-        col_start = (i - 1) * n + 1
-        col_end = i * n
-        
-        # Extract the n x n block
-        block = matrix[row_start:row_end, col_start:col_end]
-        
-        # Calculate the average of the elements in the block
-        med[i] = median(block)
-		lb[i] = quantile(vec(block), 0.25)
-		ub[i] = quantile(vec(block), 0.75)
-    end
-    
-    return (med = med, lb = lb, ub = ub)
-end
-
-# Draw a sqaure on a plot
-function draw_square!(i, j, δx, δy; color = :black, linewidth = 0.5)
-    # Define the corners of the square
-    corners = [
-        (i - δx/2, j - δy/2), # Bottom-left
-        (i - δx/2, j + δy/2), # Top-left
-        (i + δx/2, j + δy/2), # Top-right
-        (i + δx/2, j - δy/2), # Bottom-right
-        (i - δx/2, j - δy/2)  # Back to Bottom-left to close the square
-    ]
-    lines!(corners, color = color, linewidth = linewidth)
-end
-
-## Posteriors --------------------------------------------------|
-# Plot single-participant parameter values from a hierarchical model
-function plot_p_params!(
-	f::GridPosition,
-	draws::DataFrame,
-	sim_dat::DataFrame,
-	param::String;
-	param_label::String = param,
-	ylabel::Union{AbstractString, Makie.RichText} = "Participant #"
-	)
-
-	# Select columns in draws DataFrame
-	tdraws = copy(select(draws, Regex("$(param)\\[\\d+\\]")))
-
-	# Add mean and multiply by SD
-	tdraws .*= draws[!, Symbol("sigma_$param")]
-	tdraws .+= draws[!, Symbol("mu_$param")]	
-	
-	# Stack
-	tdraws = stack(tdraws)	
-
-	# Summarise
-	tdraws = combine(groupby(tdraws, :variable),
-		:value => median => :median,
-		:value => lb => :lb,
-		:value => ub => :ub,
-		:value => llb => :llb,
-		:value => uub => :uub)
-	
-
-	# Create :PID columns
-	get_PID(s) = parse(Int64, 
-		replace(s, Regex("$param\\[(\\d+)\\]") => s"\1"))
-	transform!(tdraws,
-		:variable => ByRow(get_PID) => :PID)
-	
-	# Merge with true values
-	true_params = unique(select(sim_dat, [:PID, Symbol(param)]))
-	tdraws = innerjoin(tdraws, true_params, on = :PID)
-
-	# Sort by median posterior
-	sort!(tdraws, :median)
-
-	# Make scatter plot
-	ax_scatter = Axis(f[1,2],
-		xlabel = "True $param_label",
-		ylabel = "Posterior $param_label")
-
-	scatter!(
-		ax_scatter,
-		tdraws[!, Symbol(param)],
-		tdraws.median,
-		markersize = 6
-		)
-
-	ablines!(
-		ax_scatter,
-		0.,
-		1.,
-		linestyle = :dash,
-		color = :grey
-	)
-
-	# # Make snake plot
-	ax_snake = Axis(f[1,1],
-		xlabel = param_label,
-		ylabel = ylabel
-	)
-
-	rangebars!(
-		ax_snake,
-		1:nrow(tdraws),
-		tdraws.llb,
-		tdraws.uub,
-		direction = :x,
-		color = (Makie.wong_colors()[1], 0.3)
-	)
-
-
-	rangebars!(
-		ax_snake,
-		1:nrow(tdraws),
-		tdraws.lb,
-		tdraws.ub,
-		direction = :x,
-		color = (Makie.wong_colors()[1], 0.5)
-	)
-
-	scatter!(
-		ax_snake,
-		tdraws.median,
-		1:nrow(tdraws)
-	)
-
-	scatter!(
-		ax_snake,
-		tdraws[!, Symbol(param)],
-		1:nrow(tdraws),
-		color = :red,
-		markersize = 6
-	)
-
-	return ax_snake, ax_scatter
-
-end
-
 # This function makes density plots for posteriors, plus true value if needed
 function plot_posteriors(draws::Vector{DataFrame},
 	params::Vector{String};
@@ -717,9 +646,8 @@ function plot_posteriors(draws::AbstractVector,
 
 end
 
-
 # Plot prior predictive checks
-function plot_prior_predictive(
+function plot_SBC(
 	sum_fits::DataFrame;
 	params::Vector{String} = ["a", "rho"],
 	labels::AbstractVector = ["a", "ρ"],
@@ -816,4 +744,89 @@ function plot_prior_predictive(
 	
 	return f_sims
 end
-    
+
+# Plot calibration for optimization methods
+function optimization_calibration(
+	prior_sample::DataFrame,
+	optimize_func::Function;
+	estimate::String = "MLE",
+	ms::Float64 = 4.
+)
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	MLEs = optimize_func(
+		prior_sample;
+		initV = aao,
+		estimate = estimate,
+		include_true = true
+	)
+
+	f = Figure(size = (700, 200))
+
+	# Plot a
+	ax_a = Axis(
+		f[1,1],
+		xlabel = "True a",
+		ylabel = "$estimate a",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_a,
+		MLEs.true_a,
+		MLEs.MLE_a,
+		markersize = ms
+	)
+
+	unit_line!(ax_a)
+
+	# Plot ρ
+	ax_ρ = Axis(
+		f[1,2],
+		xlabel = "True ρ",
+		ylabel = "$estimate ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_ρ,
+		MLEs.true_ρ,
+		MLEs.MLE_ρ,
+		markersize = ms
+	)
+
+	unit_line!(ax_ρ)
+
+	# Plot bivariate
+	ax_aρ = Axis(
+		f[1,3],
+		xlabel = "$estimate a",
+		ylabel = "$estimate ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_aρ,
+		MLEs.MLE_a,
+		MLEs.MLE_ρ,
+		markersize = ms
+	)
+
+	# Plot ground truth
+	ax_taρ = Axis(
+		f[1,4],
+		xlabel = "True a",
+		ylabel = "True ρ",
+		aspect = 1.
+	)
+
+	scatter!(
+		ax_taρ,
+		MLEs.true_a,
+		MLEs.true_ρ,
+		markersize = ms
+	)
+
+	f
+end

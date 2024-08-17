@@ -155,7 +155,7 @@ function exclude_PLT_sessions(PLT_data::DataFrame)
 	double_takers.date = DateTime.(double_takers.exp_start_time, 
 		"yyyy-mm-dd_HH:MM:SS")
 
-	transform!(
+	DataFrames.transform!(
 		groupby(double_takers, [:prolific_pid, :session]),
 		:condition => length => :n,
 		:date => minimum => :first_date
@@ -171,4 +171,34 @@ function exclude_PLT_sessions(PLT_data::DataFrame)
 
 	return PLT_data_clean
 
+end
+
+function exclude_PLT_trials(PLT_data::DataFrame)
+
+	# Exclude missed responses
+	PLT_data_clean = filter(x -> x.choice != "noresp", PLT_data)
+
+	return PLT_data_clean
+end
+
+# Function for computing number of consecutive optimal chioces
+function count_consecutive_ones(v)
+	# Initialize the result vector with the same length as v
+	result = zeros(Int, length(v))
+	# Initialize the counter
+	counter = 0
+
+	for i in 1:length(v)
+		if v[i] == 1
+			# Increment the counter if the current element is 1
+			counter += 1
+		else
+			# Reset the counter to 0 if the current element is 0
+			counter = 0
+		end
+		# Store the counter value in the result vector
+		result[i] = counter
+	end
+
+	return result
 end
