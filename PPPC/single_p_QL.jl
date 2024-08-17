@@ -115,6 +115,8 @@ let
 		acc_error_band = "PI"
 	)
 
+	Label(g_all[0,:], "All blocks", fontsize = 18, font = :bold)
+
 	g_reward = f[2,1] = GridLayout()
 	
 	plot_sim_q_value_acc!(
@@ -125,15 +127,21 @@ let
 		acc_error_band = "PI"
 	)
 
-	g_reward = f[3,1] = GridLayout()
+	Label(g_reward[0,:], "Reward blocks", fontsize = 18, font = :bold)
+
+	g_punishment = f[3,1] = GridLayout()
 	
 	plot_sim_q_value_acc!(
-		g_reward,
+		g_punishment,
 		filter(x -> x.valence < 0, df);
 		plw = 1,
 		legend = false,
 		acc_error_band = "PI"
 	)
+
+	Label(g_punishment[0,:], "Punishment blocks", fontsize = 18, font = :bold)
+
+	save("results/single_p_QL_prior_predictive.png", f, pt_per_unit = 1)
 
 	f
 end
@@ -183,6 +191,8 @@ begin
 	colsize!(f_one_posterior.layout, 3, Relative(0.2))
 
 	f_one_posterior
+
+	save("results/single_p_QL_example_posterior.png", f_one_posterior, pt_per_unit = 1)
 end
 
 # ╔═╡ 2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
@@ -236,6 +246,8 @@ let
 	)
 
 
+	save("results/single_p_QL_sampling_calibration.png", f_SBC, pt_per_unit = 1)
+
 	f_SBC
 
 end
@@ -246,21 +258,30 @@ md"""
 """
 
 # ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
-optimization_calibration(
-	prior_sample,
-	optimize_multiple_single_p_QL,
-	estimate = "MLE"
-)
+let
+	f = optimization_calibration(
+		prior_sample,
+		optimize_multiple_single_p_QL,
+		estimate = "MLE"
+	)
+
+	save("results/single_p_QL_MLE_calibration.png", f, pt_per_unit = 1)
+
+	f
+end
 
 # ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
-optimization_calibration(
-	prior_sample,
-	optimize_multiple_single_p_QL;
-	estimate = "MAP"
-)
+let
+	f = optimization_calibration(
+		prior_sample,
+		optimize_multiple_single_p_QL;
+		estimate = "MAP"
+	)
 
-# ╔═╡ bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
+	save("results/single_p_QL_PMLE_calibration.png", f, pt_per_unit = 1)
 
+	f
+end
 
 # ╔═╡ a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # Load and clean data
@@ -323,6 +344,77 @@ function fit_split(
 		),
 		on = :prolific_pid
 	)
+
+end
+
+# ╔═╡ c2e51103-b6ee-43a3-87e5-a9a2b28ed8e4
+# Overall test-retest
+let
+
+	maps = fit_split(PLT_data, x -> x.session == "1", x -> x.session == "2")
+	
+	f = reliability_scatter(
+		maps,
+		"Session 1",
+		"Session 2"
+	)
+
+	Label(f[0,:], "Test-retest reliability", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_test_retest.png", f, pt_per_unit = 1)
+
+	f
+
+end
+
+# ╔═╡ 48343b75-a0cd-4806-9867-b861b118491d
+# Overall split-half
+let
+
+	maps = fit_split(PLT_data, x -> (x.session == "1") & isodd(x.block),
+		x -> (x.session == "1") & iseven(x.block))
+	
+	f = reliability_scatter(
+		maps,
+		"Odd blocks",
+		"Even blocks"
+	)
+
+	Label(f[0,:], "Session 1 split-half correlation", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_split_half_sess1.png", f, pt_per_unit = 1)
+
+	f
+
+end
+
+# ╔═╡ 8a567ab1-db8a-47df-ac2b-59714f230ae6
+# Overall split-half session 2
+let
+
+	maps = fit_split(PLT_data, x -> (x.session == "2") & isodd(x.block),
+		x -> (x.session == "2") & iseven(x.block))
+	
+	f = reliability_scatter(
+		maps,
+		"Odd blocks",
+		"Even blocks"
+	)
+
+	Label(f[0,:], "Session 2 split-half correlation", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_split_half_sess2.png", f, pt_per_unit = 1)
+
+	f
 
 end
 
@@ -554,36 +646,56 @@ function reliability_by_condition(
 end
 
 # ╔═╡ 0a151f69-f59e-48ae-8fc2-46a455e4f049
-reliability_by_condition(
-	PLT_data,
-	x -> x.session == "1",
-	x -> x.session == "2",
-	"Test-retest",
-	"Session 1",
-	"Session 2"
-)
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> x.session == "1",
+		x -> x.session == "2",
+		"Test-retest",
+		"Session 1",
+		"Session 2"
+	)
+
+	save("results/single_p_QL_PMLE_test_retest_by_condition.png", f, pt_per_unit = 1)
+
+	f
+end
 
 # ╔═╡ fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
-reliability_by_condition(
-	PLT_data,
-	x -> (x.session == "1") & iseven(x.block),
-	x -> (x.session == "1") & isodd(x.block),
-	"Split-half",
-	"Even blocks",
-	"Odd block";
-	supertitle = "Session 1 split-half reliability"
-)
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> (x.session == "1") & iseven(x.block),
+		x -> (x.session == "1") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 1 split-half reliability"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess1_by_condition.png", f, pt_per_unit = 1)
+
+	f
+
+end
 
 # ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
-reliability_by_condition(
-	PLT_data,
-	x -> (x.session == "2") & iseven(x.block),
-	x -> (x.session == "2") & isodd(x.block),
-	"Split-half",
-	"Even blocks",
-	"Odd block";
-	supertitle = "Session 2 split-half reliability"
-)
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> (x.session == "2") & iseven(x.block),
+		x -> (x.session == "2") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 2 split-half reliability"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess2_by_condition.png", f,
+		pt_per_unit = 1)
+
+	f
+end
 
 # ╔═╡ 525522d1-5ced-46f2-8c9b-3299d3cb244d
 begin
@@ -598,37 +710,59 @@ begin
 end
 
 # ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
-reliability_by_condition(
-	shortened_PLT,
-	x -> x.session == "1",
-	x -> x.session == "2",
-	"Test-retest",
-	"Session 1",
-	"Session 2";
-	supertitle = "Early stopping simulated for all"
-)
+let 
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> x.session == "1",
+		x -> x.session == "2",
+		"Test-retest",
+		"Session 1",
+		"Session 2";
+		supertitle = "Early stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_test_retest_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
 
 # ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
-reliability_by_condition(
-	shortened_PLT,
-	x -> (x.session == "1") & iseven(x.block),
-	x -> (x.session == "1") & isodd(x.block),
-	"Split-half",
-	"Even blocks",
-	"Odd block";
-	supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
-)
+let
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> (x.session == "1") & iseven(x.block),
+		x -> (x.session == "1") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess1_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+
+end
 
 # ╔═╡ 10565355-90ae-419c-9b92-8ff18fcd48b3
-reliability_by_condition(
-	shortened_PLT,
-	x -> (x.session == "2") & iseven(x.block),
-	x -> (x.session == "2") & isodd(x.block),
-	"Split-half",
-	"Even blocks",
-	"Odd block";
-	supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
-)
+let
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> (x.session == "2") & iseven(x.block),
+		x -> (x.session == "2") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 2 split-half reliability\nearly stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess2_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
 
 # ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
 # Different priors
@@ -751,9 +885,11 @@ let
 
 	rowsize!(f.layout, 1, ax_a.scene.viewport[].widths[2])
 
-	f
-
 	
+	save("results/single_p_QL_PMLE_test_retest_by_prior.png", f, 
+		pt_per_unit = 1)
+
+	f
 
 	
 end
@@ -770,8 +906,10 @@ end
 # ╟─47b4f578-98ee-4ae0-8359-f4e8de5a63f1
 # ╠═1d982252-c9ac-4925-9cd5-976456d32bc4
 # ╠═2eb2dd61-abae-4328-9787-7a841d321836
-# ╠═bcb0ff89-a02f-43b7-9015-f7c3293bc2ec
 # ╠═a3c8a90e-d820-4542-9043-e06a0ec9eaee
+# ╠═c2e51103-b6ee-43a3-87e5-a9a2b28ed8e4
+# ╠═48343b75-a0cd-4806-9867-b861b118491d
+# ╠═8a567ab1-db8a-47df-ac2b-59714f230ae6
 # ╠═0a151f69-f59e-48ae-8fc2-46a455e4f049
 # ╠═fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
 # ╠═8c9a0662-25af-4280-ad48-270458edb018
