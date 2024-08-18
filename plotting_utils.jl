@@ -33,8 +33,8 @@ function scatter_regression_line!(
 	df::DataFrame,
 	x_col::Symbol,
 	y_col::Symbol,
-	xlabel::String,
-	ylabel::String;
+	xlabel::Union{String, Makie.RichText},
+	ylabel::Union{String, Makie.RichText};
 	transform_x::Function = x -> x,
 	transform_y::Function = x -> x,
 	color = Makie.wong_colors()[1],
@@ -84,8 +84,8 @@ function scatter_regression_line!(
 	df::DataFrame,
 	x_col::Symbol,
 	y_col::Symbol,
-	xlabel::String,
-	ylabel::String;
+	xlabel::Union{String, Makie.RichText},
+	ylabel::Union{String, Makie.RichText};
 	transform_x::Function = x -> x,
 	transform_y::Function = x -> x,
 	color = Makie.wong_colors()[1],
@@ -160,16 +160,16 @@ end
 function reliability_scatter!(
 	f::GridLayout,
 	fits::DataFrame,
-	label1::String,
-	label2::String
+	label1::Union{String, Makie.RichText},
+	label2::Union{String, Makie.RichText}
 )
 	ax_a = scatter_regression_line!(
 		f[1,1],
 		fits,
 		:a_1,
 		:a_2,
-		"$label1 a",
-		"$label2 a"
+		rich(label1, "a"),
+		rich(label2, "a")
 	)
 
 	ax_ρ = scatter_regression_line!(
@@ -177,8 +177,8 @@ function reliability_scatter!(
 		fits,
 		:ρ_1,
 		:ρ_2,
-		"$label1 ρ",
-		"$label2 ρ"
+		rich(label1, "ρ"),
+		rich(label2, "ρ")
 	)
 
 	return ax_a, ax_ρ
