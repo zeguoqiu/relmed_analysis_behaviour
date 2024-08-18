@@ -299,7 +299,149 @@ begin
 	nothing
 end
 
-# ╔═╡ 51e17b01-60c2-438e-b6a9-e5183c28adf4
+# ╔═╡ 525522d1-5ced-46f2-8c9b-3299d3cb244d
+begin
+	find_excess = x -> (x.consecutiveOptimal <= 5) | 
+		((x.consecutiveOptimal == 6) && (x.trial == 13))
+	
+	test = filter(x -> !find_excess(x), PLT_data)
+
+	@assert all([s[1] == '0' for s in unique(test.condition)])
+
+	shortened_PLT = filter(find_excess, PLT_data)
+end
+
+# ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
+# Different priors
+penlaties_fits = let
+	sess1_forfit, sess1_pids = 
+		prepare_for_fit(filter(x -> x.session == "1", PLT_data))
+	sess2_forfit, sess2_pids = 
+		prepare_for_fit(filter(x -> x.session == "2", PLT_data))
+	
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	function fit_split_compute_cor(
+		data1::DataFrame,
+		data2::DataFrame,
+		pids1::DataFrame,
+		pids2::DataFrame;
+		σ_ρ::Float64,
+		σ_a::Float64,
+		ids::NamedTuple = (σ_ρ = σ_ρ, σ_a = σ_a)
+	)
+		# Fit
+		fit1 = optimize_multiple_single_p_QL(
+			data1;
+			initV = aao,
+			σ_ρ = σ_ρ
+		)
+	
+		fit2 = optimize_multiple_single_p_QL(
+			data2;
+			initV = aao,
+			σ_ρ = σ_a
+		)
+	
+		maps = join_split_fits(
+			fit1,
+			fit2,
+			pids1,
+			pids2
+		)
+	
+		return merge(
+			ids, 
+			(
+				cor_a = cor(maps.a_1, maps.a_2),
+				cor_ρ = cor(maps.ρ_1, maps.ρ_2)
+			)
+		)
+	end
+
+	σ_as = range(0.5, 20., length = 10)
+	σ_ρs = range(1., 20., length = 10)
+
+	fits = [fit_split_compute_cor(
+		sess1_forfit, 
+		sess2_forfit, 
+		sess1_pids, 
+		sess2_pids;
+		σ_ρ = σ_ρ,
+		σ_a = σ_a
+		) for σ_ρ in σ_ρs for σ_a in σ_as
+	]
+	
+	fits = DataFrame(fits)
+
+end
+
+# ╔═╡ a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
+best_penalties = let 
+	penlaties_fits.sum_r_sq = penlaties_fits.cor_a .^ 2 + penlaties_fits.cor_ρ .^2
+
+	max_fit = filter(x -> x.sum_r_sq == maximum(penlaties_fits.sum_r_sq), penlaties_fits)
+
+end
+
+# ╔═╡ a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
+let
+
+	f = Figure()
+
+	joint_limits = (
+		minimum(Array(penlaties_fits[!, [:cor_a, :cor_ρ]])),
+		maximum(Array(penlaties_fits[!, [:cor_a, :cor_ρ]]))
+	)
+
+
+	ax_a = Axis(
+		f[1,1],
+		xlabel = "σ_a",
+		ylabel = "σ_ρ",
+		aspect = 1.,
+		title = "Test retest for a"
+	)
+
+	heatmap!(
+		ax_a,
+		penlaties_fits.σ_a,
+		penlaties_fits.σ_ρ,
+		penlaties_fits.cor_a,
+		colorrange = joint_limits
+	)
+
+	ax_ρ = Axis(
+		f[1,2],
+		xlabel = "σ_a",
+		ylabel = "σ_ρ",
+		aspect = 1.,
+		title = "Test retest for ρ"
+	)
+
+	hm = heatmap!(
+		ax_ρ,
+		penlaties_fits.σ_a,
+		penlaties_fits.σ_ρ,
+		penlaties_fits.cor_ρ,
+		colorrange = joint_limits
+	)
+
+	Colorbar(f[:, end+1], hm, tellheight = true)
+
+	rowsize!(f.layout, 1, ax_a.scene.viewport[].widths[2])
+
+	
+	save("results/single_p_QL_PMLE_test_retest_by_prior.png", f, 
+		pt_per_unit = 1)
+
+	f
+
+	
+end
+
+# ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
 	PLT_data::DataFrame,
 	filter1::Function,
@@ -418,54 +560,7 @@ let
 
 end
 
-# ╔═╡ 2f4fc0bb-0914-4064-8686-9213461b4dfb
-function reliability_by_valence(
-	PLT_data::DataFrame,
-	filter1::Function,
-	filter2::Function,
-	label1::String,
-	label2::String
-)
-
-	# Fit two subsets
-	maps_reward = fit_split(filter(x -> x.valence > 0, PLT_data), filter1, filter2)
-
-	maps_punishment = 
-		fit_split(filter(x -> x.valence < 0, PLT_data), filter1, filter2)
-
-	f = Figure()
-
-	glr = f[1,1] = GridLayout()
-	reliability_scatter!(
-		glr,
-		maps_reward,
-		label1,
-		label2#,
-		#color = :green
-	)
-
-	glp = f[1,2] = GridLayout()
-	reliability_scatter!(
-		glp,
-		maps_punishment,
-		label1,
-		label2#,
-		#color = :red
-	)
-
-	return f
-end
-
-# ╔═╡ 39adc8c6-4964-4484-a4c6-18ba791064b7
-reliability_by_valence(
-	PLT_data,
-	x -> (x.session == "1"),
-	x -> (x.session == "2"),
-	"Session 1",
-	"Session 2"
-)
-
-# ╔═╡ cc82e036-f83c-4f33-847a-49f3a3ec9342
+# ╔═╡ 2239dd1c-1975-46b4-b270-573efd454c04
 function reliability_by_condition(
 	PLT_data::DataFrame,
 	filter1::Function,
@@ -697,18 +792,6 @@ let
 	f
 end
 
-# ╔═╡ 525522d1-5ced-46f2-8c9b-3299d3cb244d
-begin
-	find_excess = x -> (x.consecutiveOptimal <= 5) | 
-		((x.consecutiveOptimal == 6) && (x.trial == 13))
-	
-	test = filter(x -> !find_excess(x), PLT_data)
-
-	@assert all([s[1] == '0' for s in unique(test.condition)])
-
-	shortened_PLT = filter(find_excess, PLT_data)
-end
-
 # ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
 let 
 	f = reliability_by_condition(
@@ -764,135 +847,73 @@ let
 	f
 end
 
-# ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
-# Different priors
-penlaties_fits = let
-	sess1_forfit, sess1_pids = 
-		prepare_for_fit(filter(x -> x.session == "1", PLT_data))
-	sess2_forfit, sess2_pids = 
-		prepare_for_fit(filter(x -> x.session == "2", PLT_data))
-	
-	# Initial value for Q values
-	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+# ╔═╡ fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
+function reliability_by_valence(
+	PLT_data::DataFrame,
+	filter1::Function,
+	filter2::Function,
+	label1::String,
+	label2::String
+)
 
-	function fit_split_compute_cor(
-		data1::DataFrame,
-		data2::DataFrame,
-		pids1::DataFrame,
-		pids2::DataFrame;
-		σ_ρ::Float64,
-		σ_a::Float64,
-		ids::NamedTuple = (σ_ρ = σ_ρ, σ_a = σ_a)
+	# Compare splits between reward and punishment
+	maps_reward = fit_split(filter(x -> x.valence > 0, PLT_data), filter1, filter2)
+
+	maps_punishment = 
+		fit_split(filter(x -> x.valence < 0, PLT_data), filter1, filter2)
+
+	f = Figure(size = (700, 1400))
+
+	glr = f[1,1] = GridLayout()
+	reliability_scatter!(
+		glr,
+		maps_reward,
+		rich("$label1 reward ", color = :green),
+		rich("$label2 reward ", color = :green)
 	)
-		# Fit
-		fit1 = optimize_multiple_single_p_QL(
-			data1;
-			initV = aao,
-			σ_ρ = σ_ρ
-		)
-	
-		fit2 = optimize_multiple_single_p_QL(
-			data2;
-			initV = aao,
-			σ_ρ = σ_a
-		)
-	
-		maps = join_split_fits(
-			fit1,
-			fit2,
-			pids1,
-			pids2
-		)
-	
-		return merge(
-			ids, 
-			(
-				cor_a = cor(maps.a_1, maps.a_2),
-				cor_ρ = cor(maps.ρ_1, maps.ρ_2)
-			)
-		)
-	end
 
-	σ_as = range(0.5, 20., length = 10)
-	σ_ρs = range(1., 20., length = 10)
+	glp = f[2,1] = GridLayout()
+	reliability_scatter!(
+		glp,
+		maps_punishment,
+		rich("$label1 punishment ", color = :red),
+		rich("$label2 punishment ", color = :red)
+	)
 
-	fits = [fit_split_compute_cor(
-		sess1_forfit, 
-		sess2_forfit, 
-		sess1_pids, 
-		sess2_pids;
-		σ_ρ = σ_ρ,
-		σ_a = σ_a
-		) for σ_ρ in σ_ρs for σ_a in σ_as
-	]
-	
-	fits = DataFrame(fits)
+	# Compare reward and punishment within split
+	maps_filter1 = fit_split(filter(filter1, PLT_data), 
+		x -> x.valence > 0, x -> x.valence < 0)
 
+	maps_filter2 = fit_split(filter(filter2, PLT_data), 
+		x -> x.valence > 0, x -> x.valence < 0)
+
+	gl1 = f[3,1] = GridLayout()
+	reliability_scatter!(
+		gl1,
+		maps_filter1,
+		rich("$label1 reward ", color = :green),
+		rich("$label1 punishment ", color = :red)
+	)
+
+	gl2 = f[4,1] = GridLayout()
+	reliability_scatter!(
+		gl2,
+		maps_filter2,
+		rich("$label2 reward ", color = :green),
+		rich("$label2 punishment ", color = :red)
+	)
+
+	return f
 end
 
-# ╔═╡ a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
-best_penalties = let 
-	penlaties_fits.sum_r_sq = penlaties_fits.cor_a .^ 2 + penlaties_fits.cor_ρ .^2
-
-	max_fit = filter(x -> x.sum_r_sq == maximum(penlaties_fits.sum_r_sq), penlaties_fits)
-
-end
-
-# ╔═╡ a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
-let
-
-	f = Figure()
-
-	joint_limits = (
-		minimum(Array(penlaties_fits[!, [:cor_a, :cor_ρ]])),
-		maximum(Array(penlaties_fits[!, [:cor_a, :cor_ρ]]))
-	)
-
-
-	ax_a = Axis(
-		f[1,1],
-		xlabel = "σ_a",
-		ylabel = "σ_ρ",
-		aspect = 1.,
-		title = "Test retest for a"
-	)
-
-	heatmap!(
-		ax_a,
-		penlaties_fits.σ_a,
-		penlaties_fits.σ_ρ,
-		penlaties_fits.cor_a,
-		colorrange = joint_limits
-	)
-
-	ax_ρ = Axis(
-		f[1,2],
-		xlabel = "σ_a",
-		ylabel = "σ_ρ",
-		aspect = 1.,
-		title = "Test retest for ρ"
-	)
-
-	hm = heatmap!(
-		ax_ρ,
-		penlaties_fits.σ_a,
-		penlaties_fits.σ_ρ,
-		penlaties_fits.cor_ρ,
-		colorrange = joint_limits
-	)
-
-	Colorbar(f[:, end+1], hm, tellheight = true)
-
-	rowsize!(f.layout, 1, ax_a.scene.viewport[].widths[2])
-
-	
-	save("results/single_p_QL_PMLE_test_retest_by_prior.png", f, 
-		pt_per_unit = 1)
-
-	f
-
-	
-end
+# ╔═╡ 39adc8c6-4964-4484-a4c6-18ba791064b7
+reliability_by_valence(
+	PLT_data,
+	x -> (x.session == "1"),
+	x -> (x.session == "2"),
+	"Session 1",
+	"Session 2"
+)
 
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
@@ -914,9 +935,6 @@ end
 # ╠═fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
 # ╠═8c9a0662-25af-4280-ad48-270458edb018
 # ╠═39adc8c6-4964-4484-a4c6-18ba791064b7
-# ╠═2f4fc0bb-0914-4064-8686-9213461b4dfb
-# ╠═51e17b01-60c2-438e-b6a9-e5183c28adf4
-# ╠═cc82e036-f83c-4f33-847a-49f3a3ec9342
 # ╠═525522d1-5ced-46f2-8c9b-3299d3cb244d
 # ╠═479726b5-605b-494e-8ff2-4d569d0c0ddd
 # ╠═3a8f569d-0d8e-4020-9023-a123cad9d5de
@@ -924,3 +942,6 @@ end
 # ╠═a53db393-c9e7-4db3-a11d-3b244823d951
 # ╠═a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
 # ╠═a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
+# ╠═de41a8c1-fc09-4c33-b371-4d835a0a46ce
+# ╠═2239dd1c-1975-46b4-b270-573efd454c04
+# ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
