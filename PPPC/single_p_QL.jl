@@ -46,56 +46,6 @@ begin
 	set_theme!(th)
 end
 
-# ╔═╡ fa79c576-d4c9-4c42-b5df-66d886e8abe4
-# ╠═╡ disabled = true
-#=╠═╡
-# Sample datasets from prior
-begin
-	prior_sample = let
-		# Load sequence from file
-		task = DataFrame(CSV.File("data/PLT_task_structure_00.csv"))
-	
-		# Renumber block
-		task.block = task.block .+ (task.session .- 1) * maximum(task.block)
-	
-		# Arrange feedback by optimal / suboptimal
-		task.feedback_optimal = 
-			ifelse.(task.optimal_A .== 1, task.feedback_A, task.feedback_B)
-	
-		task.feedback_suboptimal = 
-			ifelse.(task.optimal_A .== 0, task.feedback_A, task.feedback_B)
-	
-	
-		# Arrange outcomes such as second column is optimal
-		outcomes = hcat(
-			task.feedback_suboptimal,
-			task.feedback_optimal,
-		)
-	
-		# Initial value for Q values
-		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-	
-		prior_sample = simulate_single_p_QL(
-			200;
-			block = task.block,
-			valence = unique(task[!, [:block, :valence]]).valence,
-			outcomes = outcomes,
-			initV = fill(aao, 1, 2),
-			random_seed = 0
-		)
-	
-	
-		leftjoin(prior_sample, 
-			task[!, [:block, :trial, :feedback_optimal, :feedback_suboptimal]],
-			on = [:block, :trial]
-		)
-	
-	end
-
-	describe(prior_sample)
-end
-  ╠═╡ =#
-
 # ╔═╡ d7b60f28-09b1-42c0-8c95-0213590d8c5c
 # ╠═╡ disabled = true
 #=╠═╡
@@ -271,38 +221,6 @@ end
 md"""
 ## Estimation by optimization
 """
-
-# ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = optimization_calibration(
-		prior_sample,
-		optimize_multiple_single_p_QL,
-		estimate = "MLE"
-	)
-
-	save("results/single_p_QL_MLE_calibration.png", f, pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
-# ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = optimization_calibration(
-		prior_sample,
-		optimize_multiple_single_p_QL;
-		estimate = "MAP"
-	)
-
-	save("results/single_p_QL_PMLE_calibration.png", f, pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
 
 # ╔═╡ a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # Load and clean data
@@ -517,8 +435,6 @@ end
   ╠═╡ =#
 
 # ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
-# ╠═╡ disabled = true
-#=╠═╡
 # Different priors
 penlaties_fits = let
 	sess1_forfit, sess1_pids = 
@@ -583,22 +499,16 @@ penlaties_fits = let
 	fits = DataFrame(fits)
 
 end
-  ╠═╡ =#
 
 # ╔═╡ a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
-# ╠═╡ disabled = true
-#=╠═╡
 best_penalties = let 
 	penlaties_fits.sum_r_sq = penlaties_fits.cor_a .^ 2 + penlaties_fits.cor_ρ .^2
 
 	max_fit = filter(x -> x.sum_r_sq == maximum(penlaties_fits.sum_r_sq), penlaties_fits)
 
 end
-  ╠═╡ =#
 
 # ╔═╡ a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
-# ╠═╡ disabled = true
-#=╠═╡
 let
 
 	f = Figure()
@@ -653,7 +563,6 @@ let
 
 	
 end
-  ╠═╡ =#
 
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
@@ -1223,6 +1132,243 @@ let
 	f
 end
 
+# ╔═╡ f71973b1-51eb-4f37-afc7-c39ad236197e
+function bootstrap_fit(
+	PLT_data::DataFrame;
+	n_bootstrap::Int64 = 20)
+	
+		# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	prolific_pids = sort(unique(PLT_data.prolific_pid))
+
+	bootstraps = []
+
+	for i in 1:n_bootstrap
+		
+		# Resample the data with replacement
+		idxs = sample(Xoshiro(i), prolific_pids, length(prolific_pids), replace=true)
+
+		tdata = filter(x -> x.prolific_pid in prolific_pids, PLT_data)
+
+		forfit, pids = prepare_for_fit(PLT_data)
+		
+		tfit = optimize_multiple_single_p_QL(
+				forfit;
+				initV = aao
+			)
+
+		tfit = innerjoin(tfit, pids, on = :PID)
+
+		tfit[!, :bootrap_idx] .= i
+		
+		# Compute the correlation for the resampled data
+		push!(bootstraps, tfit)
+	end
+
+	return vcat(bootstraps...)
+
+end
+
+# ╔═╡ e6e64192-b466-4782-a9ba-9430bea21cad
+bs_fit = bootstrap_fit(
+	PLT_data
+)
+
+# ╔═╡ 0cbd611e-335e-4ebc-aa56-2722b42bab1f
+function simulate_from_posterior_single_p_QL(
+	bootstrap::DataFrameRow, # DataFrameRow containinng parameters and condition
+	task # Task structure for condition
+) 
+
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	block = task.block
+	valence = task.valence
+	outcomes = task.outcomes
+
+	post_model = single_p_QL(
+		N = length(block),
+		n_blocks = maximum(block),
+		block = block,
+		valence = valence,
+		choice = fill(missing, length(block)),
+		outcomes = outcomes,
+		initV = fill(aao, 1, 2)
+	)
+
+	choice = 
+		generated_quantities(post_model, (ρ = bootstrap.ρ, a = bootstrap.a)).choice
+	
+	ppc = insertcols(task.task, :isOptimal => choice)
+	
+
+end
+
+# ╔═╡ a59e36b3-15b3-494c-a076-b3eade2cc315
+function plot_q_learning_ppc_accuracy(
+	data::DataFrame,
+	ppc::DataFrame;
+	title::String = ""
+)
+	
+	ppc_sum = combine(
+		groupby(ppc, 
+			[:pp, :draw, :trial]),
+		:choice => (x -> mean(x .== 1)) => :isOptimal
+	)
+
+	pc_sum = combine(
+		groupby(ppc_sum, [:draw, :trial]),
+		:isOptimal => mean => :isOptimal
+	)
+
+	ppc_sum = combine(
+		groupby(ppc_sum, :trial),
+		:isOptimal => median => :m,
+		:isOptimal => lb => :lb,
+		:isOptimal => llb => :llb,
+		:isOptimal => ub => :ub,
+		:isOptimal => uub => :uub
+	)
+
+	f_acc = Figure()
+
+	# Plot data
+	ax_acc = plot_group_accuracy!(f_acc[1,1], data;
+		error_band = false
+	)
+
+	ax_acc.title = title
+
+	# Plot 
+	band!(
+		ax_acc,
+		ppc_sum.trial,
+		ppc_sum.llb,
+		ppc_sum.uub,
+		color = (Makie.wong_colors()[3], 0.1)
+	)
+
+	band!(
+		ax_acc,
+		ppc_sum.trial,
+		ppc_sum.lb,
+		ppc_sum.ub,
+		color = (Makie.wong_colors()[3], 0.3)
+	)
+
+	lines!(
+		ax_acc,
+		ppc_sum.trial,
+		ppc_sum.m,
+		color = Makie.wong_colors()[3]
+	)
+
+	f_acc
+
+end
+
+
+# ╔═╡ 2d01d335-6057-4e8d-8442-e1c2ccd21d20
+function task_vars_for_condition(condition::String)
+		# Load sequence from file
+		task = DataFrame(CSV.File("data/PLT_task_structure_00.csv"))
+	
+		# Renumber block
+		task.block = task.block .+ (task.session .- 1) * maximum(task.block)
+	
+		# Arrange feedback by optimal / suboptimal
+		task.feedback_optimal = 
+			ifelse.(task.optimal_A .== 1, task.feedback_A, task.feedback_B)
+	
+		task.feedback_suboptimal = 
+			ifelse.(task.optimal_A .== 0, task.feedback_A, task.feedback_B)
+	
+	
+		# Arrange outcomes such as second column is optimal
+		outcomes = hcat(
+			task.feedback_suboptimal,
+			task.feedback_optimal,
+		)
+
+		return (
+			task = task,
+			block = task.block,
+			valence = unique(task[!, [:block, :valence]]).valence,
+			outcomes = outcomes
+		)
+
+end
+
+# ╔═╡ fa79c576-d4c9-4c42-b5df-66d886e8abe4
+# Sample datasets from prior
+begin	
+	prior_sample = let
+		# Load sequence from file
+		task = task_vars_for_condition("00")
+	
+		# Initial value for Q values
+		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+	
+		prior_sample = simulate_single_p_QL(
+			200;
+			block = task.block,
+			valence = task.valence,
+			outcomes = task.outcomes,
+			initV = fill(aao, 1, 2),
+			random_seed = 0
+		)
+	
+	
+		leftjoin(prior_sample, 
+			task.task[!, [:block, :trial, :feedback_optimal, :feedback_suboptimal]],
+			on = [:block, :trial]
+		)
+	
+	end
+
+	describe(prior_sample)
+end
+
+# ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
+let
+	f = optimization_calibration(
+		prior_sample,
+		optimize_multiple_single_p_QL,
+		estimate = "MLE"
+	)
+
+	save("results/single_p_QL_MLE_calibration.png", f, pt_per_unit = 1)
+
+	f
+end
+
+# ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
+let
+	f = optimization_calibration(
+		prior_sample,
+		optimize_multiple_single_p_QL;
+		estimate = "MAP"
+	)
+
+	save("results/single_p_QL_PMLE_calibration.png", f, pt_per_unit = 1)
+
+	f
+end
+
+# ╔═╡ bf6c129c-e2c1-4c3d-95d0-845dd0690d67
+conds = Dict(
+	"00" => task_vars_for_condition("00")
+)
+
+# ╔═╡ e787e3b3-df95-4b34-9756-f9f22899953d
+simulate_from_posterior_single_p_QL(
+	bs_fit[1, :],
+	conds[bs_fit[1, :condition]]
+)
+
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
 # ╠═261d0d08-10b9-4111-9fc8-bb84e6b4cef5
@@ -1257,3 +1403,10 @@ end
 # ╠═e992d739-bf39-4ef9-8395-079816cd94e6
 # ╠═2239dd1c-1975-46b4-b270-573efd454c04
 # ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
+# ╠═f71973b1-51eb-4f37-afc7-c39ad236197e
+# ╠═e6e64192-b466-4782-a9ba-9430bea21cad
+# ╠═bf6c129c-e2c1-4c3d-95d0-845dd0690d67
+# ╠═e787e3b3-df95-4b34-9756-f9f22899953d
+# ╠═0cbd611e-335e-4ebc-aa56-2722b42bab1f
+# ╠═a59e36b3-15b3-494c-a076-b3eade2cc315
+# ╠═2d01d335-6057-4e8d-8442-e1c2ccd21d20
