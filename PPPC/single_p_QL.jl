@@ -703,15 +703,6 @@ function fit_split(
 
 end
 
-# ╔═╡ 80ae54ff-b9d2-4c30-8f62-4b7cac65201b
-let filter1 = x -> (x.session == "1") & (x.valence > 0),
-	filter2 = x -> (x.session == "1") & (x.valence < 0)
-
-
-	nrow(fit_split(PLT_data, filter1, filter2))
-
-end
-
 # ╔═╡ 976edbec-0bde-4b98-b434-7345e7ebcf95
 # Bootstrap a correlation
 function bootstrap_correlation(x, y, n_bootstrap=1000)
@@ -1175,7 +1166,7 @@ function reliability_by_valence(
 	Legend(
 		f[0,:],
 		[PolyElement(color = c) for c in [:green, :red]],
-		["Reward", "Punsihment"],
+		["Reward", "Punishment"],
 		orientation = :horizontal,
 		framevisible = false,
 		tellwidth = false,
@@ -1196,10 +1187,41 @@ function reliability_by_valence(
 	
 end
 
-# ╔═╡ f069e195-06c1-4346-a58c-9b6fa88ea27e
-reliability_by_valence(
-	PLT_data
-)
+# ╔═╡ 80ae54ff-b9d2-4c30-8f62-4b7cac65201b
+let
+	f = reliability_by_valence(
+		PLT_data
+	)
+
+	save("results/single_p_QL_PMLE_reliability_by_valence.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+
+# ╔═╡ 60866598-8564-4dd7-987c-fb74d3f3fc64
+let
+	f = reliability_by_valence(
+		shortened_PLT
+	)
+
+	save("results/single_p_QL_PMLE_reliability_by_valence_shortened.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+
+# ╔═╡ 3b40c738-77cf-413f-9821-c641ebd0a13d
+let
+	f = reliability_by_valence(
+		filter(x -> !x.valence_grouped, PLT_data)
+	)
+
+	save("results/single_p_QL_PMLE_reliability_by_valence_interleaved.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
 
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
@@ -1228,9 +1250,10 @@ reliability_by_valence(
 # ╠═a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
 # ╠═a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
 # ╠═80ae54ff-b9d2-4c30-8f62-4b7cac65201b
+# ╠═60866598-8564-4dd7-987c-fb74d3f3fc64
+# ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
 # ╠═de41a8c1-fc09-4c33-b371-4d835a0a46ce
 # ╠═976edbec-0bde-4b98-b434-7345e7ebcf95
 # ╠═e992d739-bf39-4ef9-8395-079816cd94e6
 # ╠═2239dd1c-1975-46b4-b270-573efd454c04
 # ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
-# ╠═f069e195-06c1-4346-a58c-9b6fa88ea27e
