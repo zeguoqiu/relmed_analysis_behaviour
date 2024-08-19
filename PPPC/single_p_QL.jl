@@ -12,7 +12,7 @@ begin
 	# activate the shared project environment
     Pkg.activate("$(pwd())/relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
-    Pkg.instantiate
+    Pkg.instantiate()
 	using CairoMakie, Random, DataFrames, Distributions, StatsBase,
 		ForwardDiff, LinearAlgebra, JLD2, FileIO, CSV, Dates, JSON, RCall, Turing, ParetoSmooth, MCMCDiagnosticTools, Printf
 	using LogExpFunctions: logistic, logit
@@ -47,6 +47,8 @@ begin
 end
 
 # ╔═╡ fa79c576-d4c9-4c42-b5df-66d886e8abe4
+# ╠═╡ disabled = true
+#=╠═╡
 # Sample datasets from prior
 begin
 	prior_sample = let
@@ -92,8 +94,11 @@ begin
 
 	describe(prior_sample)
 end
+  ╠═╡ =#
 
 # ╔═╡ d7b60f28-09b1-42c0-8c95-0213590d8c5c
+# ╠═╡ disabled = true
+#=╠═╡
 # Plot prior preditctive accuracy curve
 let
 	df = rename(prior_sample, 
@@ -145,6 +150,7 @@ let
 
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ f5113e3e-3bcf-4a92-9e76-d5eed8088320
 md"""
@@ -152,6 +158,8 @@ md"""
 """
 
 # ╔═╡ 9477b295-ada5-46cf-b2e3-2c1303873081
+# ╠═╡ disabled = true
+#=╠═╡
 # Sample from posterior and plot for single participant
 begin
 	fit = let
@@ -194,8 +202,11 @@ begin
 
 	save("results/single_p_QL_example_posterior.png", f_one_posterior, pt_per_unit = 1)
 end
+  ╠═╡ =#
 
 # ╔═╡ 2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
+# ╠═╡ disabled = true
+#=╠═╡
 sbc = let
 	draws_sum_file = "saved_models/sbc_single_p_QL.jld2"
 	if isfile(draws_sum_file)
@@ -212,8 +223,11 @@ sbc = let
 
 	sbc
 end
+  ╠═╡ =#
 
 # ╔═╡ 50d88c5c-4a3f-4ded-81cf-600eddb3bbf9
+# ╠═╡ disabled = true
+#=╠═╡
 let
 	f_SBC = plot_SBC(sbc, show_n = [1], params = ["a", "ρ"])
 
@@ -251,6 +265,7 @@ let
 	f_SBC
 
 end
+  ╠═╡ =#
 
 # ╔═╡ 47b4f578-98ee-4ae0-8359-f4e8de5a63f1
 md"""
@@ -258,6 +273,8 @@ md"""
 """
 
 # ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
+# ╠═╡ disabled = true
+#=╠═╡
 let
 	f = optimization_calibration(
 		prior_sample,
@@ -269,8 +286,11 @@ let
 
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
+# ╠═╡ disabled = true
+#=╠═╡
 let
 	f = optimization_calibration(
 		prior_sample,
@@ -282,6 +302,7 @@ let
 
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # Load and clean data
@@ -299,6 +320,147 @@ begin
 	nothing
 end
 
+# ╔═╡ c2e51103-b6ee-43a3-87e5-a9a2b28ed8e4
+# ╠═╡ disabled = true
+#=╠═╡
+# Overall test-retest
+let
+
+	maps = fit_split(PLT_data, x -> x.session == "1", x -> x.session == "2")
+	
+	f = reliability_scatter(
+		maps,
+		"Session 1",
+		"Session 2"
+	)
+
+	Label(f[0,:], "Test-retest reliability", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_test_retest.png", f, pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 48343b75-a0cd-4806-9867-b861b118491d
+# ╠═╡ disabled = true
+#=╠═╡
+# Overall split-half
+let
+
+	maps = fit_split(PLT_data, x -> (x.session == "1") & isodd(x.block),
+		x -> (x.session == "1") & iseven(x.block))
+	
+	f = reliability_scatter(
+		maps,
+		"Odd blocks",
+		"Even blocks"
+	)
+
+	Label(f[0,:], "Session 1 split-half correlation", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_split_half_sess1.png", f, pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 8a567ab1-db8a-47df-ac2b-59714f230ae6
+# ╠═╡ disabled = true
+#=╠═╡
+# Overall split-half session 2
+let
+
+	maps = fit_split(PLT_data, x -> (x.session == "2") & isodd(x.block),
+		x -> (x.session == "2") & iseven(x.block))
+	
+	f = reliability_scatter(
+		maps,
+		"Odd blocks",
+		"Even blocks"
+	)
+
+	Label(f[0,:], "Session 2 split-half correlation", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_split_half_sess2.png", f, pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 0a151f69-f59e-48ae-8fc2-46a455e4f049
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> x.session == "1",
+		x -> x.session == "2",
+		"Test-retest",
+		"Session 1",
+		"Session 2"
+	)
+
+	save("results/single_p_QL_PMLE_test_retest_by_condition.png", f, pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> (x.session == "1") & iseven(x.block),
+		x -> (x.session == "1") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 1 split-half reliability"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess1_by_condition.png", f, pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> (x.session == "2") & iseven(x.block),
+		x -> (x.session == "2") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 2 split-half reliability"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess2_by_condition.png", f,
+		pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
+
 # ╔═╡ 525522d1-5ced-46f2-8c9b-3299d3cb244d
 begin
 	find_excess = x -> (x.consecutiveOptimal <= 5) | 
@@ -311,7 +473,52 @@ begin
 	shortened_PLT = filter(find_excess, PLT_data)
 end
 
+# ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
+# ╠═╡ disabled = true
+#=╠═╡
+let 
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> x.session == "1",
+		x -> x.session == "2",
+		"Test-retest",
+		"Session 1",
+		"Session 2";
+		supertitle = "Early stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_test_retest_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> (x.session == "1") & iseven(x.block),
+		x -> (x.session == "1") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess1_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
+
 # ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
+# ╠═╡ disabled = true
+#=╠═╡
 # Different priors
 penlaties_fits = let
 	sess1_forfit, sess1_pids = 
@@ -376,16 +583,22 @@ penlaties_fits = let
 	fits = DataFrame(fits)
 
 end
+  ╠═╡ =#
 
 # ╔═╡ a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
+# ╠═╡ disabled = true
+#=╠═╡
 best_penalties = let 
 	penlaties_fits.sum_r_sq = penlaties_fits.cor_a .^ 2 + penlaties_fits.cor_ρ .^2
 
 	max_fit = filter(x -> x.sum_r_sq == maximum(penlaties_fits.sum_r_sq), penlaties_fits)
 
 end
+  ╠═╡ =#
 
 # ╔═╡ a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
+# ╠═╡ disabled = true
+#=╠═╡
 let
 
 	f = Figure()
@@ -440,6 +653,7 @@ let
 
 	
 end
+  ╠═╡ =#
 
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
@@ -489,74 +703,67 @@ function fit_split(
 
 end
 
-# ╔═╡ c2e51103-b6ee-43a3-87e5-a9a2b28ed8e4
-# Overall test-retest
-let
+# ╔═╡ 80ae54ff-b9d2-4c30-8f62-4b7cac65201b
+let filter1 = x -> (x.session == "1") & (x.valence > 0),
+	filter2 = x -> (x.session == "1") & (x.valence < 0)
 
-	maps = fit_split(PLT_data, x -> x.session == "1", x -> x.session == "2")
-	
-	f = reliability_scatter(
-		maps,
-		"Session 1",
-		"Session 2"
-	)
 
-	Label(f[0,:], "Test-retest reliability", fontsize = 18, font = :bold, 
-		tellwidth = false)
-
-	rowsize!(f.layout, 0, Relative(0.1))
-
-	save("results/single_p_QL_PMLE_test_retest.png", f, pt_per_unit = 1)
-
-	f
+	nrow(fit_split(PLT_data, filter1, filter2))
 
 end
 
-# ╔═╡ 48343b75-a0cd-4806-9867-b861b118491d
-# Overall split-half
-let
+# ╔═╡ 976edbec-0bde-4b98-b434-7345e7ebcf95
+# Bootstrap a correlation
+function bootstrap_correlation(x, y, n_bootstrap=1000)
+	n = length(x)
+	corrs = Float64[]  # To store the bootstrap correlations
 
-	maps = fit_split(PLT_data, x -> (x.session == "1") & isodd(x.block),
-		x -> (x.session == "1") & iseven(x.block))
-	
-	f = reliability_scatter(
-		maps,
-		"Odd blocks",
-		"Even blocks"
-	)
+	for i in 1:n_bootstrap
+		# Resample the data with replacement
+		idxs = sample(Xoshiro(i), 1:n, n, replace=true)
+		x_resample = x[idxs]
+		y_resample = y[idxs]
+		
+		# Compute the correlation for the resampled data
+		push!(corrs, cor(x_resample, y_resample))
+	end
 
-	Label(f[0,:], "Session 1 split-half correlation", fontsize = 18, font = :bold, 
-		tellwidth = false)
-
-	rowsize!(f.layout, 0, Relative(0.1))
-
-	save("results/single_p_QL_PMLE_split_half_sess1.png", f, pt_per_unit = 1)
-
-	f
-
+	return corrs
 end
 
-# ╔═╡ 8a567ab1-db8a-47df-ac2b-59714f230ae6
-# Overall split-half session 2
-let
+# ╔═╡ e992d739-bf39-4ef9-8395-079816cd94e6
+# Plot rainclouds of bootstrap correlation by category
+# Variable determines x axis placement
+# Level_id determines color and dodge
+function plot_cor_dist(
+	f::GridPosition, 
+	cat_cors::DataFrame, 
+	col::Symbol;
+	ylabel::String = "",
+	title::String = "",
+	colors = Makie.wong_colors(),
+	xticks = unique(cat_cors.variable),
+	ylimits = [nothing, nothing]
+)
 
-	maps = fit_split(PLT_data, x -> (x.session == "2") & isodd(x.block),
-		x -> (x.session == "2") & iseven(x.block))
-	
-	f = reliability_scatter(
-		maps,
-		"Odd blocks",
-		"Even blocks"
+	ax = Axis(
+		f,
+		xticks = (1:length(xticks), xticks),
+		ylabel = ylabel,
+		title = title,
+		limits = (nothing, nothing, ylimits[1], ylimits[2])
 	)
 
-	Label(f[0,:], "Session 2 split-half correlation", fontsize = 18, font = :bold, 
-		tellwidth = false)
+	rainclouds!(
+		ax,
+		cat_cors.variable,
+		cat_cors[!, col],
+		dodge = cat_cors.level_id,
+		color = colors[cat_cors.level_id],
+		plot_boxplots = false
+	)
 
-	rowsize!(f.layout, 0, Relative(0.1))
-
-	save("results/single_p_QL_PMLE_split_half_sess2.png", f, pt_per_unit = 1)
-
-	f
+	return ax
 
 end
 
@@ -573,25 +780,6 @@ function reliability_by_condition(
 	maps = fit_split(PLT_data, filter1, filter2)
 
 	maps.reward_first = ifelse.(maps.valence_grouped, maps.reward_first, missing)
-
-	function bootstrap_correlation(x, y, n_bootstrap=1000)
-	    n = length(x)
-	    corrs = Float64[]  # To store the bootstrap correlations
-	
-	    for i in 1:n_bootstrap
-	        # Resample the data with replacement
-	        idxs = sample(Xoshiro(i), 1:n, n, replace=true)
-	        x_resample = x[idxs]
-	        y_resample = y[idxs]
-	        
-	        # Compute the correlation for the resampled data
-	        push!(corrs, cor(x_resample, y_resample))
-	    end
-	
-	    return corrs
-	end
-
-	bootstrap_correlation(maps.a_1, maps.a_2)
 
 	# Compute correlations
 	function groupby_cor(
@@ -641,32 +829,6 @@ function reliability_by_condition(
 	f = Figure(size = (1000,500))
 
 	f_top = f[1,1] = GridLayout()
-
-	function plot_cor_dist(
-		f::GridPosition, 
-		cat_cors::DataFrame, 
-		col::Symbol;
-		ylabel::String = "",
-		title::String
-	)
-		
-		ax = Axis(
-			f,
-			xticks = (1:2, unique(cat_cors.variable)),
-			ylabel = ylabel,
-			title = title
-		)
-	
-		rainclouds!(
-			ax,
-			cat_cors.variable,
-			cat_cors[!, col],
-			dodge = cat_cors.level_id,
-			color = Makie.wong_colors()[cat_cors.level_id],
-			plot_boxplots = false
-		)
-	
-	end
 
 	plot_cor_dist(f[1,1], cat_cors, :cor_a; ylabel = label_top, title = "a")
 	plot_cor_dist(f[1,2], cat_cors, :cor_ρ; ylabel = label_top, title = "ρ")
@@ -740,95 +902,6 @@ function reliability_by_condition(
 
 end
 
-# ╔═╡ 0a151f69-f59e-48ae-8fc2-46a455e4f049
-let
-	f = reliability_by_condition(
-		PLT_data,
-		x -> x.session == "1",
-		x -> x.session == "2",
-		"Test-retest",
-		"Session 1",
-		"Session 2"
-	)
-
-	save("results/single_p_QL_PMLE_test_retest_by_condition.png", f, pt_per_unit = 1)
-
-	f
-end
-
-# ╔═╡ fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
-let
-	f = reliability_by_condition(
-		PLT_data,
-		x -> (x.session == "1") & iseven(x.block),
-		x -> (x.session == "1") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 1 split-half reliability"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess1_by_condition.png", f, pt_per_unit = 1)
-
-	f
-
-end
-
-# ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
-let
-	f = reliability_by_condition(
-		PLT_data,
-		x -> (x.session == "2") & iseven(x.block),
-		x -> (x.session == "2") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 2 split-half reliability"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess2_by_condition.png", f,
-		pt_per_unit = 1)
-
-	f
-end
-
-# ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
-let 
-	f = reliability_by_condition(
-		shortened_PLT,
-		x -> x.session == "1",
-		x -> x.session == "2",
-		"Test-retest",
-		"Session 1",
-		"Session 2";
-		supertitle = "Early stopping simulated for all"
-	)
-
-	save("results/single_p_QL_PMLE_test_retest_early_stop_by_condition.png", f, 
-		pt_per_unit = 1)
-
-	f
-end
-
-# ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
-let
-	f = reliability_by_condition(
-		shortened_PLT,
-		x -> (x.session == "1") & iseven(x.block),
-		x -> (x.session == "1") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess1_early_stop_by_condition.png", f, 
-		pt_per_unit = 1)
-
-	f
-
-end
-
 # ╔═╡ 10565355-90ae-419c-9b92-8ff18fcd48b3
 let
 	f = reliability_by_condition(
@@ -849,70 +922,283 @@ end
 
 # ╔═╡ fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
 function reliability_by_valence(
-	PLT_data::DataFrame,
-	filter1::Function,
-	filter2::Function,
-	label1::String,
-	label2::String
-)
+	PLT_data::DataFrame
+)	
 
-	# Compare splits between reward and punishment
-	maps_reward = fit_split(filter(x -> x.valence > 0, PLT_data), filter1, filter2)
+	# Function to filter data
+	filter1 = x -> x.session == "1"
+	filter2 = x -> x.session == "2"
+
+	filterr = x -> x.valence > 0
+	filterp = x -> x.valence < 0
+
+	# Compare test-retest between reward and punishment
+	maps_reward = fit_split(filter(filterr, PLT_data), 
+		filter1, filter2)
+
+	test_retest = DataFrame(
+		test_retest_reward_a = 
+			bootstrap_correlation(maps_reward.a_1, maps_reward.a_2),
+		test_retest_reward_ρ = 
+			bootstrap_correlation(maps_reward.ρ_1, maps_reward.ρ_2)
+	)
 
 	maps_punishment = 
-		fit_split(filter(x -> x.valence < 0, PLT_data), filter1, filter2)
+		fit_split(filter(filterp, PLT_data), filter1, filter2)
 
-	f = Figure(size = (700, 1400))
+	test_retest.test_retest_punishment_a = 
+		bootstrap_correlation(maps_punishment.a_1, maps_punishment.a_2)
 
-	glr = f[1,1] = GridLayout()
-	reliability_scatter!(
-		glr,
+	test_retest.test_retest_punishment_ρ = 
+		bootstrap_correlation(maps_punishment.ρ_1, maps_punishment.ρ_2)
+
+	# Compare reward and punishment within session
+	maps_sess1 = fit_split(filter(filter1, PLT_data), 
+		filterr, filterp)
+
+	split_half = DataFrame(
+		split_half_valences_asess1 = 
+			bootstrap_correlation(maps_sess1.a_1, maps_sess1.a_2),
+		split_half_valences_ρsess1= 
+		bootstrap_correlation(maps_sess1.ρ_1, maps_sess1.ρ_2)
+	)
+	
+
+	maps_sess2 = fit_split(filter(filter2, PLT_data), 
+		filterr, filterp)
+
+	split_half.split_half_valences_asess2 = 
+		bootstrap_correlation(maps_sess2.a_1, maps_sess2.a_2)
+
+	split_half.split_half_valences_ρsess2= 
+		bootstrap_correlation(maps_sess2.ρ_1, maps_sess2.ρ_2)
+
+
+	# Comapre odd and even blocks within session
+	oddeven_sess1 = fit_split(filter(filter1, PLT_data), 
+		x -> isodd(x.block), x -> iseven(x.block))
+
+	split_half.split_half_oddeven_asess1= 
+		bootstrap_correlation(oddeven_sess1.a_1, oddeven_sess1.a_2)
+
+	split_half.split_half_oddeven_ρsess1= 
+		bootstrap_correlation(oddeven_sess1.ρ_1, oddeven_sess1.ρ_2)
+
+	
+	oddeven_sess2 = fit_split(filter(filter2, PLT_data), 
+		x -> isodd(x.block), x -> iseven(x.block))
+
+	split_half.split_half_oddeven_asess2 = 
+		bootstrap_correlation(oddeven_sess2.a_1, oddeven_sess2.a_2)
+
+	split_half.split_half_oddeven_ρsess2= 
+		bootstrap_correlation(oddeven_sess2.ρ_1, oddeven_sess2.ρ_2)
+
+
+	# Reshape reliabilities for plot	
+
+	function stack_cors(df::DataFrame; sort_cols::Bool = false)
+		# Stack
+		stacked = stack(
+			df,
+			:,
+			variable_name = "cor_col"
+		)
+
+		if sort_cols
+			sort!(stacked, :cor_col)
+		end
+
+		# Prepare variables for raincloud plot
+		stacked.variable = (x -> split(x, "_")[4]).(stacked.cor_col)
+		stacked.level = (x -> split(x, "_")[3]).(stacked.cor_col)
+		stacked.level_id = indexin(stacked.level,
+			unique(stacked.level)) |> (x -> map(y -> y::Int64, x))
+
+		return stacked
+	end
+
+	test_retest = stack_cors(test_retest)
+
+	# Plot test retest
+	f = Figure(size = (700, 600))
+	
+	plot_cor_dist(
+		f[3,1], 
+		test_retest, 
+		:value;
+		ylabel = "Correlation",
+		title = "Test-retest",
+		colors = [:green, :red]
+	)
+	
+	
+	# Reshape and plot split half
+	split_half = stack_cors(split_half; sort_cols = true)
+	
+	plot_cor_dist(
+		f[3,2], 
+		split_half, 
+		:value;
+		ylabel = "Correlation",
+		title = "Split-half",
+		xticks = repeat(["sess. 1", "sess. 2"], 2)
+	)
+
+
+	Label(
+		f[4,2],
+		"a",
+		tellwidth = false,
+		halign = 0.25
+	)
+
+	Label(
+		f[4,2],
+		"ρ",
+		tellwidth = false,
+		halign = 0.75
+	)
+
+
+	Legend(
+		f[3,2],
+		[PolyElement(color = c) for c in Makie.wong_colors()[1:2]],
+		["odd / even", "valence"],
+		"By",
+		# orientation = :horizontal,
+		halign = :right,
+		valign = :bottom,
+		framevisible = false,
+		tellwidth = false,
+		titleposition = :left
+	)
+
+	colsize!(f.layout, 2, Relative(2/3))
+	
+	# Plot parameter values
+	function parameter_linked_valence_by_session!(
+		f::GridPosition,
+		maps_reward::DataFrame,
+		maps_punishment::DataFrame,
+		param::String
+	)
+		ax = Axis(
+			f,
+			ylabel = param,
+			xticks = 1:2,
+			xlabel = "Session"
+		)
+	
+		function draw_scatter_segment!(
+			ax::Axis,
+			maps_reward::DataFrame,
+			maps_punishment::DataFrame,
+			x::Float64, # Position to plot on
+			col::Symbol, # Column in DataFrames to plto
+		)
+	
+			linesegments!(
+				ax,
+				repeat(x .+ [-.1, .1], nrow(maps_reward)),
+				vcat([[maps_reward[i, col], maps_punishment[i, col]] 
+					for i in 1:nrow(maps_reward)]...),
+				color = (:grey, 0.3)
+			)
+		
+			scatter!(
+				ax,
+				fill(x - 0.1, nrow(maps_reward)),
+				maps_reward[!, col],
+				color = :green,
+				markersize = 6
+			)
+		
+			scatter!(
+				ax,
+				fill(x + 0.1, nrow(maps_reward)),
+				maps_punishment[!, col],
+				color = :red,
+				markersize = 6
+			)
+
+			boxplot!(
+				ax,
+				fill(x - .2, nrow(maps_reward)),
+				maps_reward[!, col],
+				color = :green,
+				width = 0.1,
+				show_outliers = false
+			)
+
+			boxplot!(
+				ax,
+				fill(x + .2, nrow(maps_reward)),
+				maps_punishment[!, col],
+				color = :red,
+				width = 0.1,
+				show_outliers = false
+			)
+		end
+	
+		draw_scatter_segment!(
+			ax, 
+			maps_reward, 
+			maps_punishment, 
+			1., 
+			Symbol("$(param)_1")
+		)
+		draw_scatter_segment!(
+			ax, 
+			maps_reward, 
+			maps_punishment, 
+			2., 
+			Symbol("$(param)_2")
+		)
+	end
+
+	f_top = f[2,:] = GridLayout()
+	parameter_linked_valence_by_session!(
+		f_top[1,1],
 		maps_reward,
-		rich("$label1 reward ", color = :green),
-		rich("$label2 reward ", color = :green)
-	)
-
-	glp = f[2,1] = GridLayout()
-	reliability_scatter!(
-		glp,
 		maps_punishment,
-		rich("$label1 punishment ", color = :red),
-		rich("$label2 punishment ", color = :red)
+		"a"
 	)
 
-	# Compare reward and punishment within split
-	maps_filter1 = fit_split(filter(filter1, PLT_data), 
-		x -> x.valence > 0, x -> x.valence < 0)
-
-	maps_filter2 = fit_split(filter(filter2, PLT_data), 
-		x -> x.valence > 0, x -> x.valence < 0)
-
-	gl1 = f[3,1] = GridLayout()
-	reliability_scatter!(
-		gl1,
-		maps_filter1,
-		rich("$label1 reward ", color = :green),
-		rich("$label1 punishment ", color = :red)
+	parameter_linked_valence_by_session!(
+		f_top[1,2],
+		maps_reward,
+		maps_punishment,
+		"ρ"
 	)
 
-	gl2 = f[4,1] = GridLayout()
-	reliability_scatter!(
-		gl2,
-		maps_filter2,
-		rich("$label2 reward ", color = :green),
-		rich("$label2 punishment ", color = :red)
+	Legend(
+		f[0,:],
+		[PolyElement(color = c) for c in [:green, :red]],
+		["Reward", "Punsihment"],
+		orientation = :horizontal,
+		framevisible = false,
+		tellwidth = false,
+		titleposition = :left
 	)
 
-	return f
+	
+	Label(
+		f[1, :],
+		"Parameter values",
+		halign = :center,
+		font = :bold
+	)
+	
+
+	f
+
+	
 end
 
-# ╔═╡ 39adc8c6-4964-4484-a4c6-18ba791064b7
+# ╔═╡ f069e195-06c1-4346-a58c-9b6fa88ea27e
 reliability_by_valence(
-	PLT_data,
-	x -> (x.session == "1"),
-	x -> (x.session == "2"),
-	"Session 1",
-	"Session 2"
+	PLT_data
 )
 
 # ╔═╡ Cell order:
@@ -934,7 +1220,6 @@ reliability_by_valence(
 # ╠═0a151f69-f59e-48ae-8fc2-46a455e4f049
 # ╠═fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
 # ╠═8c9a0662-25af-4280-ad48-270458edb018
-# ╠═39adc8c6-4964-4484-a4c6-18ba791064b7
 # ╠═525522d1-5ced-46f2-8c9b-3299d3cb244d
 # ╠═479726b5-605b-494e-8ff2-4d569d0c0ddd
 # ╠═3a8f569d-0d8e-4020-9023-a123cad9d5de
@@ -942,6 +1227,10 @@ reliability_by_valence(
 # ╠═a53db393-c9e7-4db3-a11d-3b244823d951
 # ╠═a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
 # ╠═a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
+# ╠═80ae54ff-b9d2-4c30-8f62-4b7cac65201b
 # ╠═de41a8c1-fc09-4c33-b371-4d835a0a46ce
+# ╠═976edbec-0bde-4b98-b434-7345e7ebcf95
+# ╠═e992d739-bf39-4ef9-8395-079816cd94e6
 # ╠═2239dd1c-1975-46b4-b270-573efd454c04
 # ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
+# ╠═f069e195-06c1-4346-a58c-9b6fa88ea27e
