@@ -10,8 +10,8 @@
 	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
 	outcomes::Matrix{Float64}, # Outcomes for options, second column optimal
 	initV::Matrix{Float64}, # Initial Q values,
-	σ_ρ::Float64 = 2.,
-	σ_a::Float64 = 1.
+	σ_ρ::Float64 = 1.,
+	σ_a::Float64 = 0.5
 )
 
 	# Priors on parameters
@@ -42,7 +42,7 @@
 		end
 	end
 
-	return Qs
+	return (choice = choice, Qs = Qs)
 
 end
 
@@ -99,7 +99,7 @@ function simulate_single_p_QL(
 	)
 
 	# Compute Q values
-	Qs = generated_quantities(prior_model, prior_sample) |> vec
+	Qs = generated_quantities(prior_model, prior_sample).Qs |> vec
 
 	sim_data.Q_optimal = vcat([qs[:, 2] for qs in Qs]...) 
 	sim_data.Q_suboptimal = vcat([qs[:, 1] for qs in Qs]...) 
@@ -270,7 +270,7 @@ end
 # Prepare pilot data for fititng with model
 function prepare_for_fit(data)
 
-	forfit = select(data, [:prolific_pid, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :chosenOutcome, :isOptimal])
+	forfit = select(data, [:prolific_pid, :condition, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :chosenOutcome, :isOptimal])
 
 	rename!(forfit, :isOptimal => :choice)
 
@@ -289,13 +289,11 @@ function prepare_for_fit(data)
 		ifelse.(forfit.optimalRight .== 0, forfit.outcomeRight, forfit.outcomeLeft)
 
 	# PID as number
-	pids = DataFrame(
-		prolific_pid = unique(forfit.prolific_pid)
-	)
+	pids = unique(forfit[!, [:prolific_pid, :condition]])
 
 	pids.PID = 1:nrow(pids)
 
-	forfit = innerjoin(forfit, pids, on = :prolific_pid)
+	forfit = innerjoin(forfit, pids[!, [:prolific_pid, :PID]], on = :prolific_pid)
 
 	# Block as Int64
 	forfit.block = convert(Vector{Int64}, forfit.block)
