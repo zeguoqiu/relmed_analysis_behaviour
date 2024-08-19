@@ -187,6 +187,8 @@ function optimize_multiple_single_p_QL(
 	σ_a::Float64 = 1.
 )
 	ests = []
+	lk = ReentrantLock()
+
 	Threads.@threads for p in unique(data.PID)
 
 		# Select data
@@ -201,8 +203,6 @@ function optimize_multiple_single_p_QL(
 			σ_ρ = σ_ρ,
 			σ_a = σ_a
 		)
-
-		@assert typeof(est.values[:a]) == Float64
 
 		# Return
 		if include_true
@@ -221,29 +221,10 @@ function optimize_multiple_single_p_QL(
 			)
 		end
 
-		push!(
-			ests,
-			est
-		)
-	end
-
-	function validate_namedtuples(e)
-		for nt in e
-			if any(isnothing, values(nt))
-				error("Found undefined or missing value in NamedTuple: $nt")
-			end
-
-			if any(isempty, values(nt))
-				error("Found empty value in NamedTuple: $nt")
-			end
-
-			if any(x -> !(typeof(x) in [Float64, Int64]), values(nt))
-				error("Found misstyped in NamedTuple: $nt")
-			end
+		lock(lk) do
+			push!(ests, est)
 		end
 	end
-
-	validate_namedtuples(ests)
 
 	return DataFrame(ests)
 end
