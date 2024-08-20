@@ -1,5 +1,68 @@
 # Functions for models and working with draws from models
 
+# Simulate data from model prior
+function simulate_single_p_PILT(
+	n::Int64; # How many datasets to simulate
+	model::Function,
+	block::Vector{Int64}, # Block number
+	valence::AbstractVector, # Valence of each block
+	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
+	initV::Matrix{Float64}, # Initial Q values
+	random_seed::Union{Int64, Nothing} = nothing,
+	σ_ρ::Float64 = 2.,
+	σ_a::Float64 = 1.
+)
+
+	# Total trial number
+	N = length(block)
+
+	# Trials per block
+    n_trials = div(length(block), maximum(block))
+
+	# Prepare model for simulation
+	prior_model = model(
+		N = N,
+		n_blocks = maximum(block),
+		block = block,
+		valence = valence,
+		choice = fill(missing, length(block)),
+		outcomes = outcomes,
+		initV = initV,
+		σ_ρ = σ_ρ,
+		σ_a = σ_a
+	)
+
+	# Draw parameters and simulate choice
+	prior_sample = sample(
+		isnothing(random_seed) ? Random.default_rng() : Xoshiro(random_seed),
+		prior_model,
+		Prior(),
+		n
+	)
+
+	# Arrange choice for return
+	sim_data = DataFrame(
+		PID = repeat(1:n, inner = N),
+		ρ = repeat(prior_sample[:, :ρ, 1], inner = N),
+		α = repeat(prior_sample[:, :a, 1], inner = N) .|> a2α,
+		block = repeat(block, n),
+		valence = repeat(valence, inner = n_trials, outer = n),
+		trial = repeat(1:n_trials, n * maximum(block)),
+		choice = prior_sample[:, [Symbol("choice[$i]") for i in 1:N], 1] |>
+			Array |> transpose |> vec
+	)
+
+	# Compute Q values
+	Qs = generated_quantities(prior_model, prior_sample) |> vec
+
+	sim_data.Q_optimal = vcat([qs[:, 2] for qs in Qs]...) 
+	sim_data.Q_suboptimal = vcat([qs[:, 1] for qs in Qs]...) 
+
+	return sim_data
+			
+end
+
+
 # Transform unconstrainted a to learning rate α
 a2α(a) = logistic(π/sqrt(3) * a)
 
