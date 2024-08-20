@@ -42,7 +42,7 @@
 		end
 	end
 
-	return (choice = choice, Qs = Qs)
+	return Qs
 
 end
 
@@ -99,7 +99,7 @@ function simulate_single_p_QL(
 	)
 
 	# Compute Q values
-	Qs = generated_quantities(prior_model, prior_sample).Qs |> vec
+	Qs = generated_quantities(prior_model, prior_sample) |> vec
 
 	sim_data.Q_optimal = vcat([qs[:, 2] for qs in Qs]...) 
 	sim_data.Q_suboptimal = vcat([qs[:, 1] for qs in Qs]...) 
