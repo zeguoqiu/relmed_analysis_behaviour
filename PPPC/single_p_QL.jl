@@ -107,53 +107,6 @@ md"""
 ## Sampling from posterior
 """
 
-# ╔═╡ 9477b295-ada5-46cf-b2e3-2c1303873081
-# ╠═╡ disabled = true
-#=╠═╡
-# Sample from posterior and plot for single participant
-begin
-	fit = let
-		# Initial value for Q values
-		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-		
-		fit = posterior_sample_single_p_QL(
-			filter(x -> x.PID == 1, prior_sample); 
-			initV = aao,
-			random_seed = 0
-		)
-	
-		fit
-	
-	end
-
-	f_one_posterior = plot_posteriors([fit],
-		["a", "ρ"];
-		true_values = [α2a(prior_sample[1, :α]), prior_sample[1, :ρ]]
-	)	
-
-	ax_cor = Axis(
-		f_one_posterior[1,3],
-		xlabel = "a",
-		ylabel = "ρ",
-		aspect = 1,
-		xticks = WilkinsonTicks(4)
-	)
-
-	scatter!(
-		ax_cor,
-		fit[:, :a, :] |> vec,
-		fit[:, :ρ, :] |> vec,
-		markersize = 1.5
-	)
-
-	colsize!(f_one_posterior.layout, 3, Relative(0.2))
-
-	f_one_posterior
-
-	save("results/single_p_QL_example_posterior.png", f_one_posterior, pt_per_unit = 1)
-end
-  ╠═╡ =#
-
 # ╔═╡ 2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
 # ╠═╡ disabled = true
 #=╠═╡
@@ -1155,12 +1108,12 @@ function bootstrap_fit(
 		
 		tfit = optimize_multiple_single_p_QL(
 				forfit;
-				initV = aao
+				initV = aao,
 			)
 
 		tfit = innerjoin(tfit, pids, on = :PID)
 
-		tfit[!, :bootrap_idx] .= i
+		tfit[!, :bootstrap_idx] .= i
 		
 		# Compute the correlation for the resampled data
 		push!(bootstraps, tfit)
@@ -1175,10 +1128,14 @@ bs_fit = bootstrap_fit(
 	PLT_data
 )
 
+# ╔═╡ bd718433-a5d7-4780-8cae-de623573e295
+describe(bs_fit)
+
 # ╔═╡ 0cbd611e-335e-4ebc-aa56-2722b42bab1f
 function simulate_from_posterior_single_p_QL(
 	bootstrap::DataFrameRow, # DataFrameRow containinng parameters and condition
-	task # Task structure for condition
+	task, # Task structure for condition,
+	random_seed::Int64
 ) 
 
 	# Initial value for Q values
@@ -1197,11 +1154,16 @@ function simulate_from_posterior_single_p_QL(
 		outcomes = outcomes,
 		initV = fill(aao, 1, 2)
 	)
-
-	choice = 
-		generated_quantities(post_model, (ρ = bootstrap.ρ, a = bootstrap.a)).choice
 	
-	ppc = insertcols(task.task, :isOptimal => choice)
+	chn = Chains([bootstrap.a bootstrap.ρ], [:a, :ρ])
+
+	choice = predict(Xoshiro(random_seed), post_model, chn)[1, :, 1] |> Array |> vec
+	
+	ppc = insertcols(task.task, 
+		:isOptimal => choice,
+		:bootstrap_idx => fill(bootstrap.bootstrap_idx, length(choice)),
+		:prolific_pid => fill(bootstrap.prolific_pid, length(choice))
+	)
 	
 
 end
@@ -1212,58 +1174,27 @@ function plot_q_learning_ppc_accuracy(
 	ppc::DataFrame;
 	title::String = ""
 )
-	
-	ppc_sum = combine(
-		groupby(ppc, 
-			[:pp, :draw, :trial]),
-		:choice => (x -> mean(x .== 1)) => :isOptimal
-	)
-
-	pc_sum = combine(
-		groupby(ppc_sum, [:draw, :trial]),
-		:isOptimal => mean => :isOptimal
-	)
-
-	ppc_sum = combine(
-		groupby(ppc_sum, :trial),
-		:isOptimal => median => :m,
-		:isOptimal => lb => :lb,
-		:isOptimal => llb => :llb,
-		:isOptimal => ub => :ub,
-		:isOptimal => uub => :uub
-	)
 
 	f_acc = Figure()
 
+	ax = Axis(f_acc[1,1],
+        xlabel = "Trial #",
+        ylabel = "Prop. optimal choice",
+        xautolimitmargin = (0., 0.),
+        title = title
+    )
+
+	# Plot bootstraps
+	plot_group_accuracy!(ax, ppc;
+		group = :bootstrap_idx,
+		error_band = false,
+		linewidth = 2.,
+		colors = fill(:grey, length(unique(ppc.bootstrap_idx)))
+	)
+
 	# Plot data
-	ax_acc = plot_group_accuracy!(f_acc[1,1], data;
+	ax_acc = plot_group_accuracy!(ax, data;
 		error_band = false
-	)
-
-	ax_acc.title = title
-
-	# Plot 
-	band!(
-		ax_acc,
-		ppc_sum.trial,
-		ppc_sum.llb,
-		ppc_sum.uub,
-		color = (Makie.wong_colors()[3], 0.1)
-	)
-
-	band!(
-		ax_acc,
-		ppc_sum.trial,
-		ppc_sum.lb,
-		ppc_sum.ub,
-		color = (Makie.wong_colors()[3], 0.3)
-	)
-
-	lines!(
-		ax_acc,
-		ppc_sum.trial,
-		ppc_sum.m,
-		color = Makie.wong_colors()[3]
 	)
 
 	f_acc
@@ -1332,6 +1263,50 @@ begin
 	describe(prior_sample)
 end
 
+# ╔═╡ 9477b295-ada5-46cf-b2e3-2c1303873081
+# Sample from posterior and plot for single participant
+begin
+	fit = let
+		# Initial value for Q values
+		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+		
+		fit = posterior_sample_single_p_QL(
+			filter(x -> x.PID == 1, prior_sample); 
+			initV = aao,
+			random_seed = 0
+		)
+	
+		fit
+	
+	end
+
+	f_one_posterior = plot_posteriors([fit],
+		["a", "ρ"];
+		true_values = [α2a(prior_sample[1, :α]), prior_sample[1, :ρ]]
+	)	
+
+	ax_cor = Axis(
+		f_one_posterior[1,3],
+		xlabel = "a",
+		ylabel = "ρ",
+		aspect = 1,
+		xticks = WilkinsonTicks(4)
+	)
+
+	scatter!(
+		ax_cor,
+		fit[:, :a, :] |> vec,
+		fit[:, :ρ, :] |> vec,
+		markersize = 1.5
+	)
+
+	colsize!(f_one_posterior.layout, 3, Relative(0.2))
+
+	f_one_posterior
+
+	save("results/single_p_QL_example_posterior.png", f_one_posterior, pt_per_unit = 1)
+end
+
 # ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
 let
 	f = optimization_calibration(
@@ -1358,15 +1333,46 @@ let
 	f
 end
 
-# ╔═╡ bf6c129c-e2c1-4c3d-95d0-845dd0690d67
-conds = Dict(
-	"00" => task_vars_for_condition("00")
+# ╔═╡ f7ea9611-07ff-4ec5-ac28-e9afb623f175
+function simulate_multiple_from_posterior_single_p_QL(
+	bootstraps::DataFrame
 )
+	# Get task structures
+	conds = unique(bootstraps.condition)
 
-# ╔═╡ e787e3b3-df95-4b34-9756-f9f22899953d
-simulate_from_posterior_single_p_QL(
-	bs_fit[1, :],
-	conds[bs_fit[1, :condition]]
+	conds = Dict(
+		c => task_vars_for_condition(c) for c in conds
+	)
+
+	# Simulate for each bootstrap, each participant
+	sim_data = []
+	lk = ReentrantLock()
+
+	Threads.@threads for i in 1:nrow(bootstraps)
+		tsim = simulate_from_posterior_single_p_QL(
+			bootstraps[i, :], 
+			conds[bootstraps[i, :condition]],
+			i
+		)
+
+		lock(lk) do
+			push!(sim_data, tsim)
+		end
+
+	end
+
+
+	sim_data = vcat(sim_data...)
+	
+end
+
+# ╔═╡ 63e1eed1-88d4-4867-b7b1-811650503669
+ppc = simulate_multiple_from_posterior_single_p_QL(bs_fit)
+
+# ╔═╡ 9342c7f5-3af6-456a-867f-1fc45faa2c58
+plot_q_learning_ppc_accuracy(
+	PLT_data,
+	ppc
 )
 
 # ╔═╡ Cell order:
@@ -1405,8 +1411,10 @@ simulate_from_posterior_single_p_QL(
 # ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
 # ╠═f71973b1-51eb-4f37-afc7-c39ad236197e
 # ╠═e6e64192-b466-4782-a9ba-9430bea21cad
-# ╠═bf6c129c-e2c1-4c3d-95d0-845dd0690d67
-# ╠═e787e3b3-df95-4b34-9756-f9f22899953d
+# ╠═bd718433-a5d7-4780-8cae-de623573e295
+# ╠═f7ea9611-07ff-4ec5-ac28-e9afb623f175
 # ╠═0cbd611e-335e-4ebc-aa56-2722b42bab1f
+# ╠═63e1eed1-88d4-4867-b7b1-811650503669
+# ╠═9342c7f5-3af6-456a-867f-1fc45faa2c58
 # ╠═a59e36b3-15b3-494c-a076-b3eade2cc315
 # ╠═2d01d335-6057-4e8d-8442-e1c2ccd21d20
