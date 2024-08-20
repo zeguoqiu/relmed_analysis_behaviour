@@ -1199,14 +1199,20 @@ end
 
 
 # ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
-plot_q_learning_ppc_accuracy(
-	PLT_data,
-	simulate_multiple_from_posterior_single_p_QL(
-		bootstrap_optimize_single_p_QL(
-			PLT_data
+let
+	f = plot_q_learning_ppc_accuracy(
+		PLT_data,
+		simulate_multiple_from_posterior_single_p_QL(
+			bootstrap_optimize_single_p_QL(
+				PLT_data
+			)
 		)
 	)
-)
+
+	save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
+		pt_per_unit = 1)
+	f
+end
 
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
