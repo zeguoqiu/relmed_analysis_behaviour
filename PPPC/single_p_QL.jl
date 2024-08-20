@@ -17,11 +17,13 @@ begin
 		ForwardDiff, LinearAlgebra, JLD2, FileIO, CSV, Dates, JSON, RCall, Turing, ParetoSmooth, MCMCDiagnosticTools, Printf
 	using LogExpFunctions: logistic, logit
 
+	include("$(pwd())/PILT_models.jl")
 	include("$(pwd())/sample_utils.jl")
 	include("$(pwd())/stats_utils.jl")
 	include("$(pwd())/plotting_utils.jl")
 	include("$(pwd())/single_p_QL.jl")
 	include("$(pwd())/fetch_preprocess_data.jl")
+	nothing
 end
 
 # ╔═╡ 261d0d08-10b9-4111-9fc8-bb84e6b4cef5
@@ -47,15 +49,195 @@ begin
 	set_theme!(th)
 end
 
+# ╔═╡ fa79c576-d4c9-4c42-b5df-66d886e8abe4
+# Sample datasets from prior
+begin	
+	prior_sample = let
+		# Load sequence from file
+		task = task_vars_for_condition("00")
+	
+		# Initial value for Q values
+		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+	
+		prior_sample = simulate_single_p_QL(
+			200;
+			block = task.block,
+			valence = task.valence,
+			outcomes = task.outcomes,
+			initV = fill(aao, 1, 2),
+			random_seed = 0
+		)
+	
+	
+		leftjoin(prior_sample, 
+			task.task[!, [:block, :trial, :feedback_optimal, :feedback_suboptimal]],
+			on = [:block, :trial]
+		)
+	
+	end
+
+	describe(prior_sample)
+end
+
+# ╔═╡ b09277d9-5184-42bf-9e1a-ad242308904b
+let
+	EV_cols = ["Q_optimal", "Q_suboptimal"]
+	[c => Symbol("EV_$(('A':'Z')[i])") for (i, c) in enumerate(EV_cols)]
+end
+
+# ╔═╡ 069177a1-d078-4d3c-bfa3-1bef04065d89
+let
+
+	f = plot_prior_predictive_by_valence(
+		prior_sample,
+		[:Q_optimal, :Q_suboptimal]
+	)
+
+	save("results/single_p_QL_prior_predictive.png", f, pt_per_unit = 1)
+
+	f
+
+
+end
+
 # ╔═╡ f5113e3e-3bcf-4a92-9e76-d5eed8088320
 md"""
 ## Sampling from posterior
 """
 
+# ╔═╡ 9477b295-ada5-46cf-b2e3-2c1303873081
+# Sample from posterior and plot for single participant
+begin
+	fit = let
+		# Initial value for Q values
+		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+		
+		fit = posterior_sample_single_p_QL(
+			filter(x -> x.PID == 1, prior_sample); 
+			initV = aao,
+			random_seed = 0
+		)
+	
+		fit
+	
+	end
+
+	f_one_posterior = plot_posteriors([fit],
+		["a", "ρ"];
+		true_values = [α2a(prior_sample[1, :α]), prior_sample[1, :ρ]]
+	)	
+
+	ax_cor = Axis(
+		f_one_posterior[1,3],
+		xlabel = "a",
+		ylabel = "ρ",
+		aspect = 1,
+		xticks = WilkinsonTicks(4)
+	)
+
+	scatter!(
+		ax_cor,
+		fit[:, :a, :] |> vec,
+		fit[:, :ρ, :] |> vec,
+		markersize = 1.5
+	)
+
+	colsize!(f_one_posterior.layout, 3, Relative(0.2))
+
+	f_one_posterior
+
+	save("results/single_p_QL_example_posterior.png", f_one_posterior, pt_per_unit = 1)
+
+	f_one_posterior
+end
+
+# ╔═╡ 2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
+sbc = let
+	draws_sum_file = "saved_models/sbc_single_p_QL.jld2"
+	if isfile(draws_sum_file)
+		JLD2.@load draws_sum_file sbc
+	else
+		sbc = SBC_single_p_QL(
+			filter(x -> x.PID <= 100, prior_sample);
+			initV = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])]),
+			random_seed = 0
+		) |> DataFrame
+
+		JLD2.@save draws_sum_file sbc
+	end
+
+	sbc
+end
+
+# ╔═╡ 50d88c5c-4a3f-4ded-81cf-600eddb3bbf9
+let
+	f_SBC = plot_SBC(sbc, show_n = [1], params = ["a", "ρ"])
+
+	resize!(f_SBC.scene, (700,700))
+
+	ax_cor1 = Axis(
+		f_SBC[3,1],
+		xlabel = "Posterior estimate of a",
+		ylabel = "Posterior estimate of ρ"
+	)
+
+	scatter!(
+		ax_cor1,
+		sbc.a_m,
+		sbc.ρ_m,
+		markersize = 4
+	)
+
+	ax_cor2 = Axis(
+		f_SBC[3,2],
+		xlabel = "True a",
+		ylabel = "True ρ"
+	)
+
+	scatter!(
+		ax_cor2,
+		sbc.true_a,
+		sbc.true_ρ,
+		markersize = 4
+	)
+
+
+	save("results/single_p_QL_sampling_calibration.png", f_SBC, pt_per_unit = 1)
+
+	f_SBC
+
+end
+
 # ╔═╡ 47b4f578-98ee-4ae0-8359-f4e8de5a63f1
 md"""
 ## Estimation by optimization
 """
+
+# ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
+let
+	f = optimization_calibration(
+		prior_sample,
+		optimize_multiple_single_p_QL,
+		estimate = "MLE"
+	)
+
+	save("results/single_p_QL_MLE_calibration.png", f, pt_per_unit = 1)
+
+	f
+end
+
+# ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
+let
+	f = optimization_calibration(
+		prior_sample,
+		optimize_multiple_single_p_QL;
+		estimate = "MAP"
+	)
+
+	save("results/single_p_QL_PMLE_calibration.png", f, pt_per_unit = 1)
+
+	f
+end
 
 # ╔═╡ a3c8a90e-d820-4542-9043-e06a0ec9eaee
 # Load and clean data
@@ -214,6 +396,9 @@ let
 
 	
 end
+
+# ╔═╡ 15bfde49-7b68-40fe-bebe-7a8b5c27e27e
+typeof(single_p_QL)
 
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
@@ -922,247 +1107,6 @@ function plot_q_learning_ppc_accuracy(
 end
 
 
-# ╔═╡ 2d01d335-6057-4e8d-8442-e1c2ccd21d20
-function task_vars_for_condition(condition::String)
-		# Load sequence from file
-		task = DataFrame(CSV.File("data/PLT_task_structure_00.csv"))
-	
-		# Renumber block
-		task.block = task.block .+ (task.session .- 1) * maximum(task.block)
-	
-		# Arrange feedback by optimal / suboptimal
-		task.feedback_optimal = 
-			ifelse.(task.optimal_A .== 1, task.feedback_A, task.feedback_B)
-	
-		task.feedback_suboptimal = 
-			ifelse.(task.optimal_A .== 0, task.feedback_A, task.feedback_B)
-	
-	
-		# Arrange outcomes such as second column is optimal
-		outcomes = hcat(
-			task.feedback_suboptimal,
-			task.feedback_optimal,
-		)
-
-		return (
-			task = task,
-			block = task.block,
-			valence = unique(task[!, [:block, :valence]]).valence,
-			outcomes = outcomes
-		)
-
-end
-
-# ╔═╡ fa79c576-d4c9-4c42-b5df-66d886e8abe4
-# Sample datasets from prior
-begin	
-	prior_sample = let
-		# Load sequence from file
-		task = task_vars_for_condition("00")
-	
-		# Initial value for Q values
-		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-	
-		prior_sample = simulate_single_p_QL(
-			200;
-			block = task.block,
-			valence = task.valence,
-			outcomes = task.outcomes,
-			initV = fill(aao, 1, 2),
-			random_seed = 0
-		)
-	
-	
-		leftjoin(prior_sample, 
-			task.task[!, [:block, :trial, :feedback_optimal, :feedback_suboptimal]],
-			on = [:block, :trial]
-		)
-	
-	end
-
-	describe(prior_sample)
-end
-
-# ╔═╡ d7b60f28-09b1-42c0-8c95-0213590d8c5c
-# Plot prior preditctive accuracy curve
-let
-	df = rename(prior_sample, 
-		:Q_optimal => :EV_A,
-		:Q_suboptimal => :EV_B
-	)
-
-	df[!, :group] .= 1
-	
-	f = Figure(size = (700, 1000))
-
-	g_all = f[1,1] = GridLayout()
-	
-	plot_sim_q_value_acc!(
-		g_all,
-		df;
-		plw = 1,
-		legend = false,
-		acc_error_band = "PI"
-	)
-
-	Label(g_all[0,:], "All blocks", fontsize = 18, font = :bold)
-
-	g_reward = f[2,1] = GridLayout()
-	
-	plot_sim_q_value_acc!(
-		g_reward,
-		filter(x -> x.valence > 0, df);
-		plw = 1,
-		legend = false,
-		acc_error_band = "PI"
-	)
-
-	Label(g_reward[0,:], "Reward blocks", fontsize = 18, font = :bold)
-
-	g_punishment = f[3,1] = GridLayout()
-	
-	plot_sim_q_value_acc!(
-		g_punishment,
-		filter(x -> x.valence < 0, df);
-		plw = 1,
-		legend = false,
-		acc_error_band = "PI"
-	)
-
-	Label(g_punishment[0,:], "Punishment blocks", fontsize = 18, font = :bold)
-
-	save("results/single_p_QL_prior_predictive.png", f, pt_per_unit = 1)
-
-	f
-end
-
-# ╔═╡ 9477b295-ada5-46cf-b2e3-2c1303873081
-# Sample from posterior and plot for single participant
-begin
-	fit = let
-		# Initial value for Q values
-		aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-		
-		fit = posterior_sample_single_p_QL(
-			filter(x -> x.PID == 1, prior_sample); 
-			initV = aao,
-			random_seed = 0
-		)
-	
-		fit
-	
-	end
-
-	f_one_posterior = plot_posteriors([fit],
-		["a", "ρ"];
-		true_values = [α2a(prior_sample[1, :α]), prior_sample[1, :ρ]]
-	)	
-
-	ax_cor = Axis(
-		f_one_posterior[1,3],
-		xlabel = "a",
-		ylabel = "ρ",
-		aspect = 1,
-		xticks = WilkinsonTicks(4)
-	)
-
-	scatter!(
-		ax_cor,
-		fit[:, :a, :] |> vec,
-		fit[:, :ρ, :] |> vec,
-		markersize = 1.5
-	)
-
-	colsize!(f_one_posterior.layout, 3, Relative(0.2))
-
-	f_one_posterior
-
-	save("results/single_p_QL_example_posterior.png", f_one_posterior, pt_per_unit = 1)
-end
-
-# ╔═╡ 2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
-sbc = let
-	draws_sum_file = "saved_models/sbc_single_p_QL.jld2"
-	if isfile(draws_sum_file)
-		JLD2.@load draws_sum_file sbc
-	else
-		sbc = SBC_single_p_QL(
-			filter(x -> x.PID <= 100, prior_sample);
-			initV = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])]),
-			random_seed = 0
-		) |> DataFrame
-
-		JLD2.@save draws_sum_file sbc
-	end
-
-	sbc
-end
-
-# ╔═╡ 50d88c5c-4a3f-4ded-81cf-600eddb3bbf9
-let
-	f_SBC = plot_SBC(sbc, show_n = [1], params = ["a", "ρ"])
-
-	resize!(f_SBC.scene, (700,700))
-
-	ax_cor1 = Axis(
-		f_SBC[3,1],
-		xlabel = "Posterior estimate of a",
-		ylabel = "Posterior estimate of ρ"
-	)
-
-	scatter!(
-		ax_cor1,
-		sbc.a_m,
-		sbc.ρ_m,
-		markersize = 4
-	)
-
-	ax_cor2 = Axis(
-		f_SBC[3,2],
-		xlabel = "True a",
-		ylabel = "True ρ"
-	)
-
-	scatter!(
-		ax_cor2,
-		sbc.true_a,
-		sbc.true_ρ,
-		markersize = 4
-	)
-
-
-	save("results/single_p_QL_sampling_calibration.png", f_SBC, pt_per_unit = 1)
-
-	f_SBC
-
-end
-
-# ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
-let
-	f = optimization_calibration(
-		prior_sample,
-		optimize_multiple_single_p_QL,
-		estimate = "MLE"
-	)
-
-	save("results/single_p_QL_MLE_calibration.png", f, pt_per_unit = 1)
-
-	f
-end
-
-# ╔═╡ 2eb2dd61-abae-4328-9787-7a841d321836
-let
-	f = optimization_calibration(
-		prior_sample,
-		optimize_multiple_single_p_QL;
-		estimate = "MAP"
-	)
-
-	save("results/single_p_QL_PMLE_calibration.png", f, pt_per_unit = 1)
-
-	f
-end
-
 # ╔═╡ 594b27ed-4bde-4dae-b4ef-9abc67bf699c
 # Simulate multiple participants from (bootstrapped) posterior
 function simulate_multiple_from_posterior_single_p_QL(
@@ -1214,11 +1158,23 @@ let
 	f
 end
 
+# ╔═╡ db3cd8d3-5e46-48c6-b85d-f4d302fff690
+f = plot_q_learning_ppc_accuracy(
+		PLT_data,
+		simulate_multiple_from_posterior_single_p_QL(
+			bootstrap_optimize_single_p_QL(
+				PLT_data;
+				estimate = "MLE"
+			)
+		)
+	)
+
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
 # ╠═261d0d08-10b9-4111-9fc8-bb84e6b4cef5
 # ╠═fa79c576-d4c9-4c42-b5df-66d886e8abe4
-# ╠═d7b60f28-09b1-42c0-8c95-0213590d8c5c
+# ╠═b09277d9-5184-42bf-9e1a-ad242308904b
+# ╠═069177a1-d078-4d3c-bfa3-1bef04065d89
 # ╟─f5113e3e-3bcf-4a92-9e76-d5eed8088320
 # ╠═9477b295-ada5-46cf-b2e3-2c1303873081
 # ╠═2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
@@ -1244,9 +1200,10 @@ end
 # ╠═60866598-8564-4dd7-987c-fb74d3f3fc64
 # ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
 # ╠═33fc2f8e-87d0-4e9e-9f99-8769600f3d25
+# ╠═db3cd8d3-5e46-48c6-b85d-f4d302fff690
+# ╠═15bfde49-7b68-40fe-bebe-7a8b5c27e27e
 # ╠═de41a8c1-fc09-4c33-b371-4d835a0a46ce
 # ╠═2239dd1c-1975-46b4-b270-573efd454c04
 # ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
 # ╠═a59e36b3-15b3-494c-a076-b3eade2cc315
 # ╠═594b27ed-4bde-4dae-b4ef-9abc67bf699c
-# ╠═2d01d335-6057-4e8d-8442-e1c2ccd21d20
