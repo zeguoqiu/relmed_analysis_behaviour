@@ -341,6 +341,9 @@ function plot_group_accuracy!(
     group_levels = ismissing(levels) ? unique(sum_data.group) : levels
     for (i,g) in enumerate(group_levels)
         gdat = filter(:group => (x -> x==g), sum_data)
+
+		dropmissing!(gdat)
+
 		g_p_dat = filter(:group => (x -> x == g), p_data)
 
         # Plot line
