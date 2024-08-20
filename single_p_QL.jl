@@ -1,52 +1,6 @@
 # This file contains a Q learning model for single participant data, 
 # and methods for sampling, fitting, and computing quanitities based on it.
 
-# Turing model
-@model function single_p_QL(;
-	N::Int64, # Total number of trials
-	n_blocks::Int64, # Number of blocks
-	block::Vector{Int64}, # Block number
-	valence::AbstractVector, # Valence of each block
-	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
-	outcomes::Matrix{Float64}, # Outcomes for options, second column optimal
-	initV::Matrix{Float64}, # Initial Q values,
-	σ_ρ::Float64 = 1.,
-	σ_a::Float64 = 0.5
-)
-
-	# Priors on parameters
-	ρ ~ truncated(Normal(0., σ_ρ), lower = 0.)
-	a ~ Normal(0., σ_a)
-
-	# Compute learning rate
-	α = a2α(a) # hBayesDM uses Phi_approx from Stan. Here, logistic with the variance of the logistic multiplying a to equate the scales to that of a probit function.
-
-	# Initialize Q values
-	Qs = repeat(initV .* ρ, length(block)) .* valence[block]
-
-	# Loop over trials, updating Q values and incrementing log-density
-	for i in 1:N
-		
-		# Define choice distribution
-		choice[i] ~ BernoulliLogit(Qs[i, 2] - Qs[i, 1])
-
-		choice_idx::Int64 = choice[i] + 1
-
-		# Prediction error
-		PE = outcomes[i, choice_idx] * ρ - Qs[i, choice_idx]
-
-		# Update Q value
-		if (i != N) && (block[i] == block[i+1])
-			Qs[i + 1, choice_idx] = Qs[i, choice_idx] + α * PE
-			Qs[i + 1, 3 - choice_idx] = Qs[i, 3 - choice_idx]
-		end
-	end
-
-	return Qs
-
-end
-
-
 # Simulate data from model prior
 function simulate_single_p_QL(
 	n::Int64; # How many datasets to simulate
@@ -58,53 +12,17 @@ function simulate_single_p_QL(
 	σ_ρ::Float64 = 2.,
 	σ_a::Float64 = 1.
 )
-
-	# Total trial number
-	N = length(block)
-
-	# Trials per block
-    n_trials = div(length(block), maximum(block))
-
-	# Prepare model for simulation
-	prior_model = single_p_QL(
-		N = N,
-		n_blocks = maximum(block),
+	return sim_data = simulate_single_p_PILT(
+		n;
+		model = single_p_QL,
 		block = block,
 		valence = valence,
-		choice = fill(missing, length(block)),
 		outcomes = outcomes,
 		initV = initV,
+		random_seed = random_seed,
 		σ_ρ = σ_ρ,
 		σ_a = σ_a
 	)
-
-	# Draw parameters and simulate choice
-	prior_sample = sample(
-		isnothing(random_seed) ? Random.default_rng() : Xoshiro(random_seed),
-		prior_model,
-		Prior(),
-		n
-	)
-
-	# Arrange choice for return
-	sim_data = DataFrame(
-		PID = repeat(1:n, inner = N),
-		ρ = repeat(prior_sample[:, :ρ, 1], inner = N),
-		α = repeat(prior_sample[:, :a, 1], inner = N) .|> a2α,
-		block = repeat(block, n),
-		valence = repeat(valence, inner = n_trials, outer = n),
-		trial = repeat(1:n_trials, n * maximum(block)),
-		choice = prior_sample[:, [Symbol("choice[$i]") for i in 1:N], 1] |>
-			Array |> transpose |> vec
-	)
-
-	# Compute Q values
-	Qs = generated_quantities(prior_model, prior_sample) |> vec
-
-	sim_data.Q_optimal = vcat([qs[:, 2] for qs in Qs]...) 
-	sim_data.Q_suboptimal = vcat([qs[:, 1] for qs in Qs]...) 
-
-	return sim_data
 			
 end
 
@@ -231,7 +149,9 @@ end
 
 function bootstrap_optimize_single_p_QL(
 	PLT_data::DataFrame;
-	n_bootstrap::Int64 = 20)
+	n_bootstrap::Int64 = 20,
+	estimate = "MAP"
+	)
 	
 		# Initial value for Q values
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
@@ -252,6 +172,7 @@ function bootstrap_optimize_single_p_QL(
 		tfit = optimize_multiple_single_p_QL(
 				forfit;
 				initV = aao,
+				estimate = estimate
 			)
 
 		tfit = innerjoin(tfit, pids, on = :PID)
