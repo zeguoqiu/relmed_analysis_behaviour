@@ -18,6 +18,7 @@ begin
 	using LogExpFunctions: logistic, logit
 
 	include("$(pwd())/sample_utils.jl")
+	include("$(pwd())/stats_utils.jl")
 	include("$(pwd())/plotting_utils.jl")
 	include("$(pwd())/single_p_QL.jl")
 	include("$(pwd())/fetch_preprocess_data.jl")
@@ -46,129 +47,10 @@ begin
 	set_theme!(th)
 end
 
-# ╔═╡ d7b60f28-09b1-42c0-8c95-0213590d8c5c
-# ╠═╡ disabled = true
-#=╠═╡
-# Plot prior preditctive accuracy curve
-let
-	df = rename(prior_sample, 
-		:Q_optimal => :EV_A,
-		:Q_suboptimal => :EV_B
-	)
-
-	df[!, :group] .= 1
-	
-	f = Figure(size = (700, 1000))
-
-	g_all = f[1,1] = GridLayout()
-	
-	plot_sim_q_value_acc!(
-		g_all,
-		df;
-		plw = 1,
-		legend = false,
-		acc_error_band = "PI"
-	)
-
-	Label(g_all[0,:], "All blocks", fontsize = 18, font = :bold)
-
-	g_reward = f[2,1] = GridLayout()
-	
-	plot_sim_q_value_acc!(
-		g_reward,
-		filter(x -> x.valence > 0, df);
-		plw = 1,
-		legend = false,
-		acc_error_band = "PI"
-	)
-
-	Label(g_reward[0,:], "Reward blocks", fontsize = 18, font = :bold)
-
-	g_punishment = f[3,1] = GridLayout()
-	
-	plot_sim_q_value_acc!(
-		g_punishment,
-		filter(x -> x.valence < 0, df);
-		plw = 1,
-		legend = false,
-		acc_error_band = "PI"
-	)
-
-	Label(g_punishment[0,:], "Punishment blocks", fontsize = 18, font = :bold)
-
-	save("results/single_p_QL_prior_predictive.png", f, pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
 # ╔═╡ f5113e3e-3bcf-4a92-9e76-d5eed8088320
 md"""
 ## Sampling from posterior
 """
-
-# ╔═╡ 2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
-# ╠═╡ disabled = true
-#=╠═╡
-sbc = let
-	draws_sum_file = "saved_models/sbc_single_p_QL.jld2"
-	if isfile(draws_sum_file)
-		JLD2.@load draws_sum_file sbc
-	else
-		sbc = SBC_single_p_QL(
-			filter(x -> x.PID <= 100, prior_sample);
-			initV = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])]),
-			random_seed = 0
-		) |> DataFrame
-
-		JLD2.@save draws_sum_file sbc
-	end
-
-	sbc
-end
-  ╠═╡ =#
-
-# ╔═╡ 50d88c5c-4a3f-4ded-81cf-600eddb3bbf9
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f_SBC = plot_SBC(sbc, show_n = [1], params = ["a", "ρ"])
-
-	resize!(f_SBC.scene, (700,700))
-
-	ax_cor1 = Axis(
-		f_SBC[3,1],
-		xlabel = "Posterior estimate of a",
-		ylabel = "Posterior estimate of ρ"
-	)
-
-	scatter!(
-		ax_cor1,
-		sbc.a_m,
-		sbc.ρ_m,
-		markersize = 4
-	)
-
-	ax_cor2 = Axis(
-		f_SBC[3,2],
-		xlabel = "True a",
-		ylabel = "True ρ"
-	)
-
-	scatter!(
-		ax_cor2,
-		sbc.true_a,
-		sbc.true_ρ,
-		markersize = 4
-	)
-
-
-	save("results/single_p_QL_sampling_calibration.png", f_SBC, pt_per_unit = 1)
-
-	f_SBC
-
-end
-  ╠═╡ =#
 
 # ╔═╡ 47b4f578-98ee-4ae0-8359-f4e8de5a63f1
 md"""
@@ -191,147 +73,6 @@ begin
 	nothing
 end
 
-# ╔═╡ c2e51103-b6ee-43a3-87e5-a9a2b28ed8e4
-# ╠═╡ disabled = true
-#=╠═╡
-# Overall test-retest
-let
-
-	maps = fit_split(PLT_data, x -> x.session == "1", x -> x.session == "2")
-	
-	f = reliability_scatter(
-		maps,
-		"Session 1",
-		"Session 2"
-	)
-
-	Label(f[0,:], "Test-retest reliability", fontsize = 18, font = :bold, 
-		tellwidth = false)
-
-	rowsize!(f.layout, 0, Relative(0.1))
-
-	save("results/single_p_QL_PMLE_test_retest.png", f, pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
-
-# ╔═╡ 48343b75-a0cd-4806-9867-b861b118491d
-# ╠═╡ disabled = true
-#=╠═╡
-# Overall split-half
-let
-
-	maps = fit_split(PLT_data, x -> (x.session == "1") & isodd(x.block),
-		x -> (x.session == "1") & iseven(x.block))
-	
-	f = reliability_scatter(
-		maps,
-		"Odd blocks",
-		"Even blocks"
-	)
-
-	Label(f[0,:], "Session 1 split-half correlation", fontsize = 18, font = :bold, 
-		tellwidth = false)
-
-	rowsize!(f.layout, 0, Relative(0.1))
-
-	save("results/single_p_QL_PMLE_split_half_sess1.png", f, pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
-
-# ╔═╡ 8a567ab1-db8a-47df-ac2b-59714f230ae6
-# ╠═╡ disabled = true
-#=╠═╡
-# Overall split-half session 2
-let
-
-	maps = fit_split(PLT_data, x -> (x.session == "2") & isodd(x.block),
-		x -> (x.session == "2") & iseven(x.block))
-	
-	f = reliability_scatter(
-		maps,
-		"Odd blocks",
-		"Even blocks"
-	)
-
-	Label(f[0,:], "Session 2 split-half correlation", fontsize = 18, font = :bold, 
-		tellwidth = false)
-
-	rowsize!(f.layout, 0, Relative(0.1))
-
-	save("results/single_p_QL_PMLE_split_half_sess2.png", f, pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
-
-# ╔═╡ 0a151f69-f59e-48ae-8fc2-46a455e4f049
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_condition(
-		PLT_data,
-		x -> x.session == "1",
-		x -> x.session == "2",
-		"Test-retest",
-		"Session 1",
-		"Session 2"
-	)
-
-	save("results/single_p_QL_PMLE_test_retest_by_condition.png", f, pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
-# ╔═╡ fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_condition(
-		PLT_data,
-		x -> (x.session == "1") & iseven(x.block),
-		x -> (x.session == "1") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 1 split-half reliability"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess1_by_condition.png", f, pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
-
-# ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_condition(
-		PLT_data,
-		x -> (x.session == "2") & iseven(x.block),
-		x -> (x.session == "2") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 2 split-half reliability"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess2_by_condition.png", f,
-		pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
 # ╔═╡ 525522d1-5ced-46f2-8c9b-3299d3cb244d
 begin
 	find_excess = x -> (x.consecutiveOptimal <= 5) | 
@@ -343,49 +84,6 @@ begin
 
 	shortened_PLT = filter(find_excess, PLT_data)
 end
-
-# ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
-# ╠═╡ disabled = true
-#=╠═╡
-let 
-	f = reliability_by_condition(
-		shortened_PLT,
-		x -> x.session == "1",
-		x -> x.session == "2",
-		"Test-retest",
-		"Session 1",
-		"Session 2";
-		supertitle = "Early stopping simulated for all"
-	)
-
-	save("results/single_p_QL_PMLE_test_retest_early_stop_by_condition.png", f, 
-		pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
-# ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_condition(
-		shortened_PLT,
-		x -> (x.session == "1") & iseven(x.block),
-		x -> (x.session == "1") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess1_early_stop_by_condition.png", f, 
-		pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
 
 # ╔═╡ a53db393-c9e7-4db3-a11d-3b244823d951
 # Different priors
@@ -565,58 +263,74 @@ function fit_split(
 
 end
 
-# ╔═╡ 976edbec-0bde-4b98-b434-7345e7ebcf95
-# Bootstrap a correlation
-function bootstrap_correlation(x, y, n_bootstrap=1000)
-	n = length(x)
-	corrs = Float64[]  # To store the bootstrap correlations
+# ╔═╡ c2e51103-b6ee-43a3-87e5-a9a2b28ed8e4
+# Overall test-retest
+let
 
-	for i in 1:n_bootstrap
-		# Resample the data with replacement
-		idxs = sample(Xoshiro(i), 1:n, n, replace=true)
-		x_resample = x[idxs]
-		y_resample = y[idxs]
-		
-		# Compute the correlation for the resampled data
-		push!(corrs, cor(x_resample, y_resample))
-	end
+	maps = fit_split(PLT_data, x -> x.session == "1", x -> x.session == "2")
+	
+	f = reliability_scatter(
+		maps,
+		"Session 1",
+		"Session 2"
+	)
 
-	return corrs
+	Label(f[0,:], "Test-retest reliability", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_test_retest.png", f, pt_per_unit = 1)
+
+	f
+
 end
 
-# ╔═╡ e992d739-bf39-4ef9-8395-079816cd94e6
-# Plot rainclouds of bootstrap correlation by category
-# Variable determines x axis placement
-# Level_id determines color and dodge
-function plot_cor_dist(
-	f::GridPosition, 
-	cat_cors::DataFrame, 
-	col::Symbol;
-	ylabel::String = "",
-	title::String = "",
-	colors = Makie.wong_colors(),
-	xticks = unique(cat_cors.variable),
-	ylimits = [nothing, nothing]
-)
+# ╔═╡ 48343b75-a0cd-4806-9867-b861b118491d
+# Overall split-half
+let
 
-	ax = Axis(
-		f,
-		xticks = (1:length(xticks), xticks),
-		ylabel = ylabel,
-		title = title,
-		limits = (nothing, nothing, ylimits[1], ylimits[2])
+	maps = fit_split(PLT_data, x -> (x.session == "1") & isodd(x.block),
+		x -> (x.session == "1") & iseven(x.block))
+	
+	f = reliability_scatter(
+		maps,
+		"Odd blocks",
+		"Even blocks"
 	)
 
-	rainclouds!(
-		ax,
-		cat_cors.variable,
-		cat_cors[!, col],
-		dodge = cat_cors.level_id,
-		color = colors[cat_cors.level_id],
-		plot_boxplots = false
+	Label(f[0,:], "Session 1 split-half correlation", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_split_half_sess1.png", f, pt_per_unit = 1)
+
+	f
+
+end
+
+# ╔═╡ 8a567ab1-db8a-47df-ac2b-59714f230ae6
+# Overall split-half session 2
+let
+
+	maps = fit_split(PLT_data, x -> (x.session == "2") & isodd(x.block),
+		x -> (x.session == "2") & iseven(x.block))
+	
+	f = reliability_scatter(
+		maps,
+		"Odd blocks",
+		"Even blocks"
 	)
 
-	return ax
+	Label(f[0,:], "Session 2 split-half correlation", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_split_half_sess2.png", f, pt_per_unit = 1)
+
+	f
 
 end
 
@@ -750,6 +464,95 @@ function reliability_by_condition(
 		)
 	end
 
+
+	f
+
+end
+
+# ╔═╡ 0a151f69-f59e-48ae-8fc2-46a455e4f049
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> x.session == "1",
+		x -> x.session == "2",
+		"Test-retest",
+		"Session 1",
+		"Session 2"
+	)
+
+	save("results/single_p_QL_PMLE_test_retest_by_condition.png", f, pt_per_unit = 1)
+
+	f
+end
+
+# ╔═╡ fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> (x.session == "1") & iseven(x.block),
+		x -> (x.session == "1") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 1 split-half reliability"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess1_by_condition.png", f, pt_per_unit = 1)
+
+	f
+
+end
+
+# ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> (x.session == "2") & iseven(x.block),
+		x -> (x.session == "2") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 2 split-half reliability"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess2_by_condition.png", f,
+		pt_per_unit = 1)
+
+	f
+end
+
+# ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
+let 
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> x.session == "1",
+		x -> x.session == "2",
+		"Test-retest",
+		"Session 1",
+		"Session 2";
+		supertitle = "Early stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_test_retest_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+
+# ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
+let
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> (x.session == "1") & iseven(x.block),
+		x -> (x.session == "1") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess1_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
 
 	f
 
@@ -1085,89 +888,6 @@ let
 	f
 end
 
-# ╔═╡ f71973b1-51eb-4f37-afc7-c39ad236197e
-function bootstrap_fit(
-	PLT_data::DataFrame;
-	n_bootstrap::Int64 = 20)
-	
-		# Initial value for Q values
-	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-
-	prolific_pids = sort(unique(PLT_data.prolific_pid))
-
-	bootstraps = []
-
-	for i in 1:n_bootstrap
-		
-		# Resample the data with replacement
-		idxs = sample(Xoshiro(i), prolific_pids, length(prolific_pids), replace=true)
-
-		tdata = filter(x -> x.prolific_pid in prolific_pids, PLT_data)
-
-		forfit, pids = prepare_for_fit(PLT_data)
-		
-		tfit = optimize_multiple_single_p_QL(
-				forfit;
-				initV = aao,
-			)
-
-		tfit = innerjoin(tfit, pids, on = :PID)
-
-		tfit[!, :bootstrap_idx] .= i
-		
-		# Compute the correlation for the resampled data
-		push!(bootstraps, tfit)
-	end
-
-	return vcat(bootstraps...)
-
-end
-
-# ╔═╡ e6e64192-b466-4782-a9ba-9430bea21cad
-bs_fit = bootstrap_fit(
-	PLT_data
-)
-
-# ╔═╡ bd718433-a5d7-4780-8cae-de623573e295
-describe(bs_fit)
-
-# ╔═╡ 0cbd611e-335e-4ebc-aa56-2722b42bab1f
-function simulate_from_posterior_single_p_QL(
-	bootstrap::DataFrameRow, # DataFrameRow containinng parameters and condition
-	task, # Task structure for condition,
-	random_seed::Int64
-) 
-
-	# Initial value for Q values
-	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-
-	block = task.block
-	valence = task.valence
-	outcomes = task.outcomes
-
-	post_model = single_p_QL(
-		N = length(block),
-		n_blocks = maximum(block),
-		block = block,
-		valence = valence,
-		choice = fill(missing, length(block)),
-		outcomes = outcomes,
-		initV = fill(aao, 1, 2)
-	)
-	
-	chn = Chains([bootstrap.a bootstrap.ρ], [:a, :ρ])
-
-	choice = predict(Xoshiro(random_seed), post_model, chn)[1, :, 1] |> Array |> vec
-	
-	ppc = insertcols(task.task, 
-		:isOptimal => choice,
-		:bootstrap_idx => fill(bootstrap.bootstrap_idx, length(choice)),
-		:prolific_pid => fill(bootstrap.prolific_pid, length(choice))
-	)
-	
-
-end
-
 # ╔═╡ a59e36b3-15b3-494c-a076-b3eade2cc315
 function plot_q_learning_ppc_accuracy(
 	data::DataFrame,
@@ -1263,6 +983,59 @@ begin
 	describe(prior_sample)
 end
 
+# ╔═╡ d7b60f28-09b1-42c0-8c95-0213590d8c5c
+# Plot prior preditctive accuracy curve
+let
+	df = rename(prior_sample, 
+		:Q_optimal => :EV_A,
+		:Q_suboptimal => :EV_B
+	)
+
+	df[!, :group] .= 1
+	
+	f = Figure(size = (700, 1000))
+
+	g_all = f[1,1] = GridLayout()
+	
+	plot_sim_q_value_acc!(
+		g_all,
+		df;
+		plw = 1,
+		legend = false,
+		acc_error_band = "PI"
+	)
+
+	Label(g_all[0,:], "All blocks", fontsize = 18, font = :bold)
+
+	g_reward = f[2,1] = GridLayout()
+	
+	plot_sim_q_value_acc!(
+		g_reward,
+		filter(x -> x.valence > 0, df);
+		plw = 1,
+		legend = false,
+		acc_error_band = "PI"
+	)
+
+	Label(g_reward[0,:], "Reward blocks", fontsize = 18, font = :bold)
+
+	g_punishment = f[3,1] = GridLayout()
+	
+	plot_sim_q_value_acc!(
+		g_punishment,
+		filter(x -> x.valence < 0, df);
+		plw = 1,
+		legend = false,
+		acc_error_band = "PI"
+	)
+
+	Label(g_punishment[0,:], "Punishment blocks", fontsize = 18, font = :bold)
+
+	save("results/single_p_QL_prior_predictive.png", f, pt_per_unit = 1)
+
+	f
+end
+
 # ╔═╡ 9477b295-ada5-46cf-b2e3-2c1303873081
 # Sample from posterior and plot for single participant
 begin
@@ -1307,6 +1080,63 @@ begin
 	save("results/single_p_QL_example_posterior.png", f_one_posterior, pt_per_unit = 1)
 end
 
+# ╔═╡ 2afaba84-49b6-4770-a3bb-6e8e4c8be4ba
+sbc = let
+	draws_sum_file = "saved_models/sbc_single_p_QL.jld2"
+	if isfile(draws_sum_file)
+		JLD2.@load draws_sum_file sbc
+	else
+		sbc = SBC_single_p_QL(
+			filter(x -> x.PID <= 100, prior_sample);
+			initV = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])]),
+			random_seed = 0
+		) |> DataFrame
+
+		JLD2.@save draws_sum_file sbc
+	end
+
+	sbc
+end
+
+# ╔═╡ 50d88c5c-4a3f-4ded-81cf-600eddb3bbf9
+let
+	f_SBC = plot_SBC(sbc, show_n = [1], params = ["a", "ρ"])
+
+	resize!(f_SBC.scene, (700,700))
+
+	ax_cor1 = Axis(
+		f_SBC[3,1],
+		xlabel = "Posterior estimate of a",
+		ylabel = "Posterior estimate of ρ"
+	)
+
+	scatter!(
+		ax_cor1,
+		sbc.a_m,
+		sbc.ρ_m,
+		markersize = 4
+	)
+
+	ax_cor2 = Axis(
+		f_SBC[3,2],
+		xlabel = "True a",
+		ylabel = "True ρ"
+	)
+
+	scatter!(
+		ax_cor2,
+		sbc.true_a,
+		sbc.true_ρ,
+		markersize = 4
+	)
+
+
+	save("results/single_p_QL_sampling_calibration.png", f_SBC, pt_per_unit = 1)
+
+	f_SBC
+
+end
+
 # ╔═╡ 1d982252-c9ac-4925-9cd5-976456d32bc4
 let
 	f = optimization_calibration(
@@ -1333,7 +1163,8 @@ let
 	f
 end
 
-# ╔═╡ f7ea9611-07ff-4ec5-ac28-e9afb623f175
+# ╔═╡ 594b27ed-4bde-4dae-b4ef-9abc67bf699c
+# Simulate multiple participants from (bootstrapped) posterior
 function simulate_multiple_from_posterior_single_p_QL(
 	bootstraps::DataFrame
 )
@@ -1366,13 +1197,15 @@ function simulate_multiple_from_posterior_single_p_QL(
 	
 end
 
-# ╔═╡ 63e1eed1-88d4-4867-b7b1-811650503669
-ppc = simulate_multiple_from_posterior_single_p_QL(bs_fit)
 
-# ╔═╡ 9342c7f5-3af6-456a-867f-1fc45faa2c58
+# ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
 plot_q_learning_ppc_accuracy(
 	PLT_data,
-	ppc
+	simulate_multiple_from_posterior_single_p_QL(
+		bootstrap_optimize_single_p_QL(
+			PLT_data
+		)
+	)
 )
 
 # ╔═╡ Cell order:
@@ -1404,17 +1237,10 @@ plot_q_learning_ppc_accuracy(
 # ╠═80ae54ff-b9d2-4c30-8f62-4b7cac65201b
 # ╠═60866598-8564-4dd7-987c-fb74d3f3fc64
 # ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
+# ╠═33fc2f8e-87d0-4e9e-9f99-8769600f3d25
 # ╠═de41a8c1-fc09-4c33-b371-4d835a0a46ce
-# ╠═976edbec-0bde-4b98-b434-7345e7ebcf95
-# ╠═e992d739-bf39-4ef9-8395-079816cd94e6
 # ╠═2239dd1c-1975-46b4-b270-573efd454c04
 # ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
-# ╠═f71973b1-51eb-4f37-afc7-c39ad236197e
-# ╠═e6e64192-b466-4782-a9ba-9430bea21cad
-# ╠═bd718433-a5d7-4780-8cae-de623573e295
-# ╠═f7ea9611-07ff-4ec5-ac28-e9afb623f175
-# ╠═0cbd611e-335e-4ebc-aa56-2722b42bab1f
-# ╠═63e1eed1-88d4-4867-b7b1-811650503669
-# ╠═9342c7f5-3af6-456a-867f-1fc45faa2c58
 # ╠═a59e36b3-15b3-494c-a076-b3eade2cc315
+# ╠═594b27ed-4bde-4dae-b4ef-9abc67bf699c
 # ╠═2d01d335-6057-4e8d-8442-e1c2ccd21d20

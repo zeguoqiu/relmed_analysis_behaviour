@@ -833,3 +833,38 @@ function optimization_calibration(
 
 	f
 end
+
+# Plot rainclouds of bootstrap correlation by category
+# Variable determines x axis placement
+# Level_id determines color and dodge
+function plot_cor_dist(
+	f::GridPosition, 
+	cat_cors::DataFrame, 
+	col::Symbol;
+	ylabel::String = "",
+	title::String = "",
+	colors = Makie.wong_colors(),
+	xticks = unique(cat_cors.variable),
+	ylimits = [nothing, nothing]
+)
+
+	ax = Axis(
+		f,
+		xticks = (1:length(xticks), xticks),
+		ylabel = ylabel,
+		title = title,
+		limits = (nothing, nothing, ylimits[1], ylimits[2])
+	)
+
+	rainclouds!(
+		ax,
+		cat_cors.variable,
+		cat_cors[!, col],
+		dodge = cat_cors.level_id,
+		color = colors[cat_cors.level_id],
+		plot_boxplots = false
+	)
+
+	return ax
+
+end

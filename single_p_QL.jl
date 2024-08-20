@@ -229,6 +229,42 @@ function optimize_multiple_single_p_QL(
 	return DataFrame(ests)
 end
 
+function bootstrap_optimize_single_p_QL(
+	PLT_data::DataFrame;
+	n_bootstrap::Int64 = 20)
+	
+		# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	prolific_pids = sort(unique(PLT_data.prolific_pid))
+
+	bootstraps = []
+
+	for i in 1:n_bootstrap
+		
+		# Resample the data with replacement
+		idxs = sample(Xoshiro(i), prolific_pids, length(prolific_pids), replace=true)
+
+		tdata = filter(x -> x.prolific_pid in prolific_pids, PLT_data)
+
+		forfit, pids = prepare_for_fit(PLT_data)
+		
+		tfit = optimize_multiple_single_p_QL(
+				forfit;
+				initV = aao,
+			)
+
+		tfit = innerjoin(tfit, pids, on = :PID)
+
+		tfit[!, :bootstrap_idx] .= i
+		
+		# Compute the correlation for the resampled data
+		push!(bootstraps, tfit)
+	end
+
+	return vcat(bootstraps...)
+
+end
 
 # Sample from posterior for multiple datasets drawn for prior and summarise for simulation-based calibration
 function SBC_single_p_QL(
@@ -265,6 +301,43 @@ function SBC_single_p_QL(
 	end
 	
 	return sums
+end
+
+# Simulate choice from posterior 
+function simulate_from_posterior_single_p_QL(
+	bootstrap::DataFrameRow, # DataFrameRow containinng parameters and condition
+	task, # Task structure for condition,
+	random_seed::Int64
+) 
+
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	block = task.block
+	valence = task.valence
+	outcomes = task.outcomes
+
+	post_model = single_p_QL(
+		N = length(block),
+		n_blocks = maximum(block),
+		block = block,
+		valence = valence,
+		choice = fill(missing, length(block)),
+		outcomes = outcomes,
+		initV = fill(aao, 1, 2)
+	)
+	
+	chn = Chains([bootstrap.a bootstrap.ρ], [:a, :ρ])
+
+	choice = predict(Xoshiro(random_seed), post_model, chn)[1, :, 1] |> Array |> vec
+	
+	ppc = insertcols(task.task, 
+		:isOptimal => choice,
+		:bootstrap_idx => fill(bootstrap.bootstrap_idx, length(choice)),
+		:prolific_pid => fill(bootstrap.prolific_pid, length(choice))
+	)
+	
+
 end
 
 # Prepare pilot data for fititng with model
