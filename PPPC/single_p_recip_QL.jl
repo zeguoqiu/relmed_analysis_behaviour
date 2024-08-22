@@ -22,6 +22,7 @@ begin
 	include("$(pwd())/stats_utils.jl")
 	include("$(pwd())/plotting_utils.jl")
 	include("$(pwd())/fetch_preprocess_data.jl")
+	nothing
 end
 
 # ╔═╡ 735f2c78-b6de-4d6b-b97c-1427edb5df21
