@@ -9,8 +9,8 @@ function simulate_single_p_PILT(
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
 	initV::Matrix{Float64}, # Initial Q values
 	random_seed::Union{Int64, Nothing} = nothing,
-	σ_ρ::Float64 = 2.,
-	σ_a::Float64 = 1.
+	prior_ρ::Distribution,
+	prior_a::Distribution
 )
 
 	# Total trial number
@@ -28,8 +28,8 @@ function simulate_single_p_PILT(
 		choice = fill(missing, length(block)),
 		outcomes = outcomes,
 		initV = initV,
-		σ_ρ = σ_ρ,
-		σ_a = σ_a
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
 	)
 
 	# Draw parameters and simulate choice
