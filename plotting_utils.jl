@@ -477,6 +477,8 @@ function plot_sim_group_q_values!(
 		end
 
 	end
+
+	return ax
 end
 
 function plot_sim_q_value_acc!(
@@ -492,9 +494,9 @@ function plot_sim_q_value_acc!(
     # Calcualte accuracy
     sim_dat.isOptimal = sim_dat.choice .== 1
 	
-	plot_sim_group_q_values!(f[1 + legend ,1], sim_dat; 
+	ax_q = plot_sim_group_q_values!(f[1 + legend ,1], sim_dat; 
 		legend = legend, colors = colors, backgroundcolor = backgroundcolor, plw = plw)
-	plot_group_accuracy!(f[1 + legend,2], sim_dat;
+	ax_acc = plot_group_accuracy!(f[1 + legend,2], sim_dat;
         group = :group, pid_col = :PID,
 		colors = colors, backgroundcolor = backgroundcolor, error_band = acc_error_band)
 
@@ -525,7 +527,7 @@ function plot_sim_q_value_acc!(
 		rowgap!(f.layout, 10)	
 	end
 
-	return f
+	return ax_q, ax_acc
 end
 
 # This function makes density plots for posteriors, plus true value if needed
@@ -906,7 +908,7 @@ function plot_prior_predictive_by_valence(
 
 	g_all = f[1,1] = GridLayout()
 	
-	plot_sim_q_value_acc!(
+	ax_q, ax_acc = plot_sim_q_value_acc!(
 		g_all,
 		df;
 		plw = 1,
@@ -918,7 +920,7 @@ function plot_prior_predictive_by_valence(
 
 	g_reward = f[2,1] = GridLayout()
 	
-	plot_sim_q_value_acc!(
+	ax_qr, ax_accr = plot_sim_q_value_acc!(
 		g_reward,
 		filter(x -> x.valence > 0, df);
 		plw = 1,
@@ -930,7 +932,7 @@ function plot_prior_predictive_by_valence(
 
 	g_punishment = f[3,1] = GridLayout()
 	
-	plot_sim_q_value_acc!(
+	ax_qp, ax_accp = plot_sim_q_value_acc!(
 		g_punishment,
 		filter(x -> x.valence < 0, df);
 		plw = 1,
@@ -939,6 +941,9 @@ function plot_prior_predictive_by_valence(
 	)
 
 	Label(g_punishment[0,:], "Punishment blocks", fontsize = 18, font = :bold)
+
+	linkyaxes!(ax_q, ax_qr, ax_qp)
+	linkyaxes!(ax_acc, ax_accr, ax_accp)
 
 	return f
 end
