@@ -9,8 +9,8 @@ function simulate_single_p_QL(
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
 	initV::Matrix{Float64}, # Initial Q values
 	random_seed::Union{Int64, Nothing} = nothing,
-	σ_ρ::Float64 = 2.,
-	σ_a::Float64 = 1.
+	prior_ρ::Distribution,
+	prior_a::Distribution
 )
 	return sim_data = simulate_single_p_PILT(
 		n;
@@ -20,8 +20,8 @@ function simulate_single_p_QL(
 		outcomes = outcomes,
 		initV = initV,
 		random_seed = random_seed,
-		σ_ρ = σ_ρ,
-		σ_a = σ_a
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
 	)
 			
 end
@@ -32,8 +32,8 @@ function posterior_sample_single_p_QL(
 	initV::Float64,
 	random_seed::Union{Int64, Nothing} = nothing,
 	iter_sampling = 1000,
-	σ_ρ::Float64 = 2.,
-	σ_a::Float64 = 1.
+	prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
+	prior_a::Distribution = Normal(0., 1)
 )
 	model = single_p_QL(;
 		N = nrow(data),
@@ -46,8 +46,8 @@ function posterior_sample_single_p_QL(
 			data.feedback_optimal,
 		),
 		initV = fill(initV, 1, 2),
-		σ_ρ = σ_ρ,
-		σ_a = σ_a
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
 	)
 
 	fit = sample(
@@ -67,8 +67,8 @@ function optimize_single_p_QL(
 	initV::Float64,
 	estimate::String = "MAP",
 	initial_params::Union{AbstractVector,Nothing}=nothing,
-	σ_ρ::Float64 = 2.,
-	σ_a::Float64 = 1.
+	prior_ρ::Distribution,
+	prior_a::Distribution
 )
 	model = single_p_QL(;
 		N = nrow(data),
@@ -81,8 +81,8 @@ function optimize_single_p_QL(
 			data.feedback_optimal,
 		),
 		initV = fill(initV, 1, 2),
-		σ_ρ = σ_ρ,
-		σ_a = σ_a
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
 	)
 
 	if estimate == "MLE"
@@ -101,8 +101,8 @@ function optimize_multiple_single_p_QL(
 	estimate::String = "MAP",
 	initial_params::Union{AbstractVector,Nothing}=[mean(truncated(Normal(0., 2.), lower = 0.)), 0.5],
 	include_true::Bool = false, # Whether to return true value if this is simulation
-	σ_ρ::Float64 = 2.,
-	σ_a::Float64 = 1.
+	prior_ρ::Distribution,
+	prior_a::Distribution
 )
 	ests = []
 	lk = ReentrantLock()
@@ -118,8 +118,8 @@ function optimize_multiple_single_p_QL(
 			initV = initV,
 			estimate = estimate,
 			initial_params = initial_params,
-			σ_ρ = σ_ρ,
-			σ_a = σ_a
+			prior_ρ = prior_ρ,
+			prior_a = prior_a
 		)
 
 		# Return
@@ -150,7 +150,9 @@ end
 function bootstrap_optimize_single_p_QL(
 	PLT_data::DataFrame;
 	n_bootstrap::Int64 = 20,
-	estimate = "MAP"
+	estimate = "MAP",
+	prior_ρ::Distribution,
+	prior_a::Distribution
 	)
 	
 		# Initial value for Q values
@@ -168,11 +170,17 @@ function bootstrap_optimize_single_p_QL(
 		tdata = filter(x -> x.prolific_pid in prolific_pids, PLT_data)
 
 		forfit, pids = prepare_for_fit(PLT_data)
+
+		# Randomly sample initial parameters
+		initial_params = [rand(truncated(Normal(0., 5.), lower = 0.)), rand(Normal(0., 1.))]
 		
 		tfit = optimize_multiple_single_p_QL(
 				forfit;
 				initV = aao,
-				estimate = estimate
+				estimate = estimate,
+				initial_params = initial_params,
+				prior_ρ = prior_ρ,
+				prior_a = prior_a
 			)
 
 		tfit = innerjoin(tfit, pids, on = :PID)
@@ -193,8 +201,8 @@ function SBC_single_p_QL(
 	initV::Float64,
 	random_seed::Union{Int64, Nothing} = nothing,
 	iter_sampling = 500,
-	σ_ρ::Float64 = 2.,
-	σ_a::Float64 = 1.
+	prior_ρ::Distribution,
+	prior_a::Distribution
 )
 
 	sums = []
@@ -206,8 +214,8 @@ function SBC_single_p_QL(
 			initV = initV,
 			random_seed = random_seed,
 			iter_sampling = iter_sampling,
-			σ_ρ = σ_ρ,
-			σ_a = σ_a
+			prior_ρ = prior_ρ,
+			prior_a = prior_a
 		)
 
 		push!(
@@ -264,7 +272,7 @@ end
 # Prepare pilot data for fititng with model
 function prepare_for_fit(data)
 
-	forfit = select(data, [:prolific_pid, :condition, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :chosenOutcome, :isOptimal])
+	forfit = select(data, [:prolific_pid, :condition, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :isOptimal])
 
 	rename!(forfit, :isOptimal => :choice)
 
