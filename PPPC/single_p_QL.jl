@@ -65,7 +65,9 @@ begin
 			valence = task.valence,
 			outcomes = task.outcomes,
 			initV = fill(aao, 1, 2),
-			random_seed = 0
+			random_seed = 0,
+			prior_ρ = truncated(Normal(0., 2.), lower = 0.),
+			prior_a = Normal()
 		)
 	
 	
@@ -77,12 +79,6 @@ begin
 	end
 
 	describe(prior_sample)
-end
-
-# ╔═╡ b09277d9-5184-42bf-9e1a-ad242308904b
-let
-	EV_cols = ["Q_optimal", "Q_suboptimal"]
-	[c => Symbol("EV_$(('A':'Z')[i])") for (i, c) in enumerate(EV_cols)]
 end
 
 # ╔═╡ 069177a1-d078-4d3c-bfa3-1bef04065d89
@@ -218,7 +214,9 @@ let
 	f = optimization_calibration(
 		prior_sample,
 		optimize_multiple_single_p_QL,
-		estimate = "MLE"
+		estimate = "MLE",
+		prior_ρ = missing,
+		prior_a = missing
 	)
 
 	save("results/single_p_QL_MLE_calibration.png", f, pt_per_unit = 1)
@@ -231,7 +229,9 @@ let
 	f = optimization_calibration(
 		prior_sample,
 		optimize_multiple_single_p_QL;
-		estimate = "MAP"
+		estimate = "MAP",
+		prior_ρ = truncated(Normal(0., 2.), lower = 0.),
+		prior_a = Normal(0., 10.)
 	)
 
 	save("results/single_p_QL_PMLE_calibration.png", f, pt_per_unit = 1)
@@ -396,9 +396,6 @@ let
 
 	
 end
-
-# ╔═╡ 15bfde49-7b68-40fe-bebe-7a8b5c27e27e
-typeof(single_p_QL)
 
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
@@ -1169,11 +1166,50 @@ f = plot_q_learning_ppc_accuracy(
 		)
 	)
 
+# ╔═╡ 15bfde49-7b68-40fe-bebe-7a8b5c27e27e
+let
+	task = task_vars_for_condition("00")
+
+	participants = DataFrame(
+		a = rand(Normal(0., 0.1), 100), 
+		ρ = rand(truncated(Normal(5., 0.5), lower = 0), 100), 
+		bootstrap_idx = 1:100, 
+		prolific_pid = 1:100,
+		condition = fill("00", 100)
+	)
+
+	data = simulate_multiple_from_posterior_single_p_QL(
+		participants
+	) 
+
+	data = leftjoin(data, participants[!, Not(:bootstrap_idx)], on = :prolific_pid)
+
+	rename!(data,
+		:optimal_right => :optimalRight,
+		:feedback_left => :outcomeLeft,
+		:feedback_right => :outcomeRight
+	)
+
+
+	bootstraps = bootstrap_optimize_single_p_QL(
+				data;
+				estimate = "MLE"
+			)
+
+
+
+
+	# plot_q_learning_ppc_accuracy(
+	# 	data,
+	# 	data	
+	# )
+
+end
+
 # ╔═╡ Cell order:
 # ╠═fb94ad20-57e0-11ef-2dae-b16d3d00e329
 # ╠═261d0d08-10b9-4111-9fc8-bb84e6b4cef5
 # ╠═fa79c576-d4c9-4c42-b5df-66d886e8abe4
-# ╠═b09277d9-5184-42bf-9e1a-ad242308904b
 # ╠═069177a1-d078-4d3c-bfa3-1bef04065d89
 # ╟─f5113e3e-3bcf-4a92-9e76-d5eed8088320
 # ╠═9477b295-ada5-46cf-b2e3-2c1303873081
