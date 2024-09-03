@@ -408,7 +408,9 @@ aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 function bootstrap_fit(
 	PLT_data::AbstractDataFrame;
 	n_bootstraps::Int64 = 20,
-	initV::Float64 = aao
+	initV::Float64 = aao,
+	prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
+	prior_a::Distribution = Normal()
 ) 
 	forfit, pids = prepare_for_fit(PLT_data)
 
@@ -416,8 +418,8 @@ function bootstrap_fit(
 		forfit;
 		initV = initV,
 		estimate = "MAP",
-		prior_ρ = truncated(Normal(0., 2.), lower = 0.),
-		prior_a = Normal()
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
 	)
 
 	bootstraps = vcat([insertcols(
