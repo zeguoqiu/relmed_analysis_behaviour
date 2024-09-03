@@ -291,13 +291,15 @@ penlaties_fits = let
 		fit1 = optimize_multiple_single_p_QL(
 			data1;
 			initV = aao,
-			σ_ρ = σ_ρ
+			prior_ρ = truncated(Normal(0., σ_ρ), lower = 0.),
+			prior_a = Normal(0., σ_a)
 		)
 	
 		fit2 = optimize_multiple_single_p_QL(
 			data2;
 			initV = aao,
-			σ_ρ = σ_a
+			prior_ρ = truncated(Normal(0., σ_ρ), lower = 0.),
+			prior_a = Normal(0., σ_a)
 		)
 	
 		maps = join_split_fits(
@@ -330,14 +332,6 @@ penlaties_fits = let
 	]
 	
 	fits = DataFrame(fits)
-
-end
-
-# ╔═╡ a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
-best_penalties = let 
-	penlaties_fits.sum_r_sq = penlaties_fits.cor_a .^ 2 + penlaties_fits.cor_ρ .^2
-
-	max_fit = filter(x -> x.sum_r_sq == maximum(penlaties_fits.sum_r_sq), penlaties_fits)
 
 end
 
@@ -395,6 +389,16 @@ let
 	f
 
 	
+end
+
+# ╔═╡ 8ebaeb8e-e760-4f9e-a6bc-e3ecf44e6665
+best_penalties = let
+       penlaties_fits.avg_r_sq = 
+		   (penlaties_fits.cor_a .^ 2 + penlaties_fits.cor_ρ .^2) / 2
+
+       max_fit = 
+		   filter(x -> x.avg_r_sq == maximum(penlaties_fits.avg_r_sq), 
+			   penlaties_fits)
 end
 
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
@@ -1233,8 +1237,8 @@ end
 # ╠═3a8f569d-0d8e-4020-9023-a123cad9d5de
 # ╠═10565355-90ae-419c-9b92-8ff18fcd48b3
 # ╠═a53db393-c9e7-4db3-a11d-3b244823d951
-# ╠═a0c99fd5-38fa-4117-be5d-c3eb7fd0ce5f
 # ╠═a88ffe29-f0f4-4eb7-8fc3-a7fcc08560d0
+# ╠═8ebaeb8e-e760-4f9e-a6bc-e3ecf44e6665
 # ╠═80ae54ff-b9d2-4c30-8f62-4b7cac65201b
 # ╠═60866598-8564-4dd7-987c-fb74d3f3fc64
 # ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
