@@ -405,15 +405,46 @@ end
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
 # ╔═╡ 5ebdc7b1-1c94-425d-9e08-0fc7da8cdc34
-function bootstrap_fit(
+"""
+bootstrap_optimize_single_p_QL(
+    PLT_data::AbstractDataFrame;
+    n_bootstraps::Int64 = 20,
+    initV::Float64 = aao,
+    prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
+    prior_a::Distribution = Normal()
+) -> AbstractDataFrame
+
+Bootstrap participant parameters from a Q-Learning model.
+
+# Arguments
+- `PLT_data::AbstractDataFrame`: The input data containing participant-level trial information. Must be a DataFrame or similar structure.
+- `n_bootstraps::Int64`: The number of bootstrap samples to generate. Defaults to 20.
+- `initV::Float64`: Initial value for the optimization procedure, with a default value `aao`.
+- `prior_ρ::Distribution`: The prior distribution for the parameter `ρ`, defaulting to a truncated normal distribution `Normal(0., 2.)` with a lower bound of 0.
+- `prior_a::Distribution`: The prior distribution for the parameter `a`, defaulting to a standard normal distribution `Normal()`.
+
+# Returns
+- `bootstraps::AbstractDataFrame`: A DataFrame containing the results of the optimization, with additional bootstrap indices for each sample.
+
+# Description
+The function first prepares the input `PLT_data` for fitting by transforming it as necessary. It then performs an optimization using the `optimize_multiple_single_p_QL` function, leveraging Maximum A Posteriori (MAP) estimation with the specified priors. After fitting, the results are joined with additional participant identifiers (`pids`) using an `innerjoin` on the `PID` column, adding extra information such as condition and prolific_pid.
+
+The function then generates bootstrap samples by sampling the rows of the joined data with replacement, appending a `bootstrap_idx` column to indicate the bootstrap iteration. 
+
+The returned DataFrame contains all bootstrap samples concatenated together, allowing for further analysis of the variability in the fit results.
+"""
+function bootstrap_optimize_single_p_QL2(
 	PLT_data::AbstractDataFrame;
 	n_bootstraps::Int64 = 20,
 	initV::Float64 = aao,
 	prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
 	prior_a::Distribution = Normal()
 ) 
+
+	# Prepare data for fit
 	forfit, pids = prepare_for_fit(PLT_data)
 
+	# Fit
 	fit = optimize_multiple_single_p_QL(
 		forfit;
 		initV = initV,
@@ -422,6 +453,10 @@ function bootstrap_fit(
 		prior_a = prior_a
 	)
 
+	# Add condition and prolific_pid
+	fit = innerjoin(fit, pids, on = :PID)
+
+	# Sample participants and add bootstrap id
 	bootstraps = vcat([insertcols(
 		fit[sample(Xoshiro(i), 1:nrow(fit), nrow(fit), replace=true), :],
 		:bootstrap_idx => i
@@ -1141,6 +1176,46 @@ function plot_q_learning_ppc_accuracy(
 end
 
 
+# ╔═╡ 7fb68a69-1be8-45a7-acd2-d36719697528
+function simulate_from_posterior_single_p_QL(
+	bootstrap::DataFrameRow, # DataFrameRow containinng parameters and condition
+	task, # Task structure for condition,
+	random_seed::Int64
+) 
+
+	# Initial value for Q values
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+	block = task.block
+	valence = task.valence
+	outcomes = task.outcomes
+
+	post_model = single_p_QL(
+		N = length(block),
+		n_blocks = maximum(block),
+		block = block,
+		valence = valence,
+		choice = fill(missing, length(block)),
+		outcomes = outcomes,
+		initV = fill(aao, 1, 2),
+		prior_ρ = Normal(-.99), # Prior doesn't matter in posterior simulation
+		prior_a = Normal(-.99)
+	)
+	
+	chn = Chains([bootstrap.a bootstrap.ρ], [:a, :ρ])
+
+	choice = predict(Xoshiro(random_seed), post_model, chn)[1, :, 1] |> Array |> vec
+	
+	ppc = insertcols(task.task, 
+		:isOptimal => choice,
+		:bootstrap_idx => fill(bootstrap.bootstrap_idx, length(choice)),
+		:prolific_pid => fill(bootstrap.prolific_pid, length(choice))
+	)
+	
+
+end
+
+
 # ╔═╡ 594b27ed-4bde-4dae-b4ef-9abc67bf699c
 # Simulate multiple participants from (bootstrapped) posterior
 function simulate_multiple_from_posterior_single_p_QL(
@@ -1181,18 +1256,20 @@ let
 	f = plot_q_learning_ppc_accuracy(
 		PLT_data,
 		simulate_multiple_from_posterior_single_p_QL(
-			bootstrap_optimize_single_p_QL(
+			bootstrap_optimize_single_p_QL2(
 				PLT_data
 			)
 		)
 	)
 
-	save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
-		pt_per_unit = 1)
+	# save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
+	# 	pt_per_unit = 1)
 	f
 end
 
 # ╔═╡ db3cd8d3-5e46-48c6-b85d-f4d302fff690
+# ╠═╡ disabled = true
+#=╠═╡
 f = plot_q_learning_ppc_accuracy(
 		PLT_data,
 		simulate_multiple_from_posterior_single_p_QL(
@@ -1202,6 +1279,7 @@ f = plot_q_learning_ppc_accuracy(
 			)
 		)
 	)
+  ╠═╡ =#
 
 # ╔═╡ 15bfde49-7b68-40fe-bebe-7a8b5c27e27e
 let
@@ -1282,3 +1360,4 @@ end
 # ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
 # ╠═a59e36b3-15b3-494c-a076-b3eade2cc315
 # ╠═594b27ed-4bde-4dae-b4ef-9abc67bf699c
+# ╠═7fb68a69-1be8-45a7-acd2-d36719697528
