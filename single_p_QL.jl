@@ -67,8 +67,8 @@ function optimize_single_p_QL(
 	initV::Float64,
 	estimate::String = "MAP",
 	initial_params::Union{AbstractVector,Nothing}=nothing,
-	prior_ρ::Distribution,
-	prior_a::Distribution
+	prior_ρ::Union{Distribution, Missing},
+	prior_a::Union{Distribution, Missing}
 )
 	model = single_p_QL(;
 		N = nrow(data),
@@ -81,8 +81,8 @@ function optimize_single_p_QL(
 			data.feedback_optimal,
 		),
 		initV = fill(initV, 1, 2),
-		prior_ρ = prior_ρ,
-		prior_a = prior_a
+		prior_ρ = estimate == "MAP" ? prior_ρ : Normal(), ## For MLE, prior is meaningless
+		prior_a = estimate == "MAP" ? prior_a : Normal()
 	)
 
 	if estimate == "MLE"
@@ -99,11 +99,14 @@ function optimize_multiple_single_p_QL(
 	data::DataFrame;
 	initV::Float64,
 	estimate::String = "MAP",
-	initial_params::Union{AbstractVector,Nothing}=[mean(truncated(Normal(0., 2.), lower = 0.)), 0.5],
 	include_true::Bool = false, # Whether to return true value if this is simulation
-	prior_ρ::Distribution,
-	prior_a::Distribution
+	prior_ρ::Union{Distribution, Missing},
+	prior_a::Union{Distribution, Missing},
+	initial_params::Union{AbstractVector,Nothing}=[ismissing(prior_ρ) ? 0. : mean(prior_ρ), ismissing(prior_a) ? 0. : mean(prior_a)],
 )
+
+	@assert (estimate == "MLE") || (!ismissing(prior_ρ) && !ismissing(prior_a)) "Must supply priors"
+
 	ests = []
 	lk = ReentrantLock()
 
@@ -144,7 +147,11 @@ function optimize_multiple_single_p_QL(
 		end
 	end
 
-	return DataFrame(ests)
+	ests = DataFrame(ests)
+
+	@assert sort(unique(ests.PID)) == sort(unique(data.PID))
+
+	return sort(ests, :PID)
 end
 
 function bootstrap_optimize_single_p_QL(
