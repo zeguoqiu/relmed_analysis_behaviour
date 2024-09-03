@@ -231,7 +231,7 @@ let
 		optimize_multiple_single_p_QL;
 		estimate = "MAP",
 		prior_ρ = truncated(Normal(0., 2.), lower = 0.),
-		prior_a = Normal(0., 10.)
+		prior_a = Normal()
 	)
 
 	save("results/single_p_QL_PMLE_calibration.png", f, pt_per_unit = 1)
