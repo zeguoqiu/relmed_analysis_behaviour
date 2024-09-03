@@ -401,7 +401,10 @@ end
 function fit_split(
 	PLT_data::DataFrame,
 	filter1::Function,
-	filter2::Function
+	filter2::Function,
+	prior_ρ::Union{Distribution, Missing} = truncated(Normal(0., 2.), lower = 0.),
+	prior_a::Union{Distribution, Missing} = Normal()
+
 )
 	forfit1, pids1 = 
 		prepare_for_fit(filter(filter1, PLT_data))
@@ -415,15 +418,15 @@ function fit_split(
 	maps1 = optimize_multiple_single_p_QL(
 		forfit1;
 		initV = aao,
-		σ_ρ = 1.,
-		σ_a = 0.5
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
 	)
 
 	maps2 = optimize_multiple_single_p_QL(
 		forfit2;
 		initV = aao,
-		σ_ρ = 1.,
-		σ_a = 0.5
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
 	)
 
 	# Join
