@@ -401,6 +401,34 @@ best_penalties = let
 			   penlaties_fits)
 end
 
+# ╔═╡ c6558729-ed5b-440b-8e59-e69071b26f09
+aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
+
+# ╔═╡ 5ebdc7b1-1c94-425d-9e08-0fc7da8cdc34
+function bootstrap_fit(
+	PLT_data::AbstractDataFrame;
+	n_bootstraps::Int64 = 20,
+	initV::Float64 = aao
+) 
+	forfit, pids = prepare_for_fit(PLT_data)
+
+	fit = optimize_multiple_single_p_QL(
+		forfit;
+		initV = initV,
+		estimate = "MAP",
+		prior_ρ = truncated(Normal(0., 2.), lower = 0.),
+		prior_a = Normal()
+	)
+
+	bootstraps = vcat([insertcols(
+		fit[sample(Xoshiro(i), 1:nrow(fit), nrow(fit), replace=true), :],
+		:bootstrap_idx => i
+	) for i in 1:n_bootstraps]...)
+
+	return bootstraps
+
+end
+
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
 	PLT_data::DataFrame,
@@ -1242,6 +1270,8 @@ end
 # ╠═80ae54ff-b9d2-4c30-8f62-4b7cac65201b
 # ╠═60866598-8564-4dd7-987c-fb74d3f3fc64
 # ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
+# ╠═5ebdc7b1-1c94-425d-9e08-0fc7da8cdc34
+# ╠═c6558729-ed5b-440b-8e59-e69071b26f09
 # ╠═33fc2f8e-87d0-4e9e-9f99-8769600f3d25
 # ╠═db3cd8d3-5e46-48c6-b85d-f4d302fff690
 # ╠═15bfde49-7b68-40fe-bebe-7a8b5c27e27e
