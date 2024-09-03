@@ -404,67 +404,19 @@ end
 # ╔═╡ c6558729-ed5b-440b-8e59-e69071b26f09
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
-# ╔═╡ 5ebdc7b1-1c94-425d-9e08-0fc7da8cdc34
-"""
-bootstrap_optimize_single_p_QL(
-    PLT_data::AbstractDataFrame;
-    n_bootstraps::Int64 = 20,
-    initV::Float64 = aao,
-    prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
-    prior_a::Distribution = Normal()
-) -> AbstractDataFrame
-
-Bootstrap participant parameters from a Q-Learning model.
-
-# Arguments
-- `PLT_data::AbstractDataFrame`: The input data containing participant-level trial information. Must be a DataFrame or similar structure.
-- `n_bootstraps::Int64`: The number of bootstrap samples to generate. Defaults to 20.
-- `initV::Float64`: Initial value for the optimization procedure, with a default value `aao`.
-- `prior_ρ::Distribution`: The prior distribution for the parameter `ρ`, defaulting to a truncated normal distribution `Normal(0., 2.)` with a lower bound of 0.
-- `prior_a::Distribution`: The prior distribution for the parameter `a`, defaulting to a standard normal distribution `Normal()`.
-
-# Returns
-- `bootstraps::AbstractDataFrame`: A DataFrame containing the results of the optimization, with additional bootstrap indices for each sample.
-
-# Description
-The function first prepares the input `PLT_data` for fitting by transforming it as necessary. It then performs an optimization using the `optimize_multiple_single_p_QL` function, leveraging Maximum A Posteriori (MAP) estimation with the specified priors. After fitting, the results are joined with additional participant identifiers (`pids`) using an `innerjoin` on the `PID` column, adding extra information such as condition and prolific_pid.
-
-The function then generates bootstrap samples by sampling the rows of the joined data with replacement, appending a `bootstrap_idx` column to indicate the bootstrap iteration. 
-
-The returned DataFrame contains all bootstrap samples concatenated together, allowing for further analysis of the variability in the fit results.
-"""
-function bootstrap_optimize_single_p_QL2(
-	PLT_data::AbstractDataFrame;
-	n_bootstraps::Int64 = 20,
-	initV::Float64 = aao,
-	prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
-	prior_a::Distribution = Normal()
-) 
-
-	# Prepare data for fit
-	forfit, pids = prepare_for_fit(PLT_data)
-
-	# Fit
-	fit = optimize_multiple_single_p_QL(
-		forfit;
-		initV = initV,
-		estimate = "MAP",
-		prior_ρ = prior_ρ,
-		prior_a = prior_a
+# ╔═╡ db3cd8d3-5e46-48c6-b85d-f4d302fff690
+# ╠═╡ disabled = true
+#=╠═╡
+f = plot_q_learning_ppc_accuracy(
+		PLT_data,
+		simulate_multiple_from_posterior_single_p_QL(
+			bootstrap_optimize_single_p_QL(
+				PLT_data;
+				estimate = "MLE"
+			)
+		)
 	)
-
-	# Add condition and prolific_pid
-	fit = innerjoin(fit, pids, on = :PID)
-
-	# Sample participants and add bootstrap id
-	bootstraps = vcat([insertcols(
-		fit[sample(Xoshiro(i), 1:nrow(fit), nrow(fit), replace=true), :],
-		:bootstrap_idx => i
-	) for i in 1:n_bootstraps]...)
-
-	return bootstraps
-
-end
+  ╠═╡ =#
 
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
@@ -1253,11 +1205,13 @@ end
 
 # ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
 let
+	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 	f = plot_q_learning_ppc_accuracy(
 		PLT_data,
 		simulate_multiple_from_posterior_single_p_QL(
-			bootstrap_optimize_single_p_QL2(
-				PLT_data
+			bootstrap_optimize_single_p_QL(
+				PLT_data,
+				initV = aao
 			)
 		)
 	)
@@ -1266,20 +1220,6 @@ let
 	# 	pt_per_unit = 1)
 	f
 end
-
-# ╔═╡ db3cd8d3-5e46-48c6-b85d-f4d302fff690
-# ╠═╡ disabled = true
-#=╠═╡
-f = plot_q_learning_ppc_accuracy(
-		PLT_data,
-		simulate_multiple_from_posterior_single_p_QL(
-			bootstrap_optimize_single_p_QL(
-				PLT_data;
-				estimate = "MLE"
-			)
-		)
-	)
-  ╠═╡ =#
 
 # ╔═╡ 15bfde49-7b68-40fe-bebe-7a8b5c27e27e
 let
@@ -1350,7 +1290,6 @@ end
 # ╠═80ae54ff-b9d2-4c30-8f62-4b7cac65201b
 # ╠═60866598-8564-4dd7-987c-fb74d3f3fc64
 # ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
-# ╠═5ebdc7b1-1c94-425d-9e08-0fc7da8cdc34
 # ╠═c6558729-ed5b-440b-8e59-e69071b26f09
 # ╠═33fc2f8e-87d0-4e9e-9f99-8769600f3d25
 # ╠═db3cd8d3-5e46-48c6-b85d-f4d302fff690
