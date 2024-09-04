@@ -404,6 +404,28 @@ end
 # ╔═╡ c6558729-ed5b-440b-8e59-e69071b26f09
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
+# ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
+let
+	# f = plot_q_learning_ppc_accuracy(
+	# 	PLT_data,
+	# 	simulate_multiple_from_posterior_single_p_QL(
+	describe(
+			bootstrap_optimize_single_p_QL(
+				PLT_data,
+				initV = aao,
+				estimate = "MLE"
+			)
+		)
+	# )
+
+	# save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
+	# 	pt_per_unit = 1)
+	# f
+end
+
+# ╔═╡ b804ca32-b277-45b1-a1c2-442f1d2b9c5e
+a2α(0.370208)
+
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
 	PLT_data::DataFrame,
@@ -1080,16 +1102,16 @@ let
 	f
 end
 
-# ╔═╡ a59e36b3-15b3-494c-a076-b3eade2cc315
-function plot_q_learning_ppc_accuracy(
+# ╔═╡ 756cfa2f-bb56-4eda-ab1a-db509082ae3f
+function plot_q_learning_ppc_accuracy!(
+	f::GridPosition,
 	data::DataFrame,
 	ppc::DataFrame;
 	title::String = ""
 )
 
-	f_acc = Figure()
 
-	ax = Axis(f_acc[1,1],
+	ax = Axis(f,
         xlabel = "Trial #",
         ylabel = "Prop. optimal choice",
         xautolimitmargin = (0., 0.),
@@ -1101,7 +1123,7 @@ function plot_q_learning_ppc_accuracy(
 		group = :bootstrap_idx,
 		error_band = false,
 		linewidth = 2.,
-		colors = fill(:grey, length(unique(ppc.bootstrap_idx)))
+		colors = fill((Makie.wong_colors()[2], 0.5), length(unique(ppc.bootstrap_idx)))
 	)
 
 	# Plot data
@@ -1109,7 +1131,25 @@ function plot_q_learning_ppc_accuracy(
 		error_band = false
 	)
 
-	f_acc
+end
+
+# ╔═╡ a59e36b3-15b3-494c-a076-b3eade2cc315
+function plot_q_learning_ppc_accuracy(
+	data::DataFrame,
+	ppc::DataFrame;
+	title::String = ""
+)
+
+	f = Figure()
+
+	plot_q_learning_ppc_accuracy!(
+		f[1,1],
+		data,
+		ppc;
+		title = title
+	)
+
+	return f
 
 end
 
@@ -1189,20 +1229,20 @@ function simulate_multiple_from_posterior_single_p_QL(
 end
 
 
-# ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
+# ╔═╡ 8ff4ef4a-ee2d-470f-a133-019883df672a
 let
 	f = plot_q_learning_ppc_accuracy(
 		PLT_data,
 		simulate_multiple_from_posterior_single_p_QL(
 			bootstrap_optimize_single_p_QL(
 				PLT_data,
-				initV = aao
+				initV = aao,
+				prior_ρ = truncated(Normal(4., 0.1), lower = 0.),
+				prior_a = Normal(0.8, 0.1)
 			)
 		)
 	)
 
-	save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
-		pt_per_unit = 1)
 	f
 end
 
@@ -1219,43 +1259,216 @@ f = plot_q_learning_ppc_accuracy(
 	)
 
 # ╔═╡ 15bfde49-7b68-40fe-bebe-7a8b5c27e27e
-let
-	task = task_vars_for_condition("00")
+function plot_ppc_prior_generating_match!(
+	f::GridPosition;
+	generating_dist_ρ::Distribution,
+	generating_dist_a::Distribution,
+	estimation_prior_ρ::Distribution,
+	estimation_prior_a::Distribution,
+	title::String = "",
+	n_bootstraps::Int64 = 30,
+	condition::String = "00"
+)	
+	# Get task structure
+	task = task_vars_for_condition(condition)
 
+	# Draw participants from generating distribution
 	participants = DataFrame(
-		a = rand(Normal(0., 0.1), 100), 
-		ρ = rand(truncated(Normal(5., 0.5), lower = 0), 100), 
-		bootstrap_idx = 1:100, 
+		a = rand(generating_dist_a, 100), 
+		ρ = rand(generating_dist_ρ, 100), 
 		prolific_pid = 1:100,
+		bootstrap_idx = 1:100,
 		condition = fill("00", 100)
 	)
 
+	# Simulate data
 	data = simulate_multiple_from_posterior_single_p_QL(
 		participants
 	) 
 
+	# Join with participant parameters
 	data = leftjoin(data, participants[!, Not(:bootstrap_idx)], on = :prolific_pid)
 
+	# Prepare for bootstrap fit
 	rename!(data,
 		:optimal_right => :optimalRight,
 		:feedback_left => :outcomeLeft,
 		:feedback_right => :outcomeRight
 	)
 
-
+	# Bootstrap fit
 	bootstraps = bootstrap_optimize_single_p_QL(
-				data;
-				estimate = "MLE"
-			)
+		data;
+		initV = aao,
+		prior_ρ = estimation_prior_ρ,
+		prior_a = estimation_prior_a
+	)
+
+	# Plot PPC
+	plot_q_learning_ppc_accuracy!(
+		f,
+		data,
+		simulate_multiple_from_posterior_single_p_QL(bootstraps),
+		title = title
+	)
+
+	# Plot distributions
+	ax_prior = Axis(
+		f,
+		width = Relative(0.5),
+		height = Relative(0.5),
+		valign = 0.3,
+		halign = 1.,
+		xlabel = "ρ",
+		ylabel = "a",
+		aspect = 1
+	)
+
+	# Plot estimation
+	scatter!(
+		ax_prior,
+		rand(estimation_prior_ρ, 10000),
+		rand(estimation_prior_a, 10000),
+		markersize = 3,
+		alpha = 0.3,
+		color = Makie.wong_colors()[2]
+	)
+
+	# Plot generating
+	scatter!(
+		ax_prior,
+		rand(generating_dist_ρ, 10000),
+		rand(generating_dist_a, 10000),
+		markersize = 3,
+		alpha = 0.3,
+		color = Makie.wong_colors()[1]
+	)
+
+	return f
+end
+
+# ╔═╡ db836da7-a6ec-4340-a1a5-bdcfdc973af4
+let
+	f = Figure(size = (700, 250))
+	
+	plot_ppc_prior_generating_match!(
+		f[1,1],
+		generating_dist_ρ = truncated(Normal(0., 2.), lower = 0),
+		generating_dist_a = Normal(),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "Matching"
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[1,2],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "Within ρ"
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[1,3],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0.3, 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "Within a"
+	)
 
 
+	plot_ppc_prior_generating_match!(
+		f[1,4],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0.3, 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "Within both"
+	)
+
+	f
+
+end
+
+# ╔═╡ c45d00d0-6860-4cbc-a38f-c54d129f3b79
+let
+
+	f = Figure(size = (700, 300))
+
+	plot_ppc_prior_generating_match!(
+		f[1,1],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "ρ Prior less informative"
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[1,2],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 5.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "ρ Prior less informative"
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[1,3],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 10.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "ρ Prior less informative"
+	)
+
+	f
 
 
-	# plot_q_learning_ppc_accuracy(
-	# 	data,
-	# 	data	
-	# )
+end
 
+# ╔═╡ f4cce5eb-649f-4de6-892e-51c634622333
+let
+	f = Figure(size = (700, 300))
+	
+	plot_ppc_prior_generating_match!(
+		f[1,1],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(0., 0.5)
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[1,2],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(0., 2.)
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[1,3],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(0., 8.)
+	)
+
+	Legend(
+		f[0,:],
+		[PolyElement(color = c) for c in Makie.wong_colors()[1:2]],
+		["Data", "Model"],
+		orientation = :horizontal,
+		framevisible = false,
+		fontsize = 14
+	)
+
+	rowgap!(f.layout, 1, 5)
+	
+	f
 end
 
 # ╔═╡ Cell order:
@@ -1289,11 +1502,17 @@ end
 # ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
 # ╠═c6558729-ed5b-440b-8e59-e69071b26f09
 # ╠═33fc2f8e-87d0-4e9e-9f99-8769600f3d25
+# ╠═b804ca32-b277-45b1-a1c2-442f1d2b9c5e
+# ╠═8ff4ef4a-ee2d-470f-a133-019883df672a
 # ╠═db3cd8d3-5e46-48c6-b85d-f4d302fff690
+# ╠═db836da7-a6ec-4340-a1a5-bdcfdc973af4
+# ╠═c45d00d0-6860-4cbc-a38f-c54d129f3b79
+# ╠═f4cce5eb-649f-4de6-892e-51c634622333
 # ╠═15bfde49-7b68-40fe-bebe-7a8b5c27e27e
 # ╠═de41a8c1-fc09-4c33-b371-4d835a0a46ce
 # ╠═2239dd1c-1975-46b4-b270-573efd454c04
 # ╠═fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
 # ╠═a59e36b3-15b3-494c-a076-b3eade2cc315
+# ╠═756cfa2f-bb56-4eda-ab1a-db509082ae3f
 # ╠═594b27ed-4bde-4dae-b4ef-9abc67bf699c
 # ╠═7fb68a69-1be8-45a7-acd2-d36719697528
