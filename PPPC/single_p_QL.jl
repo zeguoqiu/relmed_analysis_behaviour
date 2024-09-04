@@ -404,20 +404,6 @@ end
 # ╔═╡ c6558729-ed5b-440b-8e59-e69071b26f09
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
-# ╔═╡ db3cd8d3-5e46-48c6-b85d-f4d302fff690
-# ╠═╡ disabled = true
-#=╠═╡
-f = plot_q_learning_ppc_accuracy(
-		PLT_data,
-		simulate_multiple_from_posterior_single_p_QL(
-			bootstrap_optimize_single_p_QL(
-				PLT_data;
-				estimate = "MLE"
-			)
-		)
-	)
-  ╠═╡ =#
-
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
 	PLT_data::DataFrame,
@@ -1205,7 +1191,6 @@ end
 
 # ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
 let
-	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 	f = plot_q_learning_ppc_accuracy(
 		PLT_data,
 		simulate_multiple_from_posterior_single_p_QL(
@@ -1216,10 +1201,22 @@ let
 		)
 	)
 
-	# save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
-	# 	pt_per_unit = 1)
+	save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
+		pt_per_unit = 1)
 	f
 end
+
+# ╔═╡ db3cd8d3-5e46-48c6-b85d-f4d302fff690
+f = plot_q_learning_ppc_accuracy(
+		PLT_data,
+		simulate_multiple_from_posterior_single_p_QL(
+			bootstrap_optimize_single_p_QL(
+				PLT_data;
+				initV = aao,
+				estimate = "MLE"
+			)
+		)
+	)
 
 # ╔═╡ 15bfde49-7b68-40fe-bebe-7a8b5c27e27e
 let

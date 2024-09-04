@@ -187,7 +187,8 @@ function bootstrap_optimize_single_p_QL(
 	n_bootstraps::Int64 = 20,
 	initV::Float64 = aao,
 	prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
-	prior_a::Distribution = Normal()
+	prior_a::Distribution = Normal(),
+	estimate::String = "MAP"
 ) 
 
 	# Prepare data for fit
@@ -197,7 +198,7 @@ function bootstrap_optimize_single_p_QL(
 	fit = optimize_multiple_single_p_QL(
 		forfit;
 		initV = initV,
-		estimate = "MAP",
+		estimate = estimate,
 		prior_ρ = prior_ρ,
 		prior_a = prior_a
 	)
