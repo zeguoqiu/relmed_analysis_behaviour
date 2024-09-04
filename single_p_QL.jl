@@ -188,11 +188,16 @@ function bootstrap_optimize_single_p_QL(
 	initV::Float64 = aao,
 	prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
 	prior_a::Distribution = Normal(),
-	estimate::String = "MAP"
+	estimate::String = "MAP",
+	real_data::Bool = true
 ) 
 
 	# Prepare data for fit
-	forfit, pids = prepare_for_fit(PLT_data)
+	if real_data
+		forfit, pids = prepare_for_fit(PLT_data)
+	else
+		forfit = copy(PLT_data)
+	end
 
 	# Fit
 	fit = optimize_multiple_single_p_QL(
