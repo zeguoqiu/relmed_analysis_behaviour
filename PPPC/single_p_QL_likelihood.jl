@@ -53,18 +53,6 @@ end
 # Initial value for Q values
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
-# ╔═╡ 55e1c4ce-9b24-4940-98bd-caedaa4574b9
-task = task_vars_for_condition("00")
-
-# ╔═╡ 56781e9a-90e7-4a6d-b712-a7e1a0799471
-issorted(task.task.block)
-
-# ╔═╡ bcc1eceb-0f2b-4c1f-8d01-7167463aa3ca
-let
-	insertcols!(task.task, :sgn => sign.(task.task.feedback_optimal))
-	task.task.valence .== task.task.sgn
-end
-
 # ╔═╡ 85bd99fc-380b-4b1d-884a-c58beba20c8c
 function random_sequence(;
 	optimal::Vector{Float64},
@@ -92,24 +80,6 @@ function random_sequence(;
 	)
 
 	return hcat(subopt_seq, opt_seq)
-end
-
-# ╔═╡ cd0da363-a73e-4fe9-96d0-6686a17c97a4
-let n_blocks = 8,
-	n_trials = 13
-	outcomes = vcat([random_sequence(
-				optimal = mgnt[2], 
-				suboptimal = mgnt[1], 
-				n_confusing = 3) for mgnt in Iterators.take(
-					Iterators.cycle(
-						[
-							([0.01], [0.5, 1.]),
-							([0.01, 0.5], [1.]),
-							([-0.5, -1.], [-0.01]),
-							([-1.], [-0.01, -0.5])
-						]
-					), n_blocks)]...)
-			valence = [sign(outcomes[i, 1]) for i in 1:n_trials:(size(outcomes,1) - n_trials + 1)]
 end
 
 # ╔═╡ b018bc38-bde2-4bff-bbc8-79e4dd81938e
@@ -599,12 +569,8 @@ end
 # ╔═╡ Cell order:
 # ╠═fefc8298-6abf-11ef-0cc9-09ed3cc4c051
 # ╠═9b998e37-49e9-427d-963a-c8beb6e2c58b
-# ╠═56781e9a-90e7-4a6d-b712-a7e1a0799471
 # ╠═93894285-d47c-49e5-9519-29ecceca4f1d
-# ╠═55e1c4ce-9b24-4940-98bd-caedaa4574b9
-# ╠═bcc1eceb-0f2b-4c1f-8d01-7167463aa3ca
 # ╠═85bd99fc-380b-4b1d-884a-c58beba20c8c
-# ╠═cd0da363-a73e-4fe9-96d0-6686a17c97a4
 # ╠═b018bc38-bde2-4bff-bbc8-79e4dd81938e
 # ╠═14e78184-fa18-4489-89d8-41dfd3044203
 # ╠═213362ac-4d9e-4dfa-b9da-b9eb23c12a29
