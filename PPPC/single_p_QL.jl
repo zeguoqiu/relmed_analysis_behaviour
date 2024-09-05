@@ -423,9 +423,6 @@ let
 	# f
 end
 
-# ╔═╡ b804ca32-b277-45b1-a1c2-442f1d2b9c5e
-a2α(0.370208)
-
 # ╔═╡ de41a8c1-fc09-4c33-b371-4d835a0a46ce
 function fit_split(
 	PLT_data::DataFrame,
@@ -1154,46 +1151,6 @@ function plot_q_learning_ppc_accuracy(
 end
 
 
-# ╔═╡ 7fb68a69-1be8-45a7-acd2-d36719697528
-function simulate_from_posterior_single_p_QL(
-	bootstrap::DataFrameRow, # DataFrameRow containinng parameters and condition
-	task, # Task structure for condition,
-	random_seed::Int64
-) 
-
-	# Initial value for Q values
-	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
-
-	block = task.block
-	valence = task.valence
-	outcomes = task.outcomes
-
-	post_model = single_p_QL(
-		N = length(block),
-		n_blocks = maximum(block),
-		block = block,
-		valence = valence,
-		choice = fill(missing, length(block)),
-		outcomes = outcomes,
-		initV = fill(aao, 1, 2),
-		prior_ρ = Normal(-.99), # Prior doesn't matter in posterior simulation
-		prior_a = Normal(-.99)
-	)
-	
-	chn = Chains([bootstrap.a bootstrap.ρ], [:a, :ρ])
-
-	choice = predict(Xoshiro(random_seed), post_model, chn)[1, :, 1] |> Array |> vec
-	
-	ppc = insertcols(task.task, 
-		:isOptimal => choice,
-		:bootstrap_idx => fill(bootstrap.bootstrap_idx, length(choice)),
-		:prolific_pid => fill(bootstrap.prolific_pid, length(choice))
-	)
-	
-
-end
-
-
 # ╔═╡ 594b27ed-4bde-4dae-b4ef-9abc67bf699c
 # Simulate multiple participants from (bootstrapped) posterior
 function simulate_multiple_from_posterior_single_p_QL(
@@ -1502,7 +1459,6 @@ end
 # ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
 # ╠═c6558729-ed5b-440b-8e59-e69071b26f09
 # ╠═33fc2f8e-87d0-4e9e-9f99-8769600f3d25
-# ╠═b804ca32-b277-45b1-a1c2-442f1d2b9c5e
 # ╠═8ff4ef4a-ee2d-470f-a133-019883df672a
 # ╠═db3cd8d3-5e46-48c6-b85d-f4d302fff690
 # ╠═db836da7-a6ec-4340-a1a5-bdcfdc973af4
@@ -1515,4 +1471,3 @@ end
 # ╠═a59e36b3-15b3-494c-a076-b3eade2cc315
 # ╠═756cfa2f-bb56-4eda-ab1a-db509082ae3f
 # ╠═594b27ed-4bde-4dae-b4ef-9abc67bf699c
-# ╠═7fb68a69-1be8-45a7-acd2-d36719697528
