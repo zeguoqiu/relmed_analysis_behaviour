@@ -102,8 +102,8 @@ begin
 			block = repeat(1:n_blocks, inner = n_trials)
 			valence = ones(Int64, n_blocks)
 			outcomes = hcat(
-				rand(Normal(-0.5, 1.), n_blocks * n_trials),
-				rand(Normal(0.5, 1.), n_blocks * n_trials)
+				rand(Normal(-0.25, 1.), n_blocks * n_trials),
+				rand(Normal(0.25, 1.), n_blocks * n_trials)
 			)
 			trial = repeat(1:n_trials, n_blocks)
 			
@@ -414,7 +414,8 @@ let
 				f[j, i];
 				condition = "random",
 				ρ = ρ,
-				a = a
+				a = a,
+				repeats = 48
 			)
 
 			scatter!(
