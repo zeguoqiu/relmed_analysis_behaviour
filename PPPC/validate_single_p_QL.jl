@@ -345,8 +345,8 @@ let
 		ax = simulate_plot_ll!(
 			f[1, i];
 			condition = "random",
-			ρ = 3.,
-			a = 2.4,
+			ρ = 6.,
+			a = 0.5,
 			repeats = r
 		)
 
@@ -354,13 +354,16 @@ let
 
 		scatter!(
 			ax,
-			3.,
-			2.4,
+			6.,
+			0.5,
 			marker = :star5,
 			markersize = 15,
 			color = :red
 		)
 	end
+
+	save("results/single_p_QL_ll_grid_increasing_blocks_random_task.png", 
+		f, pt_per_unit = 1)
 
 	f
 
@@ -392,6 +395,10 @@ let
 		)
 	end
 
+	save("results/single_p_QL_ll_grid_increasing_blocks_pilot1.png", 
+		f, pt_per_unit = 1)
+
+
 	f
 
 end
@@ -421,6 +428,9 @@ let
 		end
 	end
 
+	save("results/single_p_QL_ll_grid_varying_params_random_task.png", 
+		f, pt_per_unit = 1)
+
 	f
 
 end
@@ -449,6 +459,10 @@ let
 			)
 		end
 	end
+
+	save("results/single_p_QL_ll_grid_varying_params_pilot1.png", 
+		f, pt_per_unit = 1)
+
 
 	f
 
@@ -501,6 +515,10 @@ let
 		)
 
 	end
+
+	save("results/single_p_QL_validate_turing_ll.png", 
+		f, pt_per_unit = 1)
+
 
 	f
 end
