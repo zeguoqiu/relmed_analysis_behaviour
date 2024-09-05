@@ -129,15 +129,6 @@ begin
 	end
 end
 
-# ╔═╡ 61dec821-a308-48cb-ab41-7124369810f4
-let n_blocks = 48,
-	n_trials = 13
-
-	block = repeat(1:n_blocks, inner = n_trials)
-	valence = ones(Int64, n_blocks * n_trials)
-	length(valence)
-end
-
 # ╔═╡ 14e78184-fa18-4489-89d8-41dfd3044203
 function plot_turing_ll(
 	f::GridPosition;
@@ -519,7 +510,6 @@ end
 # ╠═9b998e37-49e9-427d-963a-c8beb6e2c58b
 # ╠═93894285-d47c-49e5-9519-29ecceca4f1d
 # ╠═b018bc38-bde2-4bff-bbc8-79e4dd81938e
-# ╠═61dec821-a308-48cb-ab41-7124369810f4
 # ╠═14e78184-fa18-4489-89d8-41dfd3044203
 # ╠═213362ac-4d9e-4dfa-b9da-b9eb23c12a29
 # ╠═a11a50ae-5aff-49aa-94e7-7f9fd688efb4
