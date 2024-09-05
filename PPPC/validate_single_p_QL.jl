@@ -53,6 +53,65 @@ end
 # Initial value for Q values
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
+# ╔═╡ 55e1c4ce-9b24-4940-98bd-caedaa4574b9
+task = task_vars_for_condition("00")
+
+# ╔═╡ 56781e9a-90e7-4a6d-b712-a7e1a0799471
+issorted(task.task.block)
+
+# ╔═╡ bcc1eceb-0f2b-4c1f-8d01-7167463aa3ca
+let
+	insertcols!(task.task, :sgn => sign.(task.task.feedback_optimal))
+	task.task.valence .== task.task.sgn
+end
+
+# ╔═╡ 85bd99fc-380b-4b1d-884a-c58beba20c8c
+function random_sequence(;
+	optimal::Vector{Float64},
+	suboptimal::Vector{Float64},
+	n_confusing::Int64,
+	n_trials::Int64 = 13
+)
+	common = shuffle(
+		vcat(
+			fill(true, n_trials - n_confusing),
+			fill(false, n_confusing)
+		)
+	)
+
+	opt_seq = ifelse.(
+		common, 
+		shuffle(collect(Iterators.take(Iterators.cycle(optimal), n_trials))), 
+		shuffle(collect(Iterators.take(Iterators.cycle(suboptimal), n_trials)))
+	)
+
+	subopt_seq = ifelse.(
+		common, 
+		shuffle(collect(Iterators.take(Iterators.cycle(suboptimal), n_trials))),
+		shuffle(collect(Iterators.take(Iterators.cycle(optimal), n_trials))),
+	)
+
+	return hcat(subopt_seq, opt_seq)
+end
+
+# ╔═╡ cd0da363-a73e-4fe9-96d0-6686a17c97a4
+let n_blocks = 8,
+	n_trials = 13
+	outcomes = vcat([random_sequence(
+				optimal = mgnt[2], 
+				suboptimal = mgnt[1], 
+				n_confusing = 3) for mgnt in Iterators.take(
+					Iterators.cycle(
+						[
+							([0.01], [0.5, 1.]),
+							([0.01, 0.5], [1.]),
+							([-0.5, -1.], [-0.01]),
+							([-1.], [-0.01, -0.5])
+						]
+					), n_blocks)]...)
+			valence = [sign(outcomes[i, 1]) for i in 1:n_trials:(size(outcomes,1) - n_trials + 1)]
+end
+
 # ╔═╡ b018bc38-bde2-4bff-bbc8-79e4dd81938e
 begin
 	# Sample single dataset from prior
@@ -63,7 +122,7 @@ begin
 		repeats::Int64 = 1
 		)	
 			# Load sequence from file
-			task = task_vars_for_condition("110")
+			task = task_vars_for_condition(condition)
 			
 			prior_sample = simulate_single_p_QL(
 				repeats;
@@ -90,43 +149,6 @@ begin
 	
 		return prior_sample
 	end
-	
-	# Sample single dataset from prior, draw task randomly
-	function simulate_participant_random_task(;
-		ρ::Float64,
-		a::Float64,
-		n_blocks::Int64 = 48,
-		n_trials::Int64 = 13
-		)	
-			# Create task sequence
-			block = repeat(1:n_blocks, inner = n_trials)
-			valence = ones(Int64, n_blocks)
-			outcomes = hcat(
-				rand(Normal(-0.25, 1.), n_blocks * n_trials),
-				rand(Normal(0.25, 1.), n_blocks * n_trials)
-			)
-			trial = repeat(1:n_trials, n_blocks)
-			
-			prior_sample = simulate_single_p_QL(
-				1;
-				block = block,
-				valence = valence,
-				outcomes = outcomes,
-				initV = fill(0., 1, 2),
-				random_seed = 0,
-				prior_ρ = Dirac(ρ),
-				prior_a = Dirac(a)
-			)
-		
-			
-			prior_sample.trial = trial
-	
-			prior_sample.feedback_suboptimal = outcomes[:, 1]
-	
-			prior_sample.feedback_optimal = outcomes[:, 2]
-	
-		return prior_sample
-	end
 end
 
 # ╔═╡ 14e78184-fa18-4489-89d8-41dfd3044203
@@ -135,7 +157,7 @@ function plot_turing_ll(
 	data::DataFrame,
 	prior_ρ::Distribution,
 	prior_a::Distribution,
-	grid_ρ::AbstractVector = range(0., 10., length = 200),
+	grid_ρ::AbstractVector = range(0.001, 10., length = 200),
 	grid_a::AbstractVector = range(-4, 4., length = 200),
 	initV::Matrix{Float64} = fill(aao, 1,2)
 )
@@ -145,7 +167,7 @@ function plot_turing_ll(
 		N = nrow(data),
 		n_blocks = maximum(data.block),
 		block = data.block,
-		valence = data.valence,
+		valence = unique(data[!, [:block, :valence]]).valence,
 		choice = data.choice,
 		outcomes = hcat(
 			data.feedback_suboptimal, 
@@ -248,7 +270,7 @@ function plot_handcrafted_ll(
 		N = nrow(data),
 		n_blocks = maximum(data.block),
 		block = data.block,
-		valence = data.valence,
+		valence = unique(data[!, [:block, :valence]]).valence,
 		choice = data.choice,
 		outcomes = hcat(
 			data.feedback_suboptimal, 
@@ -294,6 +316,53 @@ function plot_handcrafted_ll(
 
 end
 
+# ╔═╡ ad670167-f0e1-4f63-8fe6-6debf8fec2b4
+	# Sample single dataset from prior, draw task randomly
+	function simulate_participant_random_task(;
+		ρ::Float64,
+		a::Float64,
+		n_blocks::Int64 = 48,
+		n_trials::Int64 = 13
+		)	
+			# Create task sequence
+			block = repeat(1:n_blocks, inner = n_trials)
+			seq = shuffle(Xoshiro(1), vcat(fill(1., 10), fill(0.01, 3)))
+			outcomes = vcat([random_sequence(
+				optimal = mgnt[2], 
+				suboptimal = mgnt[1], 
+				n_confusing = 3) for mgnt in Iterators.take(
+					Iterators.cycle(
+						[
+							([0.01], [0.5, 1.]),
+							([0.01, 0.5], [1.]),
+							([-0.5, -1.], [-0.01]),
+							([-1.], [-0.01, -0.5])
+						]
+					), n_blocks)]...)
+			valence = [sign(outcomes[i, 1]) for i in 1:n_trials:(size(outcomes,1) - n_trials + 1)]
+			trial = repeat(1:n_trials, n_blocks)
+			
+			prior_sample = simulate_single_p_QL(
+				1;
+				block = block,
+				valence = valence,
+				outcomes = outcomes,
+				initV = fill(aao, 1, 2),
+				random_seed = 0,
+				prior_ρ = Dirac(ρ),
+				prior_a = Dirac(a)
+			)
+		
+			
+			prior_sample.trial = trial
+	
+			prior_sample.feedback_suboptimal = outcomes[:, 1]
+	
+			prior_sample.feedback_optimal = outcomes[:, 2]
+	
+		return prior_sample
+	end
+
 # ╔═╡ 186b86f8-4eba-4b45-9ca4-8d2a1d8e90cb
 function simulate_plot_ll!(
 	f::GridPosition;
@@ -328,7 +397,7 @@ function simulate_plot_ll!(
 		data = prior_sample,
 		prior_ρ = Dirac(99.),
 		prior_a = Dirac(-99.),
-		initV = condition == "random" ? fill(0., 1, 2) : fill(aao, 1, 2)
+		initV = fill(aao, 1, 2)#condition == "random" ? fill(0., 1, 2) : fill(aao, 1, 2)
 	)
 
 	ax.title = title
@@ -336,12 +405,15 @@ function simulate_plot_ll!(
 	return ax
 end
 
+# ╔═╡ c19c8595-ccbe-4719-b9a7-e881672fc18a
+simulate_participant_random_task(ρ = 6., a = 0.5, n_blocks = 2)
+
 # ╔═╡ d0cbfe44-5f88-4833-9313-bad04f51342b
 let
 
 	f = Figure(size = (700, 700 / 3.5))
 
-	for (i, r) in enumerate([1, 20, 48, 480])
+	for (i, r) in enumerate([1, 2, 48, 96])
 		ax = simulate_plot_ll!(
 			f[1, i];
 			condition = "random",
@@ -527,12 +599,19 @@ end
 # ╔═╡ Cell order:
 # ╠═fefc8298-6abf-11ef-0cc9-09ed3cc4c051
 # ╠═9b998e37-49e9-427d-963a-c8beb6e2c58b
+# ╠═56781e9a-90e7-4a6d-b712-a7e1a0799471
 # ╠═93894285-d47c-49e5-9519-29ecceca4f1d
+# ╠═55e1c4ce-9b24-4940-98bd-caedaa4574b9
+# ╠═bcc1eceb-0f2b-4c1f-8d01-7167463aa3ca
+# ╠═85bd99fc-380b-4b1d-884a-c58beba20c8c
+# ╠═cd0da363-a73e-4fe9-96d0-6686a17c97a4
 # ╠═b018bc38-bde2-4bff-bbc8-79e4dd81938e
 # ╠═14e78184-fa18-4489-89d8-41dfd3044203
 # ╠═213362ac-4d9e-4dfa-b9da-b9eb23c12a29
 # ╠═a11a50ae-5aff-49aa-94e7-7f9fd688efb4
 # ╠═186b86f8-4eba-4b45-9ca4-8d2a1d8e90cb
+# ╠═ad670167-f0e1-4f63-8fe6-6debf8fec2b4
+# ╠═c19c8595-ccbe-4719-b9a7-e881672fc18a
 # ╠═d0cbfe44-5f88-4833-9313-bad04f51342b
 # ╠═032842c4-507b-4a58-b860-5a085b93ac47
 # ╠═2d44b2a8-218b-49dd-ac6d-f4ac45e2c216
