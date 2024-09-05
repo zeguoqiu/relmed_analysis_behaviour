@@ -102,7 +102,7 @@ begin
 			block = repeat(1:n_blocks, inner = n_trials)
 			valence = ones(Int64, n_blocks)
 			outcomes = hcat(
-				rand(Normal(), n_blocks * n_trials),
+				rand(Normal(-0.5, 1.), n_blocks * n_trials),
 				rand(Normal(0.5, 1.), n_blocks * n_trials)
 			)
 			trial = repeat(1:n_trials, n_blocks)
@@ -145,7 +145,8 @@ function plot_turing_ll(
 	prior_ρ::Distribution,
 	prior_a::Distribution,
 	grid_ρ::AbstractVector = range(0., 10., length = 200),
-	grid_a::AbstractVector = range(-4, 4., length = 200)
+	grid_a::AbstractVector = range(-4, 4., length = 200),
+	initV::Matrix{Float64} = fill(aao, 1,2)
 )
 	
 	# Set up model
@@ -159,7 +160,7 @@ function plot_turing_ll(
 			data.feedback_suboptimal, 
 			data.feedback_optimal
 		),
-		initV = fill(aao, 1,2),
+		initV = initV,
 		prior_ρ = prior_ρ,
 		prior_a = prior_a
 	)
@@ -309,29 +310,34 @@ function simulate_plot_ll!(
 	ρ::Float64,
 	a::Float64,
 	title::String = "",
-	repeats::Int64 = 1,
+	repeats::Real = 1,
 )
 
 	if condition == "random"
 		prior_sample = simulate_participant_random_task(;
 			ρ = ρ,
 			a = a,
-			n_blocks = repeats
+			n_blocks = round(Int64, repeats)
 		)
 	else
 		prior_sample = simulate_participant(;
 			condition = condition,
 			ρ = ρ,
 			a = a,
-			repeats = repeats
+			repeats = maximum([1, round(Int64, repeats)])
 		)
+
+		if repeats < 1.
+			prior_sample = prior_sample[1:round(Int64, repeats * nrow(prior_sample)), :]
+		end
 	end
 
 	ax = plot_turing_ll(
 		f;
 		data = prior_sample,
 		prior_ρ = Dirac(99.),
-		prior_a = Dirac(-99.)
+		prior_a = Dirac(-99.),
+		initV = condition == "random" ? fill(0., 1, 2) : fill(aao, 1, 2)
 	)
 
 	ax.title = title
@@ -342,14 +348,14 @@ end
 # ╔═╡ d0cbfe44-5f88-4833-9313-bad04f51342b
 let
 
-	f = Figure(size = (700, 700 / 4))
+	f = Figure(size = (700, 700 / 3.5))
 
-	for (i, r) in enumerate([1, 5, 10, 20] .* 48)
+	for (i, r) in enumerate([1, 20, 48, 480])
 		ax = simulate_plot_ll!(
 			f[1, i];
 			condition = "random",
-			ρ = 6.,
-			a = 0.5,
+			ρ = 3.,
+			a = 2.4,
 			repeats = r
 		)
 
@@ -357,8 +363,8 @@ let
 
 		scatter!(
 			ax,
-			6.,
-			0.5,
+			3.,
+			2.4,
 			marker = :star5,
 			markersize = 15,
 			color = :red
@@ -372,9 +378,9 @@ end
 # ╔═╡ 032842c4-507b-4a58-b860-5a085b93ac47
 let
 
-	f = Figure(size = (700, 700 / 4))
+	f = Figure(size = (700, 700 / 3.5))
 
-	for (i, r) in enumerate([1, 5, 10, 20])
+	for (i, r) in enumerate([1, 20, 48, 480] ./ 48)
 		ax = simulate_plot_ll!(
 			f[1, i];
 			condition = "00",
@@ -383,7 +389,7 @@ let
 			repeats = r
 		)
 
-		ax.title = "$(r*48)"
+		ax.title = "$(round(Int64, r*48))"
 
 		scatter!(
 			ax,
