@@ -5,7 +5,6 @@
 function simulate_single_p_QL(
 	n::Int64; # How many datasets to simulate
 	block::Vector{Int64}, # Block number
-	valence::AbstractVector, # Valence of each block
 	outcomes::Matrix{Float64}, # Outcomes for options, first column optimal
 	initV::Matrix{Float64}, # Initial Q values
 	random_seed::Union{Int64, Nothing} = nothing,
@@ -16,7 +15,6 @@ function simulate_single_p_QL(
 		n;
 		model = single_p_QL,
 		block = block,
-		valence = valence,
 		outcomes = outcomes,
 		initV = initV,
 		random_seed = random_seed,
@@ -39,7 +37,6 @@ function posterior_sample_single_p_QL(
 		N = nrow(data),
 		n_blocks = maximum(data.block),
 		block = data.block,
-		valence = unique(data[!, [:block, :valence]]).valence,
 		choice = data.choice,
 		outcomes = hcat(
 			data.feedback_suboptimal,
@@ -74,7 +71,6 @@ function optimize_single_p_QL(
 		N = nrow(data),
 		n_blocks = maximum(data.block),
 		block = data.block,
-		valence = unique(data[!, [:block, :valence]]).valence,
 		choice = data.choice,
 		outcomes = hcat(
 			data.feedback_suboptimal,
@@ -209,7 +205,11 @@ function bootstrap_optimize_single_p_QL(
 	)
 
 	# Add condition and prolific_pid
-	fit = innerjoin(fit, pids, on = :PID)
+	if real_data
+		fit = innerjoin(fit, pids, on = :PID)
+	else
+		fit = innerjoin(fit, unique(PLT_data[!, [:PID, :prolific_pid]]), on = :PID)
+	end
 
 	# Sample participants and add bootstrap id
 	bootstraps = vcat([insertcols(
@@ -269,14 +269,12 @@ function simulate_from_posterior_single_p_QL(
 	aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
 	block = task.block
-	valence = task.valence
 	outcomes = task.outcomes
 
 	post_model = single_p_QL(
 		N = length(block),
 		n_blocks = maximum(block),
 		block = block,
-		valence = valence,
 		choice = fill(missing, length(block)),
 		outcomes = outcomes,
 		initV = fill(aao, 1, 2),
@@ -300,7 +298,7 @@ end
 # Prepare pilot data for fititng with model
 function prepare_for_fit(data)
 
-	forfit = select(data, [:prolific_pid, :condition, :session, :block, :valence, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :isOptimal])
+	forfit = select(data, [:prolific_pid, :condition, :session, :block, :trial, :optimalRight, :outcomeLeft, :outcomeRight, :isOptimal])
 
 	rename!(forfit, :isOptimal => :choice)
 
