@@ -404,6 +404,122 @@ end
 # ╔═╡ c6558729-ed5b-440b-8e59-e69071b26f09
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
+# ╔═╡ 1119fe13-0288-40d8-838c-3f846466d62f
+prepare_for_fit(PLT_data)
+
+# ╔═╡ 06bc903a-12e4-4813-ac47-5d7e097acc7b
+function random_sequence(;
+	optimal::Vector{Float64},
+	suboptimal::Vector{Float64},
+	n_confusing::Int64,
+	n_trials::Int64 = 13
+)
+	common = shuffle(
+		vcat(
+			fill(true, n_trials - n_confusing),
+			fill(false, n_confusing)
+		)
+	)
+
+	opt_seq = ifelse.(
+		common, 
+		shuffle(collect(Iterators.take(Iterators.cycle(optimal), n_trials))), 
+		shuffle(collect(Iterators.take(Iterators.cycle(suboptimal), n_trials)))
+	)
+
+	subopt_seq = ifelse.(
+		common, 
+		shuffle(collect(Iterators.take(Iterators.cycle(suboptimal), n_trials))),
+		shuffle(collect(Iterators.take(Iterators.cycle(optimal), n_trials))),
+	)
+
+	return hcat(subopt_seq, opt_seq)
+end
+
+# ╔═╡ d9ba8c39-d282-4888-9b3f-d6dc62026a18
+function create_random_task(;
+	n_blocks::Int64,
+	n_trials::Int64,
+)
+
+	# Create task sequence
+	block = repeat(1:n_blocks, inner = n_trials)
+	seq = shuffle(Xoshiro(1), vcat(fill(1., 10), fill(0.01, 3)))
+	outcomes = vcat([random_sequence(
+		optimal = mgnt[2], 
+		suboptimal = mgnt[1], 
+		n_confusing = 3) for mgnt in Iterators.take(
+			Iterators.cycle(
+				[
+					([0.01], [0.5, 1.]),
+					([0.01, 0.5], [1.]),
+					([-0.5, -1.], [-0.01]),
+					([-1.], [-0.01, -0.5])
+				]
+			), n_blocks)]...)
+	valence = [sign(outcomes[i, 1]) for i in 1:n_trials:(size(outcomes,1) - n_trials + 1)]
+	trial = repeat(1:n_trials, n_blocks)
+
+	df = DataFrame(
+		block = block,
+		trial = trial,
+		valence = valence[block],
+		feedback_optimal = outcomes[:, 2],
+		feedback_suboptimal = outcomes[:, 1]
+	)
+
+	return (
+		block = block,
+		outcomes = outcomes,
+		valence = valence,
+		task = df
+	)
+end
+
+# ╔═╡ 148711e8-b72e-4360-838b-57609010acf0
+function bootstrap_optimize_single_p_QL(
+	PLT_data::AbstractDataFrame;
+	n_bootstraps::Int64 = 20,
+	initV::Float64 = aao,
+	prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
+	prior_a::Distribution = Normal(),
+	estimate::String = "MAP",
+	real_data::Bool = true
+) 
+
+	# Prepare data for fit
+	if real_data
+		forfit, pids = prepare_for_fit(PLT_data)
+	else
+		forfit = copy(PLT_data)
+	end
+
+	# Fit
+	fit = optimize_multiple_single_p_QL(
+		forfit;
+		initV = initV,
+		estimate = estimate,
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
+	)
+
+	# Add condition and prolific_pid
+	if real_data
+		fit = innerjoin(fit, pids, on = :PID)
+	else
+		fit = innerjoin(fit, unique(PLT_data[!, [:PID, :prolific_pid]]), on = :PID)
+	end
+
+	# Sample participants and add bootstrap id
+	bootstraps = vcat([insertcols(
+		fit[sample(Xoshiro(i), 1:nrow(fit), nrow(fit), replace=true), :],
+		:bootstrap_idx => i
+	) for i in 1:n_bootstraps]...)
+
+	return bootstraps
+
+end
+
 # ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
 let
 	# f = plot_q_learning_ppc_accuracy(
@@ -1101,7 +1217,7 @@ end
 
 # ╔═╡ 756cfa2f-bb56-4eda-ab1a-db509082ae3f
 function plot_q_learning_ppc_accuracy!(
-	f::GridPosition,
+	f,
 	data::DataFrame,
 	ppc::DataFrame;
 	title::String = ""
@@ -1152,16 +1268,18 @@ end
 
 
 # ╔═╡ 594b27ed-4bde-4dae-b4ef-9abc67bf699c
-# Simulate multiple participants from (bootstrapped) posterior
 function simulate_multiple_from_posterior_single_p_QL(
-	bootstraps::DataFrame
+	bootstraps::DataFrame;
+	task::Union{NamedTuple, Missing} = missing
 )
 	# Get task structures
-	conds = unique(bootstraps.condition)
-
-	conds = Dict(
-		c => task_vars_for_condition(c) for c in conds
-	)
+	if ismissing(task)
+		conds = unique(bootstraps.condition)
+	
+		conds = Dict(
+			c => task_vars_for_condition(c) for c in conds
+		)
+	end
 
 	# Simulate for each bootstrap, each participant
 	sim_data = []
@@ -1170,7 +1288,7 @@ function simulate_multiple_from_posterior_single_p_QL(
 	Threads.@threads for i in 1:nrow(bootstraps)
 		tsim = simulate_from_posterior_single_p_QL(
 			bootstraps[i, :], 
-			conds[bootstraps[i, :condition]],
+			ismissing(task) ? conds[bootstraps[i, :condition]] : task,
 			i
 		)
 
@@ -1186,31 +1304,15 @@ function simulate_multiple_from_posterior_single_p_QL(
 end
 
 
-# ╔═╡ 8ff4ef4a-ee2d-470f-a133-019883df672a
-let
-	f = plot_q_learning_ppc_accuracy(
-		PLT_data,
-		simulate_multiple_from_posterior_single_p_QL(
-			bootstrap_optimize_single_p_QL(
-				PLT_data,
-				initV = aao,
-				prior_ρ = truncated(Normal(4., 0.1), lower = 0.),
-				prior_a = Normal(0.8, 0.1)
-			)
-		)
-	)
-
-	f
-end
-
 # ╔═╡ db3cd8d3-5e46-48c6-b85d-f4d302fff690
 f = plot_q_learning_ppc_accuracy(
 		PLT_data,
 		simulate_multiple_from_posterior_single_p_QL(
 			bootstrap_optimize_single_p_QL(
-				PLT_data;
+				filter(x -> x.valence == 1, PLT_data);
 				initV = aao,
-				estimate = "MLE"
+				prior_ρ = truncated(Normal(0., 5.), lower = 0.),
+				prior_a = Normal(0., 2.)
 			)
 		)
 	)
@@ -1224,58 +1326,54 @@ function plot_ppc_prior_generating_match!(
 	estimation_prior_a::Distribution,
 	title::String = "",
 	n_bootstraps::Int64 = 30,
-	condition::String = "00"
+	condition::String = "00",
+	n_participants::Int64 = 100
 )	
 	# Get task structure
-	task = task_vars_for_condition(condition)
+	task = create_random_task(n_blocks = 48, n_trials = 13)
 
 	# Draw participants from generating distribution
 	participants = DataFrame(
-		a = rand(generating_dist_a, 100), 
-		ρ = rand(generating_dist_ρ, 100), 
-		prolific_pid = 1:100,
-		bootstrap_idx = 1:100,
-		condition = fill("00", 100)
+		a = rand(generating_dist_a, n_participants), 
+		ρ = rand(generating_dist_ρ, n_participants), 
+		prolific_pid = 1:n_participants,
+		PID = 1:n_participants,
+		bootstrap_idx = 1:n_participants,
+		condition = fill(condition, n_participants)
 	)
 
-	# Simulate data
+	# Simulate data #WHERE DOES THIS GET TASK??????
 	data = simulate_multiple_from_posterior_single_p_QL(
-		participants
+		participants;
+		task = task
 	) 
 
 	# Join with participant parameters
 	data = leftjoin(data, participants[!, Not(:bootstrap_idx)], on = :prolific_pid)
 
 	# Prepare for bootstrap fit
-	rename!(data,
-		:optimal_right => :optimalRight,
-		:feedback_left => :outcomeLeft,
-		:feedback_right => :outcomeRight
+	insertcols!(data, 
+		:session => 1,
+		:choice => data.isOptimal
 	)
+
 
 	# Bootstrap fit
 	bootstraps = bootstrap_optimize_single_p_QL(
 		data;
 		initV = aao,
 		prior_ρ = estimation_prior_ρ,
-		prior_a = estimation_prior_a
+		prior_a = estimation_prior_a,
+		real_data = false
 	)
 
-	# Plot PPC
-	plot_q_learning_ppc_accuracy!(
-		f,
-		data,
-		simulate_multiple_from_posterior_single_p_QL(bootstraps),
-		title = title
-	)
+	# Get participant fits
+	estimates = sort(unique(bootstraps[!, [:prolific_pid, :ρ, :a]]), :prolific_pid)
+	@assert nrow(estimates) == n_participants
 
-	# Plot distributions
+		# Plot distributions
 	ax_prior = Axis(
-		f,
-		width = Relative(0.5),
-		height = Relative(0.5),
-		valign = 0.3,
-		halign = 1.,
+		f[1,1],
 		xlabel = "ρ",
 		ylabel = "a",
 		aspect = 1
@@ -1301,58 +1399,74 @@ function plot_ppc_prior_generating_match!(
 		color = Makie.wong_colors()[1]
 	)
 
-	return f
-end
-
-# ╔═╡ db836da7-a6ec-4340-a1a5-bdcfdc973af4
-let
-	f = Figure(size = (700, 250))
-	
-	plot_ppc_prior_generating_match!(
-		f[1,1],
-		generating_dist_ρ = truncated(Normal(0., 2.), lower = 0),
-		generating_dist_a = Normal(),
-		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
-		estimation_prior_a = Normal(),
-		title = "Matching"
-	)
-
-	plot_ppc_prior_generating_match!(
+	# Plot participants
+	ax_ps_ρ = Axis(
 		f[1,2],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(),
-		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
-		estimation_prior_a = Normal(),
-		title = "Within ρ"
+		xlabel = "true",
+		ylabel = "estimated",
+		aspect = 1,
+		title = "ρ"
 	)
 
-	plot_ppc_prior_generating_match!(
+	scatter!(
+		ax_ps_ρ,
+		participants.ρ,
+		estimates.ρ,
+		markersize = 5,
+		color = :black
+	)
+
+	ablines!(
+		ax_ps_ρ,
+		0.,
+		1.,
+		linestyle = :dash,
+		color = :grey
+	)
+
+	ax_ps_a = Axis(
 		f[1,3],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(0.3, 0.1),
-		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
-		estimation_prior_a = Normal(),
-		title = "Within a"
+		xlabel = "true",
+		ylabel = "estimated",
+		aspect = 1,
+		title = "a"
+	)
+
+	scatter!(
+		ax_ps_a,
+		participants.a,
+		estimates.a,
+		markersize = 5,
+		color = :black
+	)
+
+	ablines!(
+		ax_ps_a,
+		0.,
+		1.,
+		linestyle = :dash,
+		color = :grey
 	)
 
 
-	plot_ppc_prior_generating_match!(
-		f[1,4],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(0.3, 0.1),
-		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
-		estimation_prior_a = Normal(),
-		title = "Within both"
+	# Plot PPC
+	plot_q_learning_ppc_accuracy!(
+		f[2,:],
+		data,
+		simulate_multiple_from_posterior_single_p_QL(
+			bootstraps;
+			task = task
+		),
+		title = title
 	)
 
-	f
-
+	return f
 end
 
 # ╔═╡ c45d00d0-6860-4cbc-a38f-c54d129f3b79
 let
 
-	f = Figure(size = (700, 300))
+	f = Figure(size = (700, 700))
 
 	plot_ppc_prior_generating_match!(
 		f[1,1],
@@ -1373,7 +1487,7 @@ let
 	)
 
 	plot_ppc_prior_generating_match!(
-		f[1,3],
+		f[2,1],
 		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
 		generating_dist_a = Normal(0., 0.1),
 		estimation_prior_ρ = truncated(Normal(0., 10.), lower = 0),
@@ -1388,7 +1502,7 @@ end
 
 # ╔═╡ f4cce5eb-649f-4de6-892e-51c634622333
 let
-	f = Figure(size = (700, 300))
+	f = Figure(size = (700, 700))
 	
 	plot_ppc_prior_generating_match!(
 		f[1,1],
@@ -1407,7 +1521,7 @@ let
 	)
 
 	plot_ppc_prior_generating_match!(
-		f[1,3],
+		f[2,1],
 		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
 		generating_dist_a = Normal(0., 0.1),
 		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
@@ -1426,6 +1540,22 @@ let
 	rowgap!(f.layout, 1, 5)
 	
 	f
+end
+
+# ╔═╡ c338d320-1c68-416f-8d44-dae4ca24afef
+let
+	f = Figure(size = (500, 500))
+	
+	plot_ppc_prior_generating_match!(
+		f[1,1],
+		generating_dist_ρ = truncated(Normal(1., 2.5), lower = 0),
+		generating_dist_a = truncated(Normal(), lower = 0.),
+		estimation_prior_ρ = truncated(Normal(0., 10.), lower = 0),
+		estimation_prior_a = Normal(0., 3.)
+	)
+
+	f
+
 end
 
 # ╔═╡ Cell order:
@@ -1459,11 +1589,14 @@ end
 # ╠═3b40c738-77cf-413f-9821-c641ebd0a13d
 # ╠═c6558729-ed5b-440b-8e59-e69071b26f09
 # ╠═33fc2f8e-87d0-4e9e-9f99-8769600f3d25
-# ╠═8ff4ef4a-ee2d-470f-a133-019883df672a
 # ╠═db3cd8d3-5e46-48c6-b85d-f4d302fff690
-# ╠═db836da7-a6ec-4340-a1a5-bdcfdc973af4
+# ╠═1119fe13-0288-40d8-838c-3f846466d62f
 # ╠═c45d00d0-6860-4cbc-a38f-c54d129f3b79
 # ╠═f4cce5eb-649f-4de6-892e-51c634622333
+# ╠═06bc903a-12e4-4813-ac47-5d7e097acc7b
+# ╠═d9ba8c39-d282-4888-9b3f-d6dc62026a18
+# ╠═c338d320-1c68-416f-8d44-dae4ca24afef
+# ╠═148711e8-b72e-4360-838b-57609010acf0
 # ╠═15bfde49-7b68-40fe-bebe-7a8b5c27e27e
 # ╠═de41a8c1-fc09-4c33-b371-4d835a0a46ce
 # ╠═2239dd1c-1975-46b4-b270-573efd454c04
