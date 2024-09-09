@@ -206,7 +206,7 @@ function bootstrap_optimize_single_p_QL(
 	PLT_data::AbstractDataFrame;
 	n_bootstraps::Int64 = 20,
 	initV::Float64 = aao,
-	prior_ρ::Distribution = truncated(Normal(0., 2.), lower = 0.),
+	prior_ρ::Distribution = truncated(Normal(0., 5.), lower = 0.),
 	prior_a::Distribution = Normal(),
 	estimate::String = "MAP",
 	real_data::Bool = true
