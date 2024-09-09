@@ -232,6 +232,7 @@ function prepare_task_strucutre(;
 	task = DataFrame(
 		session = repeat(1:n_sessions, inner = sum(n_trials)),
 		block = vcat([fill(b, t) for (b, t) in enumerate(n_trials)]...),
+		n_pairs = vcat([fill(n_pairs[b], t) for (b, t) in enumerate(n_trials)]...),
 		valence = vcat([fill(valence[b], t) for (b, t) in enumerate(n_trials)]...),
 		pair = vcat([repeat(1:p, inner = div(n_trials[i], p)) for (i, p) in enumerate(n_pairs)]...)
 	)
@@ -390,16 +391,6 @@ prepare_task_strucutre(;
 	low_reward_magnitudes = fill([0.01], 18) # Per block
 ) 
 
-# ╔═╡ 7fce878f-92a8-4101-9d58-1c39b12e29d1
-
-
-# ╔═╡ 800f360f-8ad2-40ba-904d-10874848845b
-generate_multiple_n_confusing_sequences(;
-	n_trials = [10, 20, 30],
-	n_confusing = [0, 1, 2],
-	n_pairs = [1, 2, 3]
-)
-
 # ╔═╡ Cell order:
 # ╠═784d74ba-21c7-454e-916e-2c54ed0e6911
 # ╠═45394a5a-6e96-11ef-27e9-5dddb818f955
@@ -407,5 +398,3 @@ generate_multiple_n_confusing_sequences(;
 # ╠═04caadb8-6095-46e2-84b3-67eb535f4725
 # ╠═2c31faf8-8b32-4709-ba3a-43ee9376a3c4
 # ╠═94a4ac24-2d30-4410-ae5f-6432f9e2973e
-# ╠═7fce878f-92a8-4101-9d58-1c39b12e29d1
-# ╠═800f360f-8ad2-40ba-904d-10874848845b
