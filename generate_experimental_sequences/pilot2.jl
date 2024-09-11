@@ -12,7 +12,7 @@ begin
     Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
-	using Random, DataFrames
+	using Random, DataFrames, JSON, CSV
 end
 
 # ╔═╡ 45394a5a-6e96-11ef-27e9-5dddb818f955
@@ -138,11 +138,36 @@ function assign_stimuli_and_optimality(;
 
 end
 
-# ╔═╡ e658e57d-bbe5-4d15-b70e-b5dedad13d80
-assign_stimuli_and_optimality(;
-	n_phases = 1,
-	n_pairs = [1, 2, 3, 1]
+# ╔═╡ 1b3aca46-c259-43f7-8b06-9ffc63e36228
+function save_to_JSON(
+	df::DataFrame, 
+	file_path::String
 )
+	# Initialize an empty dictionary to store the grouped data
+	json_groups = []
+	
+	# Iterate through unique blocks and their respective rows
+	for s in unique(df.session)
+		session_groups = []
+		for b in unique(df.block)
+		    # Filter the rows corresponding to the current block
+		    block_group = df[(df.block .== b) .&& (df.session .== s), :]
+		    
+		    # Convert each row in the block group to a dictionary and collect them into a list
+		    push!(session_groups, [Dict(pairs(row)) for row in eachrow(block_group)])
+		end
+		push!(json_groups, session_groups)
+	end
+	
+	# Convert to JSON String
+	json_string = JSON.json(json_groups)
+		
+	# Write the JSON string to the file
+	open(file_path, "w") do file
+	    write(file, json_string)
+	end
+
+end
 
 # ╔═╡ 94a4ac24-2d30-4410-ae5f-6432f9e2973e
 function generate_multiple_n_confusing_sequences(;
@@ -193,12 +218,13 @@ function prepare_task_strucutre(;
 	categories::Vector{String},
 	stop_after::Union{Int64, Missing},
 	output_file::String,
-	high_reward_magnitudes::Vector{Vector{Float64}}, # Per block
-	low_reward_magnitudes::Vector{Vector{Float64}} # Per block
+	high_reward_magnitudes::Vector{Vector{Float64}}, # Per pair
+	low_reward_magnitudes::Vector{Vector{Float64}} # Per pair
 ) 
 
 	# Checks
 	n_blocks_total = n_sessions * n_blocks
+	n_pairs_total = sum(n_pairs)
 	
 	@assert length(n_confusing) == n_blocks_total "Length of n_confusing does not match total number of blocks specified"
 
@@ -208,9 +234,9 @@ function prepare_task_strucutre(;
 
 	@assert length(valence) == n_blocks_total "Length of valence does not match total number of blocks specified"
 
-	@assert length(high_reward_magnitudes) == n_blocks_total "Length of high_reward_magnitudes does not match total number of blocks specified"
+	@assert length(high_reward_magnitudes) == n_pairs_total "Length of high_reward_magnitudes does not match total number of stimulus pairs specified"
 
-	@assert length(low_reward_magnitudes) == n_blocks_total "Length of low_reward_magnitudes does not match total number of blocks specified"
+	@assert length(low_reward_magnitudes) == n_pairs_total "Length of low_reward_magnitudes does not match total number of stimulus pairs specified"
 
 	# Assign stimulus pairs
 	stimuli = assign_stimuli_and_optimality(;
@@ -312,16 +338,28 @@ function prepare_task_strucutre(;
 		)
 	)
 
+	# Compute cumulative pair number
+	pairs = unique(task[!, [:cblock, :pair]])
+	pairs.cpair = 1:nrow(pairs)
+
+	task = innerjoin(
+		task,
+		pairs,
+		on = [:cblock, :pair],
+		order = :left
+	)
+	
+	
 	# Shuffle reward magnitudes
 	transform!(
 		groupby(task, [:session, :block, :pair]),
-		:cblock => (
+		:cpair => (
 			x -> shuffle(collect(Iterators.take(
 				Iterators.cycle(shuffle(high_reward_magnitudes[x[1]])),
 				length(x)
 			)))
 		) => :high_magnitude,
-		:cblock => (
+		:cpair => (
 			x -> shuffle(collect(Iterators.take(
 				Iterators.cycle(shuffle(low_reward_magnitudes[x[1]])),
 				length(x)
@@ -371,30 +409,73 @@ function prepare_task_strucutre(;
 		)
 	)
 
+	save_to_JSON(task, "results/$output_file.json")
+	CSV.write("results/$output_file.csv", task)
 	
-	task
+	return task
 end
 
 # ╔═╡ 2c31faf8-8b32-4709-ba3a-43ee9376a3c4
-prepare_task_strucutre(;
-	n_sessions = 1,
-	n_blocks = 18,
-	n_trials = repeat([10, 20, 30], 6), # Per block
-	categories =  [('A':'Z')[div(i - 1, 26) + 1] * ('a':'z')[rem(i - 1, 26)+1] 
-		for i in 1:50],
-	valence = repeat([1, -1], 9),
-	stop_after = 5,
-	output_file = "test",
-	n_confusing = vcat([0, 1, 2, 2], fill(3, 18 - 4)), # Per block
-	n_pairs = repeat(1:3, 6), # Per block
-	high_reward_magnitudes = fill([0.5, 1.], 18), # Per block
-	low_reward_magnitudes = fill([0.01], 18) # Per block
-) 
+task = let set_sizes = 1:3,
+	block_per_set = 6,
+	trials_per_pair = 10
+
+	Random.seed!(0)
+
+
+	categories = shuffle(unique([replace(s, ".png" => "")[1:(end-1)] for s in 
+		readlines("generate_experimental_sequences/allimages.txt")]))
+
+	n_total_blocks = length(set_sizes) * block_per_set
+
+	# All combinations of set sizes and valence
+	@assert iseven(block_per_set)
+	
+	valence_set_size = DataFrame(
+		n_pairs = repeat(set_sizes, inner = block_per_set),
+		valence = repeat([1, -1], inner = 3, outer = div(n_total_blocks, 6))
+	)
+
+	# Shuffle, making sure set size rises gradually
+	while valence_set_size[1:3, :n_pairs] != [1, 2, 3]
+		valence_set_size.block = shuffle(1:n_total_blocks)
+		sort!(valence_set_size, :block)
+	end
+
+	n_total_pairs = sum(valence_set_size.n_pairs)
+	
+	high_reward_magnitudes = Iterators.take(
+		Iterators.cycle([[0.5, 1.], [1.]]), n_total_pairs
+	) |> collect |> shuffle
+
+	
+
+	low_reward_magnitudes = ifelse.(
+		(x -> x == [1.]).(high_reward_magnitudes),
+		fill([0.5, 0.01], n_total_pairs),
+		fill([0.01], n_total_pairs)
+	)
+
+	prepare_task_strucutre(;
+		n_sessions = 1,
+		n_blocks = n_total_blocks,
+		n_trials = valence_set_size.n_pairs .* trials_per_pair, # Per block
+		categories = categories,
+		valence = valence_set_size.valence,
+		stop_after = 5,
+		output_file = "pilot2",
+		n_confusing = vcat([0, 1, 2, 2], fill(3, n_total_blocks - 4)), # Per block
+		n_pairs = valence_set_size.n_pairs, # Per block
+		high_reward_magnitudes = high_reward_magnitudes, # Per pair
+		low_reward_magnitudes = low_reward_magnitudes # Per pair
+	) 
+
+end
 
 # ╔═╡ Cell order:
 # ╠═784d74ba-21c7-454e-916e-2c54ed0e6911
 # ╠═45394a5a-6e96-11ef-27e9-5dddb818f955
-# ╠═e658e57d-bbe5-4d15-b70e-b5dedad13d80
 # ╠═04caadb8-6095-46e2-84b3-67eb535f4725
 # ╠═2c31faf8-8b32-4709-ba3a-43ee9376a3c4
+# ╠═1b3aca46-c259-43f7-8b06-9ffc63e36228
 # ╠═94a4ac24-2d30-4410-ae5f-6432f9e2973e
