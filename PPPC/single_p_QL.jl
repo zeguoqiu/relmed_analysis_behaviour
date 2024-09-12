@@ -271,102 +271,6 @@ begin
 	nothing
 end
 
-# ╔═╡ 48343b75-a0cd-4806-9867-b861b118491d
-# ╠═╡ disabled = true
-#=╠═╡
-# Overall split-half
-let
-
-	maps = fit_split(PLT_data, x -> (x.session == "1") & isodd(x.block),
-		x -> (x.session == "1") & iseven(x.block))
-	
-	f = reliability_scatter(
-		maps,
-		"Odd blocks",
-		"Even blocks"
-	)
-
-	Label(f[0,:], "Session 1 split-half correlation", fontsize = 18, font = :bold, 
-		tellwidth = false)
-
-	rowsize!(f.layout, 0, Relative(0.1))
-
-	save("results/single_p_QL_PMLE_split_half_sess1.png", f, pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
-
-# ╔═╡ 8a567ab1-db8a-47df-ac2b-59714f230ae6
-# ╠═╡ disabled = true
-#=╠═╡
-# Overall split-half session 2
-let
-
-	maps = fit_split(PLT_data, x -> (x.session == "2") & isodd(x.block),
-		x -> (x.session == "2") & iseven(x.block))
-	
-	f = reliability_scatter(
-		maps,
-		"Odd blocks",
-		"Even blocks"
-	)
-
-	Label(f[0,:], "Session 2 split-half correlation", fontsize = 18, font = :bold, 
-		tellwidth = false)
-
-	rowsize!(f.layout, 0, Relative(0.1))
-
-	save("results/single_p_QL_PMLE_split_half_sess2.png", f, pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
-
-# ╔═╡ fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_condition(
-		PLT_data,
-		x -> (x.session == "1") & iseven(x.block),
-		x -> (x.session == "1") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 1 split-half reliability"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess1_by_condition.png", f, pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
-
-# ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_condition(
-		PLT_data,
-		x -> (x.session == "2") & iseven(x.block),
-		x -> (x.session == "2") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 2 split-half reliability"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess2_by_condition.png", f,
-		pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
 # ╔═╡ 525522d1-5ced-46f2-8c9b-3299d3cb244d
 # ╠═╡ disabled = true
 #=╠═╡
@@ -379,70 +283,6 @@ begin
 	@assert all([s[1] == '0' for s in unique(test.condition)])
 
 	shortened_PLT = filter(find_excess, PLT_data)
-end
-  ╠═╡ =#
-
-# ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
-# ╠═╡ disabled = true
-#=╠═╡
-let 
-	f = reliability_by_condition(
-		shortened_PLT,
-		x -> x.session == "1",
-		x -> x.session == "2",
-		"Test-retest",
-		"Session 1",
-		"Session 2";
-		supertitle = "Early stopping simulated for all"
-	)
-
-	save("results/single_p_QL_PMLE_test_retest_early_stop_by_condition.png", f, 
-		pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
-# ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_condition(
-		shortened_PLT,
-		x -> (x.session == "1") & iseven(x.block),
-		x -> (x.session == "1") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess1_early_stop_by_condition.png", f, 
-		pt_per_unit = 1)
-
-	f
-
-end
-  ╠═╡ =#
-
-# ╔═╡ 10565355-90ae-419c-9b92-8ff18fcd48b3
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_condition(
-		shortened_PLT,
-		x -> (x.session == "2") & iseven(x.block),
-		x -> (x.session == "2") & isodd(x.block),
-		"Split-half",
-		"Even blocks",
-		"Odd block";
-		supertitle = "Session 2 split-half reliability\nearly stopping simulated for all"
-	)
-
-	save("results/single_p_QL_PMLE_split_half_sess2_early_stop_by_condition.png", f, 
-		pt_per_unit = 1)
-
-	f
 end
   ╠═╡ =#
 
@@ -589,163 +429,11 @@ best_penalties = let
 end
   ╠═╡ =#
 
-# ╔═╡ 80ae54ff-b9d2-4c30-8f62-4b7cac65201b
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_valence(
-		PLT_data
-	)
-
-	save("results/single_p_QL_PMLE_reliability_by_valence.png", f, 
-		pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
-# ╔═╡ 60866598-8564-4dd7-987c-fb74d3f3fc64
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_valence(
-		shortened_PLT
-	)
-
-	save("results/single_p_QL_PMLE_reliability_by_valence_shortened.png", f, 
-		pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
-# ╔═╡ 3b40c738-77cf-413f-9821-c641ebd0a13d
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = reliability_by_valence(
-		filter(x -> !x.valence_grouped, PLT_data)
-	)
-
-	save("results/single_p_QL_PMLE_reliability_by_valence_interleaved.png", f, 
-		pt_per_unit = 1)
-
-	f
-end
-  ╠═╡ =#
-
 # ╔═╡ c6558729-ed5b-440b-8e59-e69071b26f09
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
-# ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	# f = plot_q_learning_ppc_accuracy(
-	# 	PLT_data,
-	# 	simulate_multiple_from_posterior_single_p_QL(
-	describe(
-			bootstrap_optimize_single_p_QL(
-				PLT_data,
-				initV = aao,
-				estimate = "MLE"
-			)
-		)
-	# )
-
-	# save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
-	# 	pt_per_unit = 1)
-	# f
-end
-  ╠═╡ =#
-
 # ╔═╡ 6351e72f-4c2b-4fee-b9dd-337c745e8e52
 prepare_for_fit(PLT_data)
-
-# ╔═╡ c45d00d0-6860-4cbc-a38f-c54d129f3b79
-# ╠═╡ disabled = true
-#=╠═╡
-let
-
-	f = Figure(size = (700, 700))
-
-	plot_ppc_prior_generating_match!(
-		f[1,1],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(0., 0.1),
-		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
-		estimation_prior_a = Normal(),
-		title = "ρ Prior less informative"
-	)
-
-	plot_ppc_prior_generating_match!(
-		f[1,2],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(0., 0.1),
-		estimation_prior_ρ = truncated(Normal(0., 5.), lower = 0),
-		estimation_prior_a = Normal(),
-		title = "ρ Prior less informative"
-	)
-
-	plot_ppc_prior_generating_match!(
-		f[2,1],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(0., 0.1),
-		estimation_prior_ρ = truncated(Normal(0., 10.), lower = 0),
-		estimation_prior_a = Normal(),
-		title = "ρ Prior less informative"
-	)
-
-	f
-
-
-end
-  ╠═╡ =#
-
-# ╔═╡ f4cce5eb-649f-4de6-892e-51c634622333
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	f = Figure(size = (700, 700))
-	
-	plot_ppc_prior_generating_match!(
-		f[1,1],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(0., 0.1),
-		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
-		estimation_prior_a = Normal(0., 0.5)
-	)
-
-	plot_ppc_prior_generating_match!(
-		f[1,2],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(0., 0.1),
-		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
-		estimation_prior_a = Normal(0., 2.)
-	)
-
-	plot_ppc_prior_generating_match!(
-		f[2,1],
-		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
-		generating_dist_a = Normal(0., 0.1),
-		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
-		estimation_prior_a = Normal(0., 8.)
-	)
-
-	Legend(
-		f[0,:],
-		[PolyElement(color = c) for c in Makie.wong_colors()[1:2]],
-		["Data", "Model"],
-		orientation = :horizontal,
-		framevisible = false,
-		fontsize = 14
-	)
-
-	rowgap!(f.layout, 1, 5)
-	
-	f
-end
-  ╠═╡ =#
 
 # ╔═╡ 06bc903a-12e4-4813-ac47-5d7e097acc7b
 function random_sequence(;
@@ -860,6 +548,28 @@ function bootstrap_optimize_single_p_QL(
 
 end
 
+# ╔═╡ 33fc2f8e-87d0-4e9e-9f99-8769600f3d25
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	# f = plot_q_learning_ppc_accuracy(
+	# 	PLT_data,
+	# 	simulate_multiple_from_posterior_single_p_QL(
+	describe(
+			bootstrap_optimize_single_p_QL(
+				PLT_data,
+				initV = aao,
+				estimate = "MLE"
+			)
+		)
+	# )
+
+	# save("results/single_p_QL_PMLE_bootstrap_PPC.png", f, 
+	# 	pt_per_unit = 1)
+	# f
+end
+  ╠═╡ =#
+
 # ╔═╡ db3cd8d3-5e46-48c6-b85d-f4d302fff690
 # f = plot_q_learning_ppc_accuracy(
 # 		PLT_data,
@@ -946,6 +656,60 @@ let
 	f
 
 end
+
+# ╔═╡ 48343b75-a0cd-4806-9867-b861b118491d
+# ╠═╡ disabled = true
+#=╠═╡
+# Overall split-half
+let
+
+	maps = fit_split(PLT_data, x -> (x.session == "1") & isodd(x.block),
+		x -> (x.session == "1") & iseven(x.block))
+	
+	f = reliability_scatter(
+		maps,
+		"Odd blocks",
+		"Even blocks"
+	)
+
+	Label(f[0,:], "Session 1 split-half correlation", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_split_half_sess1.png", f, pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 8a567ab1-db8a-47df-ac2b-59714f230ae6
+# ╠═╡ disabled = true
+#=╠═╡
+# Overall split-half session 2
+let
+
+	maps = fit_split(PLT_data, x -> (x.session == "2") & isodd(x.block),
+		x -> (x.session == "2") & iseven(x.block))
+	
+	f = reliability_scatter(
+		maps,
+		"Odd blocks",
+		"Even blocks"
+	)
+
+	Label(f[0,:], "Session 2 split-half correlation", fontsize = 18, font = :bold, 
+		tellwidth = false)
+
+	rowsize!(f.layout, 0, Relative(0.1))
+
+	save("results/single_p_QL_PMLE_split_half_sess2.png", f, pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
 
 # ╔═╡ 2239dd1c-1975-46b4-b270-573efd454c04
 function reliability_by_condition(
@@ -1097,6 +861,112 @@ let
 
 	f
 end
+
+# ╔═╡ fff23ca1-35bc-4ff1-aea6-d9bb5ce86b1f
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> (x.session == "1") & iseven(x.block),
+		x -> (x.session == "1") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 1 split-half reliability"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess1_by_condition.png", f, pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 8c9a0662-25af-4280-ad48-270458edb018
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_condition(
+		PLT_data,
+		x -> (x.session == "2") & iseven(x.block),
+		x -> (x.session == "2") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 2 split-half reliability"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess2_by_condition.png", f,
+		pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ 479726b5-605b-494e-8ff2-4d569d0c0ddd
+# ╠═╡ disabled = true
+#=╠═╡
+let 
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> x.session == "1",
+		x -> x.session == "2",
+		"Test-retest",
+		"Session 1",
+		"Session 2";
+		supertitle = "Early stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_test_retest_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ 3a8f569d-0d8e-4020-9023-a123cad9d5de
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> (x.session == "1") & iseven(x.block),
+		x -> (x.session == "1") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 1 split-half reliability\nearly stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess1_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 10565355-90ae-419c-9b92-8ff18fcd48b3
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_condition(
+		shortened_PLT,
+		x -> (x.session == "2") & iseven(x.block),
+		x -> (x.session == "2") & isodd(x.block),
+		"Split-half",
+		"Even blocks",
+		"Odd block";
+		supertitle = "Session 2 split-half reliability\nearly stopping simulated for all"
+	)
+
+	save("results/single_p_QL_PMLE_split_half_sess2_early_stop_by_condition.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
 
 # ╔═╡ fa9f86cd-f9b1-43bb-a394-c105ba0a36fa
 function reliability_by_valence(
@@ -1373,6 +1243,51 @@ function reliability_by_valence(
 
 	
 end
+
+# ╔═╡ 80ae54ff-b9d2-4c30-8f62-4b7cac65201b
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_valence(
+		PLT_data
+	)
+
+	save("results/single_p_QL_PMLE_reliability_by_valence.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ 60866598-8564-4dd7-987c-fb74d3f3fc64
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_valence(
+		shortened_PLT
+	)
+
+	save("results/single_p_QL_PMLE_reliability_by_valence_shortened.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ 3b40c738-77cf-413f-9821-c641ebd0a13d
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = reliability_by_valence(
+		filter(x -> !x.valence_grouped, PLT_data)
+	)
+
+	save("results/single_p_QL_PMLE_reliability_by_valence_interleaved.png", f, 
+		pt_per_unit = 1)
+
+	f
+end
+  ╠═╡ =#
 
 # ╔═╡ 756cfa2f-bb56-4eda-ab1a-db509082ae3f
 function plot_q_learning_ppc_accuracy!(
@@ -1772,6 +1687,91 @@ function plot_ppc_prior_generating_match!(
 
 	return f
 end
+
+# ╔═╡ c45d00d0-6860-4cbc-a38f-c54d129f3b79
+# ╠═╡ disabled = true
+#=╠═╡
+let
+
+	f = Figure(size = (700, 700))
+
+	plot_ppc_prior_generating_match!(
+		f[1,1],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "ρ Prior less informative"
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[1,2],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 5.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "ρ Prior less informative"
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[2,1],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 10.), lower = 0),
+		estimation_prior_a = Normal(),
+		title = "ρ Prior less informative"
+	)
+
+	f
+
+
+end
+  ╠═╡ =#
+
+# ╔═╡ f4cce5eb-649f-4de6-892e-51c634622333
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	f = Figure(size = (700, 700))
+	
+	plot_ppc_prior_generating_match!(
+		f[1,1],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(0., 0.5)
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[1,2],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(0., 2.)
+	)
+
+	plot_ppc_prior_generating_match!(
+		f[2,1],
+		generating_dist_ρ = truncated(Normal(1., 0.3), lower = 0),
+		generating_dist_a = Normal(0., 0.1),
+		estimation_prior_ρ = truncated(Normal(0., 2.), lower = 0),
+		estimation_prior_a = Normal(0., 8.)
+	)
+
+	Legend(
+		f[0,:],
+		[PolyElement(color = c) for c in Makie.wong_colors()[1:2]],
+		["Data", "Model"],
+		orientation = :horizontal,
+		framevisible = false,
+		fontsize = 14
+	)
+
+	rowgap!(f.layout, 1, 5)
+	
+	f
+end
+  ╠═╡ =#
 
 # ╔═╡ c338d320-1c68-416f-8d44-dae4ca24afef
 let
