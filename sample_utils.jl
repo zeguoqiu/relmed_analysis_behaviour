@@ -42,6 +42,7 @@ function simulate_single_p_PILT(
 	sim_data = DataFrame(
 		PID = repeat(1:n, inner = N),
 		ρ = repeat(prior_sample[:, :ρ, 1], inner = N),
+		a = repeat(prior_sample[:, :a, 1], inner = N),
 		α = repeat(prior_sample[:, :a, 1], inner = N) .|> a2α,
 		block = repeat(block, n),
 		valence = repeat(sign.(outcomes[:,1]), outer = n),
