@@ -12,7 +12,7 @@ begin
     Pkg.activate("relmed_environment")
     # instantiate, i.e. make sure that all packages are downloaded
     Pkg.instantiate
-	using Random, DataFrames, JSON, CSV
+	using Random, DataFrames, JSON, CSV, StatsBase, CairoMakie
 end
 
 # ╔═╡ 45394a5a-6e96-11ef-27e9-5dddb818f955
@@ -190,12 +190,12 @@ function generate_multiple_n_confusing_sequences(;
 			appearance = repeat(1:nttp, outer = p),
 			feedback_common = vcat(
 				[
-					shuffle(
+					vcat(shuffle(
 						vcat(
 							fill(false, c),
-							fill(true, nttp - c)
+							fill(true, nttp - c - 1)
 						)
-					)
+					), [true]) # Shuffle, making sure last is not confusing
 					for _ in 1:p
 				]...
 			)
@@ -464,11 +464,52 @@ task = let set_sizes = 1:3,
 		valence = valence_set_size.valence,
 		stop_after = 5,
 		output_file = "pilot2",
-		n_confusing = vcat([0, 1, 2, 2], fill(3, n_total_blocks - 4)), # Per block
+		n_confusing = vcat([0, 1, 1], fill(2, n_total_blocks - 3)), # Per block
 		n_pairs = valence_set_size.n_pairs, # Per block
 		high_reward_magnitudes = high_reward_magnitudes, # Per pair
 		low_reward_magnitudes = low_reward_magnitudes # Per pair
 	) 
+
+end
+
+# ╔═╡ b176448a-74a5-4304-b2a2-95bd9298afb5
+filter(x -> x.valence == -1, task).worse_feedback |> countmap
+
+# ╔═╡ 8b0207af-84d9-4f65-97c7-451cb8012497
+let
+
+	confusing_location = combine(
+		groupby(task, :trial),
+		:feedback_common => (x -> mean(.!x)) => :feedback_confusing
+	)
+
+	f = Figure()
+
+	ax_prob = Axis(
+		f[1,1],
+		xlabel = "Trial #",
+		ylabel = "Prop. confusing feedback"
+	)
+
+	scatter!(
+		ax_prob,
+		confusing_location.trial,
+		confusing_location.feedback_confusing
+	)
+
+	ax_heatmap = Axis(
+		f[1, 2],
+		xlabel = "Trial #",
+		ylabel = "Block"
+	)
+
+	heatmap!(
+		task.trial,
+		task.block,
+		.!task.feedback_common
+	)
+
+	f
 
 end
 
@@ -477,5 +518,7 @@ end
 # ╠═45394a5a-6e96-11ef-27e9-5dddb818f955
 # ╠═04caadb8-6095-46e2-84b3-67eb535f4725
 # ╠═2c31faf8-8b32-4709-ba3a-43ee9376a3c4
+# ╠═b176448a-74a5-4304-b2a2-95bd9298afb5
+# ╠═8b0207af-84d9-4f65-97c7-451cb8012497
 # ╠═1b3aca46-c259-43f7-8b06-9ffc63e36228
 # ╠═94a4ac24-2d30-4410-ae5f-6432f9e2973e
