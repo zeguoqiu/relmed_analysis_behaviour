@@ -1,6 +1,8 @@
 ### General stats utility functions
 
 """
+    FI(model::DynamicPPL.Model, params::NamedTuple; summary_method::Function = tr)
+
 Compute the Fisher Information Matrix for a Turing model and dataset at given parameter values.
 
 # Arguments
@@ -32,6 +34,54 @@ function FI(
 
 	# Return trace
 	return summary_method(FI)
+end
+
+"""
+    FI(data::DataFrame, model::Function, map_data_to_model::Function, param_names::Vector{Symbol}, id_col::Symbol = :PID, kwargs...)
+
+Compute the Fisher Information for multiple simulated datasets at the true parameter values used to generate the data.
+
+### Arguments
+- `data::DataFrame`: A DataFrame containing the simulated datasets. Each group (split by `id_col`) is treated as an individual dataset.
+- `model::Function`: A Turing model.
+- `map_data_to_model::Function`: A function that maps an AbstractDataFrame to a NamedTuple of arguments to be passed to `model`.
+- `param_names::Vector{Symbol}`: A vector of symbols representing the names of the parameters for which Fisher Information is computed.
+- `id_col::Symbol`: The column name used to split the dataset into different groups. Default is `:PID`.
+- `kwargs...`: Additional keyword arguments passed to the `model` function.
+
+### Returns
+- Returns the sum of Fisher Information computed for each group in the dataset.
+"""
+function FI(;
+	data::DataFrame,
+	model::Function,
+	map_data_to_model::Function, # Function with data::AbstractDataFrame argument returing NamedTuple to pass to model
+	param_names::Vector{Symbol},
+	id_col::Symbol = :PID, # Column to split the dataset on,
+	summary_method::Function = tr,
+	kwargs... # Key-word arguments to model
+)
+
+	res = 0
+	for gdf in groupby(data, id_col)
+		
+		# Pass data to model
+		m = model(;
+			map_data_to_model(
+				gdf
+			)...,
+			kwargs...
+		)
+
+		# Extract params from simulated data
+		params = (; zip(param_names, collect(gdf[1, param_names]))...)
+
+		# Compute Fisher Information
+		res += FI(m, params; summary_method = summary_method)
+	end
+
+	return res
+
 end
 
 # Bootstrap a correlation
