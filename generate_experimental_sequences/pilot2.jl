@@ -139,6 +139,25 @@ function assign_stimuli_and_optimality(;
 end
 
 # ╔═╡ 1b3aca46-c259-43f7-8b06-9ffc63e36228
+"""
+    save_to_JSON(df::DataFrame, file_path::String)
+
+Saves a given task sequence `DataFrame` to a JSON file, organizing the data by session and block.
+
+# Arguments
+- `df::DataFrame`: The DataFrame containing task data to be saved. The DataFrame must have at least `session` and `block` columns to structure the data.
+- `file_path::String`: The path (including file name) where the JSON file will be saved.
+
+# Procedure
+1. The function groups the DataFrame rows by `session` and then by `block`.
+2. Each row within a block is converted into a dictionary.
+3. The grouped data is converted to a JSON string.
+4. The JSON string is written to the specified file path.
+
+# Notes
+- This function assumes that the DataFrame includes `session` and `block` columns for proper grouping.
+- The resulting JSON file will contain a nested list structure, where each session contains its respective blocks, and each block contains rows of data represented as dictionaries.
+"""
 function save_to_JSON(
 	df::DataFrame, 
 	file_path::String
@@ -170,6 +189,35 @@ function save_to_JSON(
 end
 
 # ╔═╡ 94a4ac24-2d30-4410-ae5f-6432f9e2973e
+"""
+    generate_multiple_n_confusing_sequences(; 
+        n_trials::Vector{Int64}, n_confusing::Vector{Int64}, n_pairs::Vector{Int64}
+    ) -> DataFrame
+
+Generates sequences that determine which trials in a task will have confusing feedback, based on the number of confusing trials per block. The assignment of confusing trials is random, with the restriction that the last trial in each block cannot be confusing.
+
+# Arguments
+- `n_trials::Vector{Int64}`: Number of trials per block.
+- `n_confusing::Vector{Int64}`: Number of confusing feedback trials per block.
+- `n_pairs::Vector{Int64}`: Number of stimulus pairs per block.
+
+# Returns
+- `DataFrame`: A DataFrame where each row represents a trial in a block, and the `feedback_common` column specifies whether the trial will have common feedback (`true`) or confusing feedback (`false`). The structure includes:
+  - `cblock`: The cumulative block number.
+  - `pair`: The stimulus pair for the trial.
+  - `appearance`: The appearance number for the pair in the block.
+  - `feedback_common`: A boolean value indicating whether the trial has common feedback (`true`) or confusing feedback (`false`).
+
+# Procedure
+1. For each block, trials are grouped by stimulus pairs, ensuring that the total number of trials is divisible by the number of pairs.
+2. For each pair, a sequence of trials is generated where a specified number of trials receive confusing feedback (`false`), while the rest receive common feedback (`true`).
+3. The feedback sequence for each pair is shuffled randomly, with the constraint that the last trial in the sequence must always have common feedback (`true`).
+4. The resulting sequences for all blocks are concatenated into a single DataFrame.
+
+# Notes
+- An assertion ensures that the total number of trials per block is divisible by the number of stimulus pairs (`n_trials[i] % n_pairs[i] == 0`).
+- This function provides a random but constrained assignment of confusing trials for mixed task designs with varying numbers of blocks, pairs, and confusing trials.
+"""
 function generate_multiple_n_confusing_sequences(;
 		n_trials::Vector{Int64}, # Per block
 		n_confusing::Vector{Int64},
@@ -208,6 +256,42 @@ function generate_multiple_n_confusing_sequences(;
 end
 
 # ╔═╡ dea0a1fd-7ec3-4004-af9e-3f3155f19ec0
+"""
+    prepare_task_structure(; 
+        n_sessions::Int64, n_blocks::Int64, n_trials::Vector{Int64}, 
+        n_pairs::Vector{Int64}, n_confusing::Vector{Int64}, valence::Vector{Int64}, 
+        categories::Vector{String}, stop_after::Union{Int64, Missing}, output_file::String, 
+        high_reward_magnitudes::Vector{Vector{Float64}}, low_reward_magnitudes::Vector{Vector{Float64}}
+    ) -> DataFrame
+
+Generates a task structure for a Probabilistic Inference Learning Task (PILT) by organizing trial sequences, reward feedback magnitudes, stimulus pairing, and saving the resulting structure. 
+
+# Arguments
+- `n_sessions::Int64`: Number of sessions.
+- `n_blocks::Int64`: Number of blocks per session.
+- `n_trials::Vector{Int64}`: Number of trials per block.
+- `n_pairs::Vector{Int64}`: Number of stimulus pairs per block.
+- `n_confusing::Vector{Int64}`: Number of trials with confusing feedback per block.
+- `valence::Vector{Int64}`: Specifies the valence (positive/negative) of rewards for each block.
+- `categories::Vector{String}`: List of stimulus categories.
+- `stop_after::Union{Int64, Missing}`: Number of trials after which the task should stop, or `missing` if no early stopping is required.
+- `output_file::String`: Name of the output file to save the task data.
+- `high_reward_magnitudes::Vector{Vector{Float64}}`: High reward magnitudes for each stimulus pair, sorted by blocks.
+- `low_reward_magnitudes::Vector{Vector{Float64}}`: Low reward magnitudes for each stimulus pair, sorted by blocks.
+
+# Returns
+- `task::DataFrame`: A DataFrame representing the complete task structure, including stimulus file on right / left, feedback, and optimality.
+
+# Procedure
+1. Validates input dimensions to ensure consistency across sessions, blocks, and trials.
+2. Assigns stimuli and determines their optimality for each trial.
+3. Creates feedback sequences (confusing/common) for each block and trial.
+4. Organizes trials into a DataFrame, setting attributes such as session, block, and trial number.
+5. Randomizes the presentation of stimuli and shuffles their appearance order.
+6. Joins feedback sequences and stimulus information into the task structure.
+7. Randomly assigns the reward magnitudes for each trial and computes feedback for stimuli.
+8. Saves the generated task structure to JSON and CSV formats.
+"""
 function prepare_task_strucutre(;
 	n_sessions::Int64,
 	n_blocks::Int64,
