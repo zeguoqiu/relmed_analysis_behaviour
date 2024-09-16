@@ -15,7 +15,7 @@ begin
 	using Random, DataFrames, JSON, CSV, StatsBase, CairoMakie
 end
 
-# ╔═╡ 45394a5a-6e96-11ef-27e9-5dddb818f955
+# ╔═╡ 87b8c113-cc45-4fb7-b6b6-056afbdb246b
 """
 Assigns stimulus filenames and determines the optimal stimulus in each pair.
 
@@ -207,7 +207,7 @@ function generate_multiple_n_confusing_sequences(;
 
 end
 
-# ╔═╡ 04caadb8-6095-46e2-84b3-67eb535f4725
+# ╔═╡ dea0a1fd-7ec3-4004-af9e-3f3155f19ec0
 function prepare_task_strucutre(;
 	n_sessions::Int64,
 	n_blocks::Int64,
@@ -409,6 +409,7 @@ function prepare_task_strucutre(;
 		)
 	)
 
+	# Save to file
 	save_to_JSON(task, "results/$output_file.json")
 	CSV.write("results/$output_file.csv", task)
 	
@@ -416,20 +417,24 @@ function prepare_task_strucutre(;
 end
 
 # ╔═╡ 2c31faf8-8b32-4709-ba3a-43ee9376a3c4
+# Create PILT sequence for pilot 2
 task = let set_sizes = 1:3,
 	block_per_set = 6,
-	trials_per_pair = 10
+	trials_per_pair = 10,
+	random_seed = 10
 
-	Random.seed!(0)
+	# Set random seed
+	Random.seed!(random_seed)
 
-
+	# Load stimulus names
 	categories = shuffle(unique([replace(s, ".png" => "")[1:(end-1)] for s in 
 		readlines("generate_experimental_sequences/allimages.txt")]))
 
+	# Total number of blocks
 	n_total_blocks = length(set_sizes) * block_per_set
 
 	# All combinations of set sizes and valence
-	@assert iseven(block_per_set)
+	@assert iseven(block_per_set) # Requisite for code below
 	
 	valence_set_size = DataFrame(
 		n_pairs = repeat(set_sizes, inner = block_per_set),
@@ -442,20 +447,23 @@ task = let set_sizes = 1:3,
 		sort!(valence_set_size, :block)
 	end
 
+	# Total number of pairs
 	n_total_pairs = sum(valence_set_size.n_pairs)
-	
+
+	# Shuffle high reward magnitudes for each pair
 	high_reward_magnitudes = Iterators.take(
 		Iterators.cycle([[0.5, 1.], [1.]]), n_total_pairs
 	) |> collect |> shuffle
 
-	
 
+	# Assign low reward magnitudes for each pair based on high
 	low_reward_magnitudes = ifelse.(
 		(x -> x == [1.]).(high_reward_magnitudes),
 		fill([0.5, 0.01], n_total_pairs),
 		fill([0.01], n_total_pairs)
 	)
 
+	# Prepare and save task sequence
 	prepare_task_strucutre(;
 		n_sessions = 1,
 		n_blocks = n_total_blocks,
@@ -472,17 +480,17 @@ task = let set_sizes = 1:3,
 
 end
 
-# ╔═╡ b176448a-74a5-4304-b2a2-95bd9298afb5
-filter(x -> x.valence == -1, task).worse_feedback |> countmap
-
-# ╔═╡ 8b0207af-84d9-4f65-97c7-451cb8012497
+# ╔═╡ 08366330-e5da-4f12-85c5-fc780c4a98a2
+# Visualize PILT seuqnce
 let
 
+	# Proportion of confusing by trial number
 	confusing_location = combine(
 		groupby(task, :trial),
 		:feedback_common => (x -> mean(.!x)) => :feedback_confusing
 	)
 
+	# Plot
 	f = Figure()
 
 	ax_prob = Axis(
@@ -497,10 +505,12 @@ let
 		confusing_location.feedback_confusing
 	)
 
+	# Plot confusing trials by block
 	ax_heatmap = Axis(
 		f[1, 2],
 		xlabel = "Trial #",
-		ylabel = "Block"
+		ylabel = "Block",
+		yreversed = true
 	)
 
 	heatmap!(
@@ -513,12 +523,233 @@ let
 
 end
 
+# ╔═╡ b176448a-74a5-4304-b2a2-95bd9298afb5
+# Count losses to allocate coins in to safe for beginning of task
+filter(x -> x.valence == -1, task).worse_feedback |> countmap
+
+# ╔═╡ 723476b8-8df9-417c-b941-a6af097656c9
+# Create sequence of post-PILT test
+test_pairs = let n_blocks = 2,
+	random_seed = 3
+
+	# Set random seed
+	rng = Xoshiro(random_seed)
+
+	# Intialize DataFrame and summary stats for checking
+	test_pairs_wide = DataFrame()
+	prop_same_original = 0.
+	prop_same_valence = 1.
+
+	# Make sure with have exactly 1/3 pairs that were previously in same block
+	# and 1/2 that were of the same valence
+	while !(prop_same_original == 1/3) || !(prop_same_valence == 0.5)
+		
+		# Extract list of stimuli from PILT task sequence
+		stimuli = vcat([rename(
+			task[!, [:session, :n_pairs, :block, :cpair, Symbol("stimulus_$s"), Symbol("feedback_$s")]],
+			Symbol("stimulus_$s") => :stimulus,
+			Symbol("feedback_$s") => :feedback
+		) for s in ["right", "left"]]...)
+
+		# Summarize EV per stimulus
+		stimuli = combine(
+			groupby(stimuli, [:session, :n_pairs, :block, :cpair, :stimulus]),
+			:feedback => mean => :EV
+		)
+
+		# Function that creates a list of pairs from DataFrame
+		create_pair_list(d) = [filter(x -> x.cpair == p, d).stimulus 
+			for p in unique(stimuli.cpair)]
+
+		# Pairs used in PILT - will add post-PILT test blocks into this as we go
+		used_pairs = create_pair_list(stimuli)
+
+		# Function to check whether pair is novel
+		check_novel(p) = !(p in used_pairs) && !(reverse(p) in used_pairs)
+	
+		# Initialize long format DataFrame
+		test_pairs = DataFrame()
+
+		# Run over neede block number
+		for bl in 1:n_blocks
+
+			# Variable to record whether suggested pairs are novel
+			all_within_novel = false
+
+			# Intialize DataFrame for pairs that were in the same block
+			block_within_pairs = DataFrame()
+
+			# Create within-block pairs
+			while !all_within_novel
+				
+				# Select blocks with n_pairs > 1
+				multi_pair_blocks = groupby(
+					filter(x -> x.n_pairs > 1, stimuli), 
+					[:session, :block]
+				)
+
+				# For each block, pick one stimulus from each of two pairs
+				for (i, gdf) in enumerate(multi_pair_blocks)
+			
+					if gdf.n_pairs[1] == 3
+						chosen_pairs = sample(rng, unique(gdf.cpair), 2, replace = false)
+						tdf = filter(x -> x.cpair in chosen_pairs, gdf)
+					else
+						tdf = copy(gdf)
+					end
+			
+					stim = vcat([sample(rng, filter(x -> x.cpair == c, tdf).stimulus, 1) 
+						for c in unique(tdf.cpair)]...)
+	
+					append!(block_within_pairs, DataFrame(
+						block = fill(bl, 2),
+						cpair = fill(i, 2),
+						stimulus = stim
+					))
+				end
+
+				# Check that picked combinations are novel
+				pair_list = create_pair_list(block_within_pairs)
+	
+				all_within_novel = all(check_novel.(pair_list))
+	
+			end
+
+			# Add to block list
+			block_pairs = block_within_pairs
+
+			# Stimuli not included previously
+			remaining_stimuli = 
+				filter(x -> !(x in block_pairs.stimulus), stimuli.stimulus)
+
+			# Variable for checking whether remaining pairs are novel
+			all_between_novel = false
+	
+			block_between_pairs = DataFrame()
+
+			# Add across-block pairs
+			while !all_between_novel
+
+				# Assign pairs
+				block_between_pairs = DataFrame(
+					block = fill(bl, length(remaining_stimuli)),
+					cpair = repeat(
+						(maximum(block_pairs.cpair) + 1):maximum(stimuli.cpair), 
+						inner = 2
+					),
+					stimulus = shuffle(rng, remaining_stimuli)
+				)
+
+				# Check novelty
+				pair_list = create_pair_list(block_between_pairs)
+		
+				all_between_novel = all(check_novel.(pair_list))
+			end
+
+			# Add to lists of pairs for checking future block against
+			append!(block_pairs, block_between_pairs)
+	
+			append!(test_pairs, block_pairs)
+			
+		end
+
+		# Add EV from PILT
+		test_pairs = innerjoin(test_pairs, 
+			rename(stimuli, :block => :original_block)[!, Not(:cpair)],
+			on = :stimulus
+		)
+
+		# Compute EV difference and match in block and valence
+		test_pairs_wide = combine(
+			groupby(test_pairs, [:block, :cpair]),
+			:stimulus => maximum => :stimulus_A,
+			:stimulus => minimum => :stimulus_B,
+			:EV => diff => :EV_diff,
+			:EV => (x -> sign(x[1]) == sign(x[2])) => :same_valence,
+			:original_block => (x -> x[1] == x[2]) => :same_block
+		)
+		
+		prop_same_original = mean(test_pairs_wide.same_block)
+	
+		prop_same_valence = mean(test_pairs_wide.same_valence)
+
+end
+
+	@info "Proportion of pairs that were in the same original block: $prop_same_original"
+	@info "Proprotion of pairs with the same valence: $prop_same_valence"
+
+	# Assign right / left stimulus randomly
+	A_on_right = sample(rng, [true, false], nrow(test_pairs_wide))
+
+	test_pairs_wide.stimulus_right = ifelse.(
+		A_on_right, 
+		test_pairs_wide.stimulus_A,
+		test_pairs_wide.stimulus_B
+	)
+
+	test_pairs_wide.stimulus_left = ifelse.(
+		.!A_on_right, 
+		test_pairs_wide.stimulus_A,
+		test_pairs_wide.stimulus_B
+	)
+
+	# Save to file
+	save_to_JSON(task, "results/pilot2_test.json")
+	CSV.write("results/pilot2_test.csv", task)
+	
+	test_pairs_wide
+end
+
+# ╔═╡ 95143c27-80b7-42c1-a065-723d405c3c4d
+# Plot post-PILT test
+let
+	# Histogram of all Abs. Δ EV
+	f = Figure()
+
+	ax = Axis(
+		f[1,1],
+		xlabel = "Abs. Δ EV"
+	)
+	
+	hist!(ax, abs.(test_pairs.EV_diff))
+
+	# Abs. Δ EV by same / different block
+	block_group = ifelse.(
+		test_pairs.same_block, 
+		fill(1, nrow(test_pairs)), 
+		ifelse.(
+			test_pairs.same_valence,
+			fill(2, nrow(test_pairs)),
+			fill(3, nrow(test_pairs))
+		)
+	)
+
+	ax_block = Axis(
+		f[1,2],
+	)
+
+	ax_block.xticks = (1:3,
+		["Same block", "Different block\nsame valence", "Different\nvalence"]
+	)
+
+	scatter!(
+		block_group + rand(nrow(test_pairs)) * 0.25,
+		abs.(test_pairs.EV_diff)
+	)
+
+
+	f
+	
+end
+
 # ╔═╡ Cell order:
 # ╠═784d74ba-21c7-454e-916e-2c54ed0e6911
-# ╠═45394a5a-6e96-11ef-27e9-5dddb818f955
-# ╠═04caadb8-6095-46e2-84b3-67eb535f4725
 # ╠═2c31faf8-8b32-4709-ba3a-43ee9376a3c4
+# ╠═08366330-e5da-4f12-85c5-fc780c4a98a2
 # ╠═b176448a-74a5-4304-b2a2-95bd9298afb5
-# ╠═8b0207af-84d9-4f65-97c7-451cb8012497
+# ╠═95143c27-80b7-42c1-a065-723d405c3c4d
+# ╠═723476b8-8df9-417c-b941-a6af097656c9
+# ╠═87b8c113-cc45-4fb7-b6b6-056afbdb246b
+# ╠═dea0a1fd-7ec3-4004-af9e-3f3155f19ec0
 # ╠═1b3aca46-c259-43f7-8b06-9ffc63e36228
 # ╠═94a4ac24-2d30-4410-ae5f-6432f9e2973e
