@@ -744,8 +744,10 @@ test_pairs = let n_blocks = 2,
 		)
 
 		# Compute EV difference and match in block and valence
+		sort!(test_pairs, [:session, :block, :cpair, :stimulus])
+		
 		test_pairs_wide = combine(
-			groupby(test_pairs, [:block, :cpair]),
+			groupby(test_pairs, [:session, :block, :cpair]),
 			:stimulus => maximum => :stimulus_A,
 			:stimulus => minimum => :stimulus_B,
 			:EV => diff => :EV_diff,
@@ -777,9 +779,16 @@ end
 		test_pairs_wide.stimulus_B
 	)
 
+	# Resign EV_diff to be right - left
+	test_pairs_wide.EV_diff = ifelse.(
+		A_on_right,
+		test_pairs_wide.EV_diff,
+		.- test_pairs_wide.EV_diff
+	)
+
 	# Save to file
-	save_to_JSON(task, "results/pilot2_test.json")
-	CSV.write("results/pilot2_test.csv", task)
+	save_to_JSON(test_pairs_wide, "results/pilot2_test.json")
+	CSV.write("results/pilot2_test.csv", test_pairs_wide)
 	
 	test_pairs_wide
 end
@@ -826,6 +835,9 @@ let
 	
 end
 
+# ╔═╡ ad3d8369-9455-44b0-9e6b-9ab3364dbce0
+test_pairs
+
 # ╔═╡ Cell order:
 # ╠═784d74ba-21c7-454e-916e-2c54ed0e6911
 # ╠═2c31faf8-8b32-4709-ba3a-43ee9376a3c4
@@ -833,6 +845,7 @@ end
 # ╠═b176448a-74a5-4304-b2a2-95bd9298afb5
 # ╠═95143c27-80b7-42c1-a065-723d405c3c4d
 # ╠═723476b8-8df9-417c-b941-a6af097656c9
+# ╠═ad3d8369-9455-44b0-9e6b-9ab3364dbce0
 # ╠═87b8c113-cc45-4fb7-b6b6-056afbdb246b
 # ╠═dea0a1fd-7ec3-4004-af9e-3f3155f19ec0
 # ╠═1b3aca46-c259-43f7-8b06-9ffc63e36228
