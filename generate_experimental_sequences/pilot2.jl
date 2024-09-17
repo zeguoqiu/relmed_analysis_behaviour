@@ -614,7 +614,7 @@ filter(x -> x.valence == -1, task).worse_feedback |> countmap
 # ╔═╡ 723476b8-8df9-417c-b941-a6af097656c9
 # Create sequence of post-PILT test
 test_pairs = let n_blocks = 2,
-	random_seed = 3
+	random_seed = 4
 
 	# Set random seed
 	rng = Xoshiro(random_seed)
@@ -623,10 +623,12 @@ test_pairs = let n_blocks = 2,
 	test_pairs_wide = DataFrame()
 	prop_same_original = 0.
 	prop_same_valence = 1.
+	all_different_category = false
 
 	# Make sure with have exactly 1/3 pairs that were previously in same block
 	# and 1/2 that were of the same valence
-	while !(prop_same_original == 1/3) || !(prop_same_valence == 0.5)
+	while !(prop_same_original == 1/3) || !(prop_same_valence == 0.5) || 
+		!all_different_category
 		
 		# Extract list of stimuli from PILT task sequence
 		stimuli = vcat([rename(
@@ -754,15 +756,20 @@ test_pairs = let n_blocks = 2,
 			:EV => (x -> sign(x[1]) == sign(x[2])) => :same_valence,
 			:original_block => (x -> x[1] == x[2]) => :same_block
 		)
-		
+
+		# Compute conditions for accepting this shuffle
 		prop_same_original = mean(test_pairs_wide.same_block)
 	
 		prop_same_valence = mean(test_pairs_wide.same_valence)
+
+		all_different_category = 
+			all((x -> x.stimulus_A[1:(end-5)] != x.stimulus_B[1:(end-5)]).(eachrow(test_pairs_wide)))
 
 end
 
 	@info "Proportion of pairs that were in the same original block: $prop_same_original"
 	@info "Proprotion of pairs with the same valence: $prop_same_valence"
+	@info "All pairs are from different visual categories: $all_different_category"
 
 	# Assign right / left stimulus randomly
 	A_on_right = sample(rng, [true, false], nrow(test_pairs_wide))
