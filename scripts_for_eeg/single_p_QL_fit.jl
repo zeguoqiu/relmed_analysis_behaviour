@@ -57,13 +57,22 @@ end
 aao = mean([mean([0.01, mean([0.5, 1.])]), mean([1., mean([0.5, 0.01])])])
 
 # ╔═╡ fa80c3dd-a3fa-44d8-96b9-b46c5f3933ad
-# Fit data
-optimize_single_p_QL(
-	data,
-	initV = aao,
-	prior_ρ = prior_ρ,
-	prior_a = prior_a
-)
+begin
+	# Fit data
+	fit = optimize_single_p_QL(
+		data,
+		initV = aao,
+		prior_ρ = prior_ρ,
+		prior_a = prior_a
+	)
+
+	ρ_est = fit.values[:ρ]
+
+	a_est = fit.values[:a]
+end
+
+# ╔═╡ c95e03cb-fd17-4a0f-8c0c-eaeb56e68398
+@info "Estimated parameter values: ρ=$(round(ρ_est, digits = 2)), α=$(round(a2α(a_est), digits = 2))"
 
 # ╔═╡ 09281096-1102-4f79-bb6a-f6a1cf488d0c
 # Get Q values
@@ -79,8 +88,8 @@ begin
 			data.feedback_optimal
 		),
 		initV = fill(aao, 1, 2),
-		prior_ρ = prior_ρ,
-		prior_a = prior_a
+		prior_ρ = Dirac(ρ_est),
+		prior_a = Dirac(a_est)
 	)()
 
 	# Add block and trial
@@ -102,5 +111,6 @@ CSV.write(output_file, Qs)
 # ╠═e8d8f415-d2f0-47ad-9d4a-b77b0e3e0315
 # ╠═56075d24-1a2c-4531-b6f2-ad2a3683dfaa
 # ╠═fa80c3dd-a3fa-44d8-96b9-b46c5f3933ad
+# ╠═c95e03cb-fd17-4a0f-8c0c-eaeb56e68398
 # ╠═09281096-1102-4f79-bb6a-f6a1cf488d0c
 # ╠═b49414a7-faff-447a-960c-213b04d03c6e
