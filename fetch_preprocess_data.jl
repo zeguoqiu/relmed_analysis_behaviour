@@ -2,7 +2,9 @@
 
 # Fetch one data file by record_id
 function get_REDCap_file(
-	record_id::String
+	record_id::String;
+	experiment::String,
+	field::String = "other_data"
 )
 	# Create the payload for getting the file
 	file_payload = Dict(
@@ -10,7 +12,7 @@ function get_REDCap_file(
 	    "content" => "file",
 		"action" => "export",
 		"record" => record_id,
-		"field" => "other_data",
+		"field" => field,
 		"returnFormat" => "json"
 	)
 
@@ -22,7 +24,10 @@ function get_REDCap_file(
 end
 
 # Fetch entire dataset
-function get_REDCap_data(experiment::String)
+function get_REDCap_data(
+	experiment::String;
+	file_field::String = "other_data" # Field on REDCap database containing task data file
+	)
 
 	# Get the records --------
 	# Create the payload for getting the record details
@@ -51,8 +56,11 @@ function get_REDCap_data(experiment::String)
 	# Get the files
 	jspsych_data = []
 	for r in record
-		if r["other_data"] == "file"
-			tdata = get_REDCap_file(r["record_id"])
+		if r[file_field] == "file"
+			tdata = get_REDCap_file(r["record_id"]; 
+				experiment = experiment, 
+				field = file_field
+			)
 
 			# Add record_id
 			for tr in tdata
@@ -219,7 +227,7 @@ Fetches and processes the task structure for a given experimental condition, pre
   - `outcomes`: A matrix where the first column contains feedback for the suboptimal option and the second column contains feedback for the optimal option. This arrangement is designed to facilitate learning model implementations where the optimal outcome is consistently in the second column.
 
 # Details
-- The task structure is loaded from a CSV file named `"PLT_task_structure_$condition.csv"` located in the `data` directory, where `$condition` is replaced by the value of the `condition` argument.
+- The task structure is loaded from a CSV file named `"PLT_task_structure_\$condition.csv"` located in the `data` directory, where `\$condition` is replaced by the value of the `condition` argument.
 - Block numbers are renumbered to reflect their session, allowing for consistent tracking across multiple sessions.
 - Feedback values are reorganized based on the optimal choice (either option A or B), with the optimal feedback placed in one column and the suboptimal feedback in the other.
 - This function is useful for preparing task-related variables for reinforcement learning models that require specific input formats.
