@@ -564,6 +564,32 @@ task = let set_sizes = 1:3,
 
 end
 
+# ╔═╡ 0161bed8-5a4d-4a0e-bda0-883b9d58fa63
+# Test task sequence
+let
+
+	@assert maximum(task.block) == length(unique(task.block)) "Error in block numbering"
+
+	@assert issorted(task.block) "Task structure not sorted by block"
+
+	@assert all(combine(groupby(task, [:session, :block]), 
+		:trial => issorted => :sorted).sorted) "Task structure not sorted by trial number"
+
+	@assert all(sign.(task.valence) == sign.(task.feedback_right)) "Valence doesn't match feedback sign"
+
+	@assert all(sign.(task.valence) == sign.(task.feedback_left)) "Valence doesn't match feedback sign"
+
+	@assert sum(unique(task[!, [:session, :block, :valence]]).valence) == 0 "Number of reward and punishment blocks not equal"
+
+	@info "Overall proportion of common feedback: $(round(mean(task.feedback_common), digits = 2))"
+
+	@assert all(combine(groupby(task, :cpair),
+		:appearance => maximum => :max_appear
+	).max_appear .== 10) "Didn't find exactly 10 apperances per pair"
+	
+
+end
+
 # ╔═╡ 08366330-e5da-4f12-85c5-fc780c4a98a2
 # Visualize PILT seuqnce
 let
@@ -848,6 +874,7 @@ test_pairs
 # ╔═╡ Cell order:
 # ╠═784d74ba-21c7-454e-916e-2c54ed0e6911
 # ╠═2c31faf8-8b32-4709-ba3a-43ee9376a3c4
+# ╠═0161bed8-5a4d-4a0e-bda0-883b9d58fa63
 # ╠═08366330-e5da-4f12-85c5-fc780c4a98a2
 # ╠═b176448a-74a5-4304-b2a2-95bd9298afb5
 # ╠═95143c27-80b7-42c1-a065-723d405c3c4d
