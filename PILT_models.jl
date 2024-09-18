@@ -59,7 +59,7 @@ Performs Q-learning for a single participant in a reinforcement learning task, w
 		PE = outcomes[i, choice_idx] * ρ - Qs[i, choice_idx]
 
 		# Update Q value
-		if (i != N) && (block[i] == block[i+1])
+		if (i != length(block)) && (block[i] == block[i+1])
 			Qs[i + 1, choice_idx] = Qs[i, choice_idx] + α * PE
 			Qs[i + 1, 3 - choice_idx] = Qs[i, 3 - choice_idx]
 		end
@@ -162,7 +162,7 @@ Performs a variant of Q-learning for a single participant in a reinforcement lea
 		PE = outcomes[i, choice_idx] * ρ - Qs[i, choice_idx]
 
 		# Update Q value
-		if (i != N) && (block[i] == block[i+1])
+		if (i != length(block)) && (block[i] == block[i+1])
 			Qs[i + 1, choice_idx] = Qs[i, choice_idx] + α * PE
 			Qs[i + 1, 3 - choice_idx] = Qs[i, 3 - choice_idx] - α * PE
 		end
