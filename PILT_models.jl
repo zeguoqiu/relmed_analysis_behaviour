@@ -2,15 +2,13 @@
 # Each model should be folowed by a function mapping data DataFrame into arguments for the model
 
 """
-    single_p_QL(; N::Int64, n_blocks::Int64, block::Vector{Int64}, valence::AbstractVector, 
+    single_p_QL(; block::Vector{Int64}, valence::AbstractVector, 
                 choice, outcomes::Matrix{Float64}, initV::Matrix{Float64}, 
                 σ_ρ::Float64=1.0, σ_a::Float64=0.5)
 
 Performs Q-learning for a single participant in a reinforcement learning task, with trial-wise updates of Q-values based on choices and outcomes.
 
 # Arguments
-- `N::Int64`: Total number of trials.
-- `n_blocks::Int64`: Number of blocks in the task.
 - `block::Vector{Int64}`: A vector indicating the block number for each trial.
 - `valence::AbstractVector`: A vector of valence values associated with each block, modulating the Q-value updates.
 - `choice`: A binary vector representing the participant's choices (e.g., `true` for choosing stimulus A). Not typed to allow for both empirical and simulated data.
@@ -31,8 +29,6 @@ Performs Q-learning for a single participant in a reinforcement learning task, w
 - The chosen option's Q-value is updated based on the prediction error (`PE`), which is the difference between the observed outcome and the expected value.
 """
 @model function single_p_QL(;
-	N::Int64, # Total number of trials
-	n_blocks::Int64, # Number of blocks
 	block::Vector{Int64}, # Block number
 	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
 	outcomes::Matrix{Float64}, # Outcomes for options, second column optimal
@@ -52,7 +48,7 @@ Performs Q-learning for a single participant in a reinforcement learning task, w
 	Qs = repeat(initV .* ρ, length(block)) .* sign.(outcomes[:, 1])
 
 	# Loop over trials, updating Q values and incrementing log-density
-	for i in 1:N
+	for i in 1:length(block)
 		
 		# Define choice distribution
 		choice[i] ~ BernoulliLogit(Qs[i, 2] - Qs[i, 1])
@@ -85,8 +81,6 @@ Maps the given dataframe `data` into a named tuple containing the required argum
 
 # Returns
 A named tuple with the following keys:
-- `N`: The number of rows in the cleaned dataframe (number of observations).
-- `n_blocks`: The maximum value of the `block` column (number of blocks).
 - `block`: A vector containing the `block` values.
 - `choice`: A vector of `choice` values from the dataframe.
 - `outcomes`: A matrix where each column contains the `feedback_suboptimal` and `feedback_optimal` 
@@ -101,8 +95,6 @@ function map_data_to_single_p_QL(
 	tdata = dropmissing(data)
 
 	return (;
-		N = nrow(tdata),
-		n_blocks = maximum(tdata.block),
 		block = collect(tdata.block),
 		choice = tdata.choice,
 		outcomes = hcat(tdata.feedback_suboptimal, tdata.feedback_optimal)
@@ -111,15 +103,13 @@ function map_data_to_single_p_QL(
 end
 
 """
-    single_p_recip_QL(; N::Int64, n_blocks::Int64, block::Vector{Int64}, valence::AbstractVector, 
+    single_p_recip_QL(; block::Vector{Int64}, valence::AbstractVector, 
                       choice, outcomes::Matrix{Float64}, initV::Matrix{Float64}, 
                       σ_ρ::Float64=1.0, σ_a::Float64=0.5)
 
 Performs a variant of Q-learning for a single participant in a reinforcement learning task, where Q-values are updated reciprocally for the chosen and unchosen options based on choices and outcomes.
 
 # Arguments
-- `N::Int64`: Total number of trials.
-- `n_blocks::Int64`: Number of blocks in the task.
 - `block::Vector{Int64}`: A vector indicating the block number for each trial.
 - `valence::AbstractVector`: A vector of valence values associated with each block, modulating the Q-value updates.
 - `choice`: A binary vector representing the participant's choices (e.g., `true` for choosing stimulus A). Not typed to allow for both empirical and simulated data.
@@ -141,8 +131,6 @@ Performs a variant of Q-learning for a single participant in a reinforcement lea
 - In this variant, the unchosen option's Q-value is reciprocally updated by subtracting the same `α * PE`, leading to a balance between the two options' values over time.
 """
 @model function single_p_recip_QL(;
-	N::Int64, # Total number of trials
-	n_blocks::Int64, # Number of blocks
 	block::Vector{Int64}, # Block number
 	valence::AbstractVector, # Valence of each block
 	choice, # Binary choice, coded true for stimulus A. Not typed so that it can be simulated
@@ -163,7 +151,7 @@ Performs a variant of Q-learning for a single participant in a reinforcement lea
 	Qs = repeat(initV .* ρ, length(block)) .* valence[block]
 
 	# Loop over trials, updating Q values and incrementing log-density
-	for i in 1:N
+	for i in 1:length(block)
 		
 		# Define choice distribution
 		choice[i] ~ BernoulliLogit(Qs[i, 2] - Qs[i, 1])
@@ -183,3 +171,6 @@ Performs a variant of Q-learning for a single participant in a reinforcement lea
 	return Qs
 
 end
+
+# Same mapping function as single_p_QL
+map_data_to_single_p_recip_QL = map_data_to_single_p_QL
