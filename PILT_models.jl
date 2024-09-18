@@ -1,4 +1,5 @@
 # PILT task Turing.jl models
+# Each model should be folowed by a function mapping data DataFrame into arguments for the model
 
 """
     single_p_QL(; N::Int64, n_blocks::Int64, block::Vector{Int64}, valence::AbstractVector, 
@@ -69,6 +70,43 @@ Performs Q-learning for a single participant in a reinforcement learning task, w
 	end
 
 	return Qs
+
+end
+
+"""
+    map_data_to_single_p_QL(data::AbstractDataFrame) -> NamedTuple
+
+Maps the given dataframe `data` into a named tuple containing the required arguments for the 
+`single_p_QL` Turing model. The dataframe is first cleaned by dropping any missing values.
+
+# Arguments
+- `data::AbstractDataFrame`: A dataframe with columns `block`, `choice`, `feedback_suboptimal`, 
+  and `feedback_optimal`.
+
+# Returns
+A named tuple with the following keys:
+- `N`: The number of rows in the cleaned dataframe (number of observations).
+- `n_blocks`: The maximum value of the `block` column (number of blocks).
+- `block`: A vector containing the `block` values.
+- `choice`: A vector of `choice` values from the dataframe.
+- `outcomes`: A matrix where each column contains the `feedback_suboptimal` and `feedback_optimal` 
+   values from the dataframe.
+
+This structure can be passed as arguments to the `single_p_QL` model.
+"""
+function map_data_to_single_p_QL(
+	data::AbstractDataFrame
+)
+
+	tdata = dropmissing(data)
+
+	return (;
+		N = nrow(tdata),
+		n_blocks = maximum(tdata.block),
+		block = collect(tdata.block),
+		choice = tdata.choice,
+		outcomes = hcat(tdata.feedback_suboptimal, tdata.feedback_optimal)
+	)
 
 end
 
