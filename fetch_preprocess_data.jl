@@ -6,7 +6,7 @@ function get_REDCap_file(
 )
 	# Create the payload for getting the file
 	file_payload = Dict(
-		"token" => ENV["REDCap_token"],
+		"token" => ENV["$(experiment)_REDCap_token"],
 	    "content" => "file",
 		"action" => "export",
 		"record" => record_id,
@@ -22,12 +22,12 @@ function get_REDCap_file(
 end
 
 # Fetch entire dataset
-function get_REDCap_data()
+function get_REDCap_data(experiment::String)
 
 	# Get the records --------
 	# Create the payload for getting the record details
 	rec_payload = Dict(
-		"token" => ENV["REDCap_token"],
+		"token" => ENV["$(experiment)_REDCap_token"],
 	    "content" => "record",
 	    "action" => "export",
 	    "format" => "json",
