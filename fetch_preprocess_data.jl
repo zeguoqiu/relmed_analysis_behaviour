@@ -81,14 +81,26 @@ function REDCap_data_to_df(jspsych_data, records)
 	# Records to df
 	records_df = DataFrame(records)
 	
-	# Convert to DataFrame
+	# Concatenate trials
 	jspsych_data = reduce(vcat, jspsych_data)
 
+	# Helper function to jsonify arrays and dicts
+	function jsonify_multidimensional_data(d::Dict)
+	    for (k, v) in d
+	        if (v isa AbstractArray) || (v isa Dict)
+				d[k] = json(v)
+			end
+	    end
+	    return d
+	end
+
+	# Convert to DataFrame
 	jspsych_data = vcat(
-		[DataFrame(d) for d in jspsych_data]...,
+		[DataFrame(jsonify_multidimensional_data(d)) for d in jspsych_data]...,
 		cols=:union
 	)
 
+	# Combine records and jspsych data
 	jspsych_data = leftjoin(jspsych_data, 
 		rename(records_df[!, [:prolific_pid, :record_id, :start_time]],
 			:start_time => :exp_start_time),
