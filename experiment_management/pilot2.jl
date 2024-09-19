@@ -26,6 +26,17 @@ jspsych_data = let
 end
 
 # ╔═╡ f47e6aba-00ea-460d-8310-5b24ed7fe336
+"""
+    extract_debrief_responses(data::DataFrame) -> DataFrame
+
+Extracts and processes debrief responses from the experimental data. It filters for debrief trials, then parses and expands JSON-formatted Likert scale and text responses into separate columns for each question.
+
+# Arguments
+- `data::DataFrame`: The raw experimental data containing participants' trial outcomes and responses, including debrief information.
+
+# Returns
+- A DataFrame with participants' debrief responses. The debrief Likert and text responses are parsed from JSON and expanded into separate columns.
+"""
 function extract_debrief_responses(data::DataFrame)
 	# Select trials
 	debrief = filter(x -> !ismissing(x.trialphase) && x.trialphase in ["debrief_text", "debrief_likert"], data)
@@ -53,12 +64,37 @@ function extract_debrief_responses(data::DataFrame)
 end
 
 # ╔═╡ d203faab-d4ea-41b2-985b-33eb8397eecc
+"""
+    summarize_participation(data::DataFrame) -> DataFrame
+
+Summarizes participants' performance in a study based on their trial outcomes and responses, for the purpose of approving and paying bonuses.
+
+This function processes experimental data, extracting key performance metrics such as whether the participant finished the experiment, whether they were kicked out, and their respective bonuses (PILT and vigour). It also computes the number of specific trial types and blocks completed, as well as warnings received. The output is a DataFrame with these aggregated values, merged with debrief responses for each participant.
+
+# Arguments
+- `data::DataFrame`: The raw experimental data containing participant performance, trial outcomes, and responses.
+
+# Returns
+- A summarized DataFrame with performance metrics for each participant, including bonuses and trial information.
+"""
 function summarize_participation(data::DataFrame)
+
+	function extract_PILT_bonus(outcome)
+
+		if all(ismissing.(outcome)) # Return missing if participant didn't complete
+			return missing
+		else # Parse JSON
+			bonus = filter(x -> !ismissing(x), unique(outcome))[1]
+			bonus = JSON.parse(bonus)[1] 
+			return bonus
+		end
+
+	end
+	
 	participants = combine(groupby(data, [:prolific_pid, :record_id, :exp_start_time]),
 		:trialphase => (x -> "experiment_end_message" in x) => :finished,
 		:trialphase => (x -> "kick-out" in x) => :kick_out,
-		:outcomes => 
-			(x -> filter(y -> !ismissing(y), unique(x)) |> z -> length(z) > 0 ? z[1] : missing) => :PILT_bonus,
+		:outcomes => extract_PILT_bonus => :PILT_bonus,
 		:vigour_bonus => (x -> all(ismissing.(x)) ? missing : (filter(y -> !ismissing(y), unique(x))[1])) => :vigour_bonus,
 		[:trial_type, :block] => ((t, b) -> sum((t .== "PLT") .& (typeof.(b) .== Int64))) => :n_trial_PLT,
 		:total_presses => (x -> length(filter(y -> !ismissing(y), x))) => :n_trial_vigour,
