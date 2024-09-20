@@ -314,3 +314,64 @@ function task_vars_for_condition(condition::String)
 	)
 
 end
+
+function safe_mean(arr)
+	if ismissing(arr) || isempty(arr)  # Check if array is missing or empty
+			return missing
+	elseif all(x -> x isa Number, arr)  # Check if all elements are numeric
+			return mean(arr)
+	else
+			return missing  # Return missing if the array contains non-numeric elements
+	end
+end
+
+"""
+	extract_vigour_data(data::DataFrame) -> DataFrame
+
+Extracts and processes vigour-related data from the given DataFrame.
+
+# Arguments
+- `data::DataFrame`: The input DataFrame containing the raw data.
+
+# Returns
+- `DataFrame`: A DataFrame with the following columns:
+  - `:prolific_id`: The prolific participant ID.
+  - `:record_id`: The record ID.
+  - `:exp_start_time`: The experiment start time.
+  - `:trial_number`: The trial number.
+  - Columns matching the regex pattern `(reward|presses)\$`.
+  - `:response_times`: Parsed response times from JSON.
+  - `:ratio`: The ratio extracted from `:timeline_variables`.
+  - `:magnitude`: The magnitude extracted from `:timeline_variables`.
+  - `:reward_per_press`: The reward per press calculated as `magnitude / ratio`.
+
+# Details
+1. Selects relevant columns from the input DataFrame.
+2. Filters out rows where `:trial_number` is missing.
+3. Transforms JSON strings in `:response_time` and `:timeline_variables` to extract specific values.
+4. Removes the original `:response_time` and `:timeline_variables` columns from the final DataFrame.
+"""
+function extract_vigour_data(data::DataFrame)
+	vigour_data = data |>
+	x -> select(x, 
+		:prolific_pid => :prolific_id,
+		:record_id,
+		:exp_start_time,
+		:trial_number,
+		names(x, r"(reward|presses)$"),
+		:response_time, :timeline_variables
+	) |>
+	x -> subset(x, 
+        :trial_number => ByRow(!ismissing)
+    ) |>
+	x -> transform(x,
+		:response_time => ByRow(JSON.parse) => :response_times,
+		:timeline_variables => ByRow(x -> JSON.parse(x)["ratio"]) => :ratio,
+		:timeline_variables => ByRow(x -> JSON.parse(x)["magnitude"]) => :magnitude,
+		:timeline_variables => ByRow(x -> JSON.parse(x)["magnitude"]/JSON.parse(x)["ratio"]) => :reward_per_press
+	) |>
+	x -> select(x, 
+		Not([:response_time, :timeline_variables])
+	)
+	return vigour_data
+end
