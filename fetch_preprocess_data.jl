@@ -346,12 +346,15 @@ Extracts and processes vigour-related data from the given DataFrame.
   - `:reward_per_press`: The reward per press calculated as `magnitude / ratio`.
 
 # Details
-1. Selects relevant columns from the input DataFrame.
-2. Filters out rows where `:trial_number` is missing.
-3. Transforms JSON strings in `:response_time` and `:timeline_variables` to extract specific values.
-4. Removes the original `:response_time` and `:timeline_variables` columns from the final DataFrame.
+1. Removes testing participants from the data.
+2. Selects relevant columns from the input DataFrame.
+3. Filters out rows where `:trial_number` is missing.
+4. Transforms JSON strings in `:response_time` and `:timeline_variables` to extract specific values.
+5. Removes the original `:response_time` and `:timeline_variables` columns from the final DataFrame.
 """
 function extract_vigour_data(data::DataFrame)
+	remove_testing!(data)
+	
 	vigour_data = data |>
 	x -> select(x, 
 		:prolific_pid => :prolific_id,
@@ -374,4 +377,53 @@ function extract_vigour_data(data::DataFrame)
 		Not([:response_time, :timeline_variables])
 	)
 	return vigour_data
+end
+
+"""
+	exclude_vigour_trials(vigour_data::DataFrame) -> DataFrame
+
+This function processes the given `vigour_data` DataFrame to exclude certain trials based on specific criteria:
+
+1. **Non-finishers**: Participants who have completed fewer than 66 trials are identified and excluded.
+2. **Double takes**: Participants who have multiple sessions are identified, and only the earliest session is retained.
+
+# Arguments
+- `vigour_data::DataFrame`: The input DataFrame containing vigour trial data.
+
+# Returns
+- `DataFrame`: A cleaned DataFrame with non-finishers and extra trials from multiple sessions excluded.
+"""
+function exclude_vigour_trials(vigour_data::DataFrame)
+	# Find non-finishers
+	non_finishers = combine(groupby(vigour_data,
+		[:prolific_id, :exp_start_time]),
+		:trial_number => (x -> length(unique(x))) => :n_trials
+	)
+
+	filter!(x -> x.n_trials < 66, non_finishers)
+
+	# Exclude non-finishers
+	vigour_data_clean = antijoin(vigour_data, non_finishers,
+		on = [:prolific_id, :exp_start_time])
+
+	# Find double takes
+	double_takers = unique(vigour_data_clean[!, [:prolific_id, :exp_start_time]])
+
+	# Find earliert session
+	double_takers.date = DateTime.(double_takers.exp_start_time, 
+		"yyyy-mm-dd_HH:MM:SS")
+
+	transform!(
+		groupby(double_takers, [:prolific_id]),
+		:date => minimum => :first_date
+	)
+
+	filter!(x -> x.date != x.first_date, double_takers)
+
+	# Exclude extra trials from multiple participants
+	vigour_data_clean = antijoin(vigour_data_clean, double_takers,
+		on = [:prolific_id, :exp_start_time]
+	)
+
+	return vigour_data_clean
 end
